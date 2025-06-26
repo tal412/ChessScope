@@ -674,9 +674,6 @@ function PerformanceGraphContent() {
   const [hoveredClusterColor, setHoveredClusterColor] = useState(null); // Store the cluster color for hover tooltip
   
   // Chessboard integration state
-  // Legacy chessboard state (now handled by showPositionAnalysis)
-  const showChessboard = showPositionAnalysis; // Backward compatibility
-  const chessboardWidth = positionAnalysisWidth; // Backward compatibility
   const [hoveredMove, setHoveredMove] = useState(null); // Track hovered move for arrows
   const [currentNodeId, setCurrentNodeId] = useState(null); // Track currently selected node
   // const [enableHoverArrows, setEnableHoverArrows] = useState(true); // Always enabled now
@@ -700,6 +697,10 @@ function PerformanceGraphContent() {
   const [showPerformanceGraph, setShowPerformanceGraph] = useState(true); // Show performance graph
   const [openingTreeWidth, setOpeningTreeWidth] = useState(280); // Opening tree panel width
   const [positionAnalysisWidth, setPositionAnalysisWidth] = useState(350); // Position analysis panel width
+  
+  // Legacy chessboard state (now handled by showPositionAnalysis)
+  const showChessboard = showPositionAnalysis; // Backward compatibility
+  const chessboardWidth = positionAnalysisWidth; // Backward compatibility
   
   // Opening Tree integration state
   const [openingGraph, setOpeningGraph] = useState(null); // Opening graph data
