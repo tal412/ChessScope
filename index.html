@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/chess-icon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ChessScope - Opening Analysis</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script>
+      // Test function to check stockfish.js accessibility
+      window.testStockfishAccess = async () => {
+        try {
+          console.log('🧪 Testing stockfish.js accessibility...');
+          const response = await fetch('/stockfish.js');
+          console.log('📡 Fetch response status:', response.status);
+          console.log('📡 Fetch response ok:', response.ok);
+          console.log('📡 Fetch response type:', response.type);
+          console.log('📡 Fetch response size:', response.headers.get('content-length'));
+          
+          if (response.ok) {
+            const text = await response.text();
+            console.log('📄 File size:', text.length, 'characters');
+            console.log('📄 File starts with:', text.substring(0, 100));
+            console.log('📄 Contains STOCKFISH?', text.includes('STOCKFISH'));
+            console.log('📄 Contains stockfish?', text.includes('stockfish'));
+          } else {
+            console.error('❌ Failed to fetch stockfish.js:', response.status, response.statusText);
+          }
+        } catch (error) {
+          console.error('❌ Error testing stockfish.js:', error);
+        }
+      };
+      
+      // Dynamic script loading with error handling
+      console.log('🔄 Loading stockfish.js...');
+      const script = document.createElement('script');
+      script.src = '/stockfish.js';
+      script.onload = () => {
+        console.log('✅ stockfish.js loaded successfully');
+        console.log('window.STOCKFISH type:', typeof window.STOCKFISH);
+        console.log('window.stockfish type:', typeof window.stockfish);
+        // Test what's available globally
+        console.log('Available globals:', Object.keys(window).filter(k => k.toLowerCase().includes('stock')));
+        // Dispatch custom event
+        window.dispatchEvent(new CustomEvent('stockfish-loaded'));
+      };
+      script.onerror = (e) => {
+        console.error('❌ Failed to load stockfish.js:', e);
+        console.error('Check if file exists at /stockfish.js');
+        console.log('💡 Run window.testStockfishAccess() to test file accessibility');
+      };
+      document.head.appendChild(script);
+    </script>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
