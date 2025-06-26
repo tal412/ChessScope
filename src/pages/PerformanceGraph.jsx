@@ -674,8 +674,9 @@ function PerformanceGraphContent() {
   const [hoveredClusterColor, setHoveredClusterColor] = useState(null); // Store the cluster color for hover tooltip
   
   // Chessboard integration state
-  const [showChessboard, setShowChessboard] = useState(true); // Show/hide chessboard
-  const [chessboardWidth, setChessboardWidth] = useState(450); // Chessboard panel width
+  // Legacy chessboard state (now handled by showPositionAnalysis)
+  const showChessboard = showPositionAnalysis; // Backward compatibility
+  const chessboardWidth = positionAnalysisWidth; // Backward compatibility
   const [hoveredMove, setHoveredMove] = useState(null); // Track hovered move for arrows
   const [currentNodeId, setCurrentNodeId] = useState(null); // Track currently selected node
   // const [enableHoverArrows, setEnableHoverArrows] = useState(true); // Always enabled now
@@ -693,9 +694,14 @@ function PerformanceGraphContent() {
   const [showClusteringControls, setShowClusteringControls] = useState(false); // Hide clustering controls by default
   const [showPositionClusters, setShowPositionClusters] = useState(true); // Show position clusters by default
   
+  // Flexible Layout State - allows independent control of each component
+  const [showOpeningTree, setShowOpeningTree] = useState(true); // Show opening tree
+  const [showPositionAnalysis, setShowPositionAnalysis] = useState(true); // Show position analysis (chessboard)
+  const [showPerformanceGraph, setShowPerformanceGraph] = useState(true); // Show performance graph
+  const [openingTreeWidth, setOpeningTreeWidth] = useState(280); // Opening tree panel width
+  const [positionAnalysisWidth, setPositionAnalysisWidth] = useState(350); // Position analysis panel width
+  
   // Opening Tree integration state
-  const [showOpeningTree, setShowOpeningTree] = useState(true); // Show opening tree by default
-  const [openingTreeWidth, setOpeningTreeWidth] = useState(280); // Opening tree panel width (increased from 200)
   const [openingGraph, setOpeningGraph] = useState(null); // Opening graph data
   const [treeStats, setTreeStats] = useState(null); // Tree statistics
   const [treeHoveredMove, setTreeHoveredMove] = useState(null); // Tree hovered move for arrows
@@ -1595,15 +1601,22 @@ function PerformanceGraphContent() {
     setWinRateFilter([...tempWinRateFilter]);
   };
 
-  // Chessboard UI control handlers
-  const toggleChessboard = () => {
-    setShowChessboard(!showChessboard);
+  // Flexible Layout Controls
+  const togglePositionAnalysis = () => {
+    setShowPositionAnalysis(!showPositionAnalysis);
   };
 
-  const adjustChessboardWidth = (delta) => {
-    const newWidth = Math.max(280, Math.min(600, chessboardWidth + delta));
-    setChessboardWidth(newWidth);
+  const togglePerformanceGraph = () => {
+    setShowPerformanceGraph(!showPerformanceGraph);
   };
+
+  const adjustPositionAnalysisWidth = (delta) => {
+    setPositionAnalysisWidth(prev => Math.max(300, Math.min(600, prev + delta)));
+  };
+
+  // Legacy functions for backward compatibility
+  const toggleChessboard = togglePositionAnalysis;
+  const adjustChessboardWidth = adjustPositionAnalysisWidth;
 
   // Toggle opening clustering
   const toggleOpeningClustering = () => {
@@ -1734,8 +1747,19 @@ function PerformanceGraphContent() {
     return (
     <div className="h-full w-full flex flex-col overflow-hidden">
       
-      {/* Main content area - Three Pane Layout: Tree | Chessboard | Graph */}
+      {/* Main content area - Flexible Layout: Tree | Position Analysis | Performance Graph */}
       <div className="h-[calc(100vh-10rem)] overflow-hidden relative flex">
+        
+        {/* Show message when all components are hidden */}
+        {!showOpeningTree && !showPositionAnalysis && !showPerformanceGraph && (
+          <div className="flex-1 flex items-center justify-center bg-slate-900">
+            <div className="text-center">
+              <Eye className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+              <h3 className="text-xl font-bold text-slate-300 mb-2">All Components Hidden</h3>
+              <p className="text-slate-400 mb-4">Use the controls to show the components you want to see.</p>
+            </div>
+          </div>
+        )}
         
         {/* Opening Tree Sidebar - Left side */}
         {showOpeningTree && (
@@ -1798,11 +1822,11 @@ function PerformanceGraphContent() {
           </div>
         )}
         
-        {/* Chessboard Sidebar - Center */}
-        {showChessboard && (
+        {/* Position Analysis Sidebar - Center */}
+        {showPositionAnalysis && (
           <div 
             className="bg-slate-800/95 border-r border-slate-700 backdrop-blur-lg relative flex flex-col flex-shrink-0 overflow-hidden"
-            style={{ width: `${chessboardWidth}px`, minWidth: `${chessboardWidth}px`, maxWidth: `${chessboardWidth}px` }}
+            style={{ width: `${positionAnalysisWidth}px`, minWidth: `${positionAnalysisWidth}px`, maxWidth: `${positionAnalysisWidth}px` }}
           >
             {/* Chessboard content */}
             <div className="flex-1 min-h-0 p-4 flex items-center justify-center overflow-hidden">
@@ -1822,7 +1846,8 @@ function PerformanceGraphContent() {
         )}
 
         {/* Performance Graph - Right side (was center) */}
-        <div className="flex-1 min-h-0 relative overflow-hidden bg-slate-900" style={{ minWidth: '0' }}>
+        {showPerformanceGraph && (
+          <div className="flex-1 min-h-0 relative overflow-hidden bg-slate-900" style={{ minWidth: '0' }}>
         
         {/* Always render ReactFlow to get dimensions */}
         <ReactFlow
@@ -2105,18 +2130,63 @@ function PerformanceGraphContent() {
               <TreePine className="w-4 h-4 mr-2" />
               Opening Tree
             </Button>
+          </div>
+
+          {/* View Management Controls - Second Row */}
+          <div className="flex gap-2 flex-wrap items-start">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={togglePositionAnalysis}
+              className={`${showPositionAnalysis ? 'bg-blue-600 border-blue-500' : 'bg-slate-700 border-slate-600'} text-slate-200`}
+              title="Toggle Position Analysis (Chessboard)"
+            >
+              <Brain className="w-4 h-4 mr-2" />
+              Position Analysis
+            </Button>
+
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={togglePerformanceGraph}
+              className={`${showPerformanceGraph ? 'bg-red-600 border-red-500' : 'bg-slate-700 border-slate-600'} text-slate-200`}
+              title="Toggle Performance Graph"
+            >
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Performance Graph
+            </Button>
                     </div>
 
-          {/* Show Buttons - on separate row if needed */}
+          {/* Quick Show Buttons - for hidden components */}
           <div className="flex gap-2 flex-wrap">
-            {!showChessboard && (
+            {!showOpeningTree && (
               <Button
-                onClick={() => setShowChessboard(true)}
+                onClick={toggleOpeningTree}
+                className="bg-slate-800/95 border border-slate-700 text-slate-200 hover:bg-slate-700/95"
+                size="sm"
+              >
+                <TreePine className="w-4 h-4 mr-2" />
+                Show Tree
+              </Button>
+            )}
+            {!showPositionAnalysis && (
+              <Button
+                onClick={togglePositionAnalysis}
                 className="bg-slate-800/95 border border-slate-700 text-slate-200 hover:bg-slate-700/95"
                 size="sm"
               >
                 <Brain className="w-4 h-4 mr-2" />
-                Analysis
+                Show Analysis
+              </Button>
+            )}
+            {!showPerformanceGraph && (
+              <Button
+                onClick={togglePerformanceGraph}
+                className="bg-slate-800/95 border border-slate-700 text-slate-200 hover:bg-slate-700/95"
+                size="sm"
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Show Graph
               </Button>
             )}
           </div>
@@ -2209,6 +2279,7 @@ function PerformanceGraphContent() {
       )}
       
       </div>
+        )}
 
 
       
