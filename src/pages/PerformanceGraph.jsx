@@ -26,7 +26,8 @@ import {
   Filter,
   BarChart3,
   Menu,
-  TreePine
+  TreePine,
+  Maximize2
 } from 'lucide-react';
 import { useChessboardSync } from '../hooks/useChessboardSync';
 import { loadOpeningGraph } from '../api/graphStorage';
@@ -1604,11 +1605,27 @@ function PerformanceGraphContent() {
 
   // Flexible Layout Controls
   const togglePositionAnalysis = () => {
+    const wasHidden = !showPositionAnalysis;
     setShowPositionAnalysis(!showPositionAnalysis);
+    
+    // Reset graph view when showing position analysis
+    if (wasHidden && showPerformanceGraph) {
+      setTimeout(() => {
+        fitView({ padding: 0.05, duration: 800 });
+      }, 100);
+    }
   };
 
   const togglePerformanceGraph = () => {
+    const wasHidden = !showPerformanceGraph;
     setShowPerformanceGraph(!showPerformanceGraph);
+    
+    // Reset graph view when showing performance graph
+    if (wasHidden) {
+      setTimeout(() => {
+        fitView({ padding: 0.05, duration: 800 });
+      }, 100);
+    }
   };
 
   const adjustPositionAnalysisWidth = (delta) => {
@@ -1718,7 +1735,7 @@ function PerformanceGraphContent() {
 
   if (loading) {
     return (
-      <div className="w-full h-full min-h-[500px] bg-slate-900 relative flex flex-col">
+      <div className="w-full h-full bg-slate-900 relative flex flex-col">
         <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-50">
         <div className="text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-500 mx-auto mb-6"></div>
@@ -1732,7 +1749,7 @@ function PerformanceGraphContent() {
 
   if (!openingGraphRef.current) {
     return (
-      <div className="w-full h-full min-h-[500px] bg-slate-900 flex items-center justify-center">
+      <div className="w-full h-full bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <Target className="w-16 h-16 text-slate-600 mx-auto mb-4" />
           <h3 className="text-xl font-bold text-slate-300 mb-2">No Chess Data Found</h3>
@@ -1748,8 +1765,76 @@ function PerformanceGraphContent() {
     return (
     <div className="h-full w-full flex flex-col overflow-hidden">
       
+      {/* View Management Controls - Neutral Space Above All Components */}
+      <div className="bg-slate-800/90 border-b border-slate-700/50 backdrop-blur-lg p-4 flex-shrink-0">
+        <div className="flex flex-wrap gap-4 items-center justify-between">
+          
+          {/* Left Side: Main Controls */}
+          <div className="flex gap-2 flex-wrap items-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="bg-slate-700 border-slate-600 text-slate-200">
+                  <Crown className="w-4 h-4 mr-2" />
+                  {selectedPlayer === 'white' ? 'White' : 'Black'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="bg-slate-800 border-slate-700">
+                <DropdownMenuItem onClick={() => setSelectedPlayer('white')} className="text-slate-200 hover:bg-slate-700 hover:text-slate-200 focus:bg-slate-700 focus:text-slate-200">
+                  <Crown className="w-4 h-4 mr-2 text-amber-400" />
+                  White Perspective
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setSelectedPlayer('black')} className="text-slate-200 hover:bg-slate-700 hover:text-slate-200 focus:bg-slate-700 focus:text-slate-200">
+                  <Shield className="w-4 h-4 mr-2 text-slate-400" />
+                  Black Perspective
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+
+          </div>
+
+          {/* Right Side: View Management Controls */}
+          <div className="flex gap-2 flex-wrap items-center">
+            <span className="text-slate-400 text-sm font-medium mr-2">Views:</span>
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={toggleOpeningTree}
+              className={`${showOpeningTree ? 'bg-green-600 border-green-500' : 'bg-slate-700 border-slate-600'} text-slate-200`}
+              title="Toggle Opening Tree Navigation"
+            >
+              <TreePine className="w-4 h-4 mr-2" />
+              Tree
+            </Button>
+
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={togglePositionAnalysis}
+              className={`${showPositionAnalysis ? 'bg-blue-600 border-blue-500' : 'bg-slate-700 border-slate-600'} text-slate-200`}
+              title="Toggle Position Analysis (Chessboard)"
+            >
+              <Brain className="w-4 h-4 mr-2" />
+              Analysis
+            </Button>
+
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={togglePerformanceGraph}
+              className={`${showPerformanceGraph ? 'bg-red-600 border-red-500' : 'bg-slate-700 border-slate-600'} text-slate-200`}
+              title="Toggle Performance Graph"
+            >
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Graph
+            </Button>
+          </div>
+        </div>
+      </div>
+      
       {/* Main content area - Flexible Layout: Tree | Position Analysis | Performance Graph */}
-      <div className="h-[calc(100vh-10rem)] overflow-hidden relative flex">
+      <div className="flex-1 overflow-hidden relative flex">
         
         {/* Show message when all components are hidden */}
         {!showOpeningTree && !showPositionAnalysis && !showPerformanceGraph && (
@@ -1765,10 +1850,10 @@ function PerformanceGraphContent() {
         {/* Opening Tree Sidebar - Left side */}
         {showOpeningTree && (
           <div 
-            className="h-full overflow-hidden"
+            className="h-full overflow-hidden max-h-full"
             style={{ width: `${openingTreeWidth}px`, minWidth: `${openingTreeWidth}px`, maxWidth: `${openingTreeWidth}px` }}
           >
-            <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-xl h-full flex flex-col overflow-hidden">
+            <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-xl h-full max-h-full flex flex-col overflow-hidden">
               <CardHeader className="flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-slate-200 flex items-center gap-2">
@@ -1797,27 +1882,29 @@ function PerformanceGraphContent() {
                   </div>
                 )}
               </CardHeader>
-              <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
-                {openingGraph ? (
-                  <ChunkVisualization
-                    openingGraph={openingGraph}
-                    isWhiteTree={selectedPlayer === 'white'}
-                    onCurrentMovesChange={handleTreeCurrentMovesChange}
-                    externalMoves={chessboardSync.currentMoves}
-                    onMoveHover={handleTreeMoveHover}
-                    onMoveHoverEnd={handleTreeMoveHoverEnd}
-                    onDirectScroll={handleTreeDirectScroll}
-                    initialPath={treeCurrentPath}
-                  />
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center">
-                      <TreePine className="w-12 h-12 text-slate-500 mx-auto mb-4" />
-                      <p className="text-slate-400">No opening data available</p>
-                      <p className="text-slate-500 text-sm">Import games to see the tree</p>
+              <CardContent className="p-0 flex-1 min-h-0 max-h-full overflow-hidden">
+                <div className="h-full max-h-full overflow-hidden">
+                  {openingGraph ? (
+                    <ChunkVisualization
+                      openingGraph={openingGraph}
+                      isWhiteTree={selectedPlayer === 'white'}
+                      onCurrentMovesChange={handleTreeCurrentMovesChange}
+                      externalMoves={chessboardSync.currentMoves}
+                      onMoveHover={handleTreeMoveHover}
+                      onMoveHoverEnd={handleTreeMoveHoverEnd}
+                      onDirectScroll={handleTreeDirectScroll}
+                      initialPath={treeCurrentPath}
+                    />
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-center">
+                        <TreePine className="w-12 h-12 text-slate-500 mx-auto mb-4" />
+                        <p className="text-slate-400">No opening data available</p>
+                        <p className="text-slate-500 text-sm">Import games to see the tree</p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -1826,8 +1913,16 @@ function PerformanceGraphContent() {
         {/* Position Analysis Sidebar - Center */}
         {showPositionAnalysis && (
           <div 
-            className="bg-slate-800/95 border-r border-slate-700 backdrop-blur-lg relative flex flex-col flex-shrink-0 overflow-hidden"
-            style={{ width: `${positionAnalysisWidth}px`, minWidth: `${positionAnalysisWidth}px`, maxWidth: `${positionAnalysisWidth}px` }}
+            className={`bg-slate-800/95 border-r border-slate-700 backdrop-blur-lg relative flex flex-col overflow-hidden ${
+              showPerformanceGraph ? 'flex-shrink-0' : 'flex-1'
+            }`}
+            style={showPerformanceGraph ? { 
+              width: `${positionAnalysisWidth}px`, 
+              minWidth: `${positionAnalysisWidth}px`, 
+              maxWidth: `${positionAnalysisWidth}px` 
+            } : { 
+              minWidth: '350px' 
+            }}
           >
             {/* Chessboard content */}
             <div className="flex-1 min-h-0 p-4 flex items-center justify-center overflow-hidden">
@@ -1872,6 +1967,45 @@ function PerformanceGraphContent() {
           elementsSelectable={true}
           selectNodesOnDrag={false}
         >
+
+
+
+        {/* Graph Controls - Top Left */}
+        <Panel position="top-left" className="space-y-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleReset}
+              className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600"
+              title="Fit graph to view"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </Button>
+
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={toggleOpeningClustering}
+              className={`${openingClusteringEnabled ? 'bg-purple-600 border-purple-500' : 'bg-slate-700 border-slate-600'} text-slate-200`}
+              title="Toggle Opening Clusters"
+            >
+              <Layers className="w-4 h-4 mr-2" />
+              Opening Clusters
+            </Button>
+
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={togglePositionClusters}
+              className={`${showPositionClusters ? 'bg-orange-600 border-orange-500' : 'bg-slate-700 border-slate-600'} text-slate-200`}
+              title="Toggle Position Clusters (Current Move)"
+            >
+              <Target className="w-4 h-4 mr-2" />
+              Position Clusters
+            </Button>
+          </div>
+        </Panel>
 
         
         {/* MiniMap disabled for better performance */}
@@ -2063,137 +2197,6 @@ function PerformanceGraphContent() {
           </Card>
           )}
 
-
-        </Panel>
-
-        {/* Controls - Left Side */}
-        <Panel position="top-left" className="space-y-4">
-          {/* Main control buttons - aligned left to right */}
-          <div className="flex gap-2 flex-wrap items-start">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="bg-slate-700 border-slate-600 text-slate-200">
-                  <Crown className="w-4 h-4 mr-2" />
-                  {selectedPlayer === 'white' ? 'White' : 'Black'}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="bg-slate-800 border-slate-700">
-                <DropdownMenuItem onClick={() => setSelectedPlayer('white')} className="text-slate-200 hover:bg-slate-700 hover:text-slate-200 focus:bg-slate-700 focus:text-slate-200">
-                  <Crown className="w-4 h-4 mr-2 text-amber-400" />
-                  White Perspective
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setSelectedPlayer('black')} className="text-slate-200 hover:bg-slate-700 hover:text-slate-200 focus:bg-slate-700 focus:text-slate-200">
-                  <Shield className="w-4 h-4 mr-2 text-slate-400" />
-                  Black Perspective
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleReset}
-              className="bg-slate-700 border-slate-600 text-slate-200"
-              title="Reset view"
-            >
-              <Home className="w-4 h-4" />
-            </Button>
-
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={toggleOpeningClustering}
-              className={`${openingClusteringEnabled ? 'bg-purple-600 border-purple-500' : 'bg-slate-700 border-slate-600'} text-slate-200`}
-              title="Toggle Opening Clusters"
-            >
-              <Layers className="w-4 h-4 mr-2" />
-              Opening Clusters
-            </Button>
-
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={togglePositionClusters}
-              className={`${showPositionClusters ? 'bg-orange-600 border-orange-500' : 'bg-slate-700 border-slate-600'} text-slate-200`}
-              title="Toggle Position Clusters (Current Move)"
-            >
-              <Target className="w-4 h-4 mr-2" />
-              Position Clusters
-            </Button>
-
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={toggleOpeningTree}
-              className={`${showOpeningTree ? 'bg-green-600 border-green-500' : 'bg-slate-700 border-slate-600'} text-slate-200`}
-              title="Toggle Opening Tree Navigation"
-            >
-              <TreePine className="w-4 h-4 mr-2" />
-              Opening Tree
-            </Button>
-          </div>
-
-          {/* View Management Controls - Second Row */}
-          <div className="flex gap-2 flex-wrap items-start">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={togglePositionAnalysis}
-              className={`${showPositionAnalysis ? 'bg-blue-600 border-blue-500' : 'bg-slate-700 border-slate-600'} text-slate-200`}
-              title="Toggle Position Analysis (Chessboard)"
-            >
-              <Brain className="w-4 h-4 mr-2" />
-              Position Analysis
-            </Button>
-
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={togglePerformanceGraph}
-              className={`${showPerformanceGraph ? 'bg-red-600 border-red-500' : 'bg-slate-700 border-slate-600'} text-slate-200`}
-              title="Toggle Performance Graph"
-            >
-              <BarChart3 className="w-4 h-4 mr-2" />
-              Performance Graph
-            </Button>
-                    </div>
-
-          {/* Quick Show Buttons - for hidden components */}
-          <div className="flex gap-2 flex-wrap">
-            {!showOpeningTree && (
-              <Button
-                onClick={toggleOpeningTree}
-                className="bg-slate-800/95 border border-slate-700 text-slate-200 hover:bg-slate-700/95"
-                size="sm"
-              >
-                <TreePine className="w-4 h-4 mr-2" />
-                Show Tree
-              </Button>
-            )}
-            {!showPositionAnalysis && (
-              <Button
-                onClick={togglePositionAnalysis}
-                className="bg-slate-800/95 border border-slate-700 text-slate-200 hover:bg-slate-700/95"
-                size="sm"
-              >
-                <Brain className="w-4 h-4 mr-2" />
-                Show Analysis
-              </Button>
-            )}
-            {!showPerformanceGraph && (
-              <Button
-                onClick={togglePerformanceGraph}
-                className="bg-slate-800/95 border border-slate-700 text-slate-200 hover:bg-slate-700/95"
-                size="sm"
-              >
-                <BarChart3 className="w-4 h-4 mr-2" />
-                Show Graph
-              </Button>
-            )}
-          </div>
-                    
-          
-          
 
         </Panel>
 
