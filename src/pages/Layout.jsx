@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "@/utils";
-import { Shield, TrendingUp, Database, User, Crown, ChevronLeft, ChevronRight, Activity, Network } from "lucide-react";
+import { Shield, User, ChevronLeft, ChevronRight, Network } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function Layout({ children, currentPageName }) {
@@ -9,20 +9,16 @@ export default function Layout({ children, currentPageName }) {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(true); // Default to collapsed
   
   const navigationItems = [
-    { name: "Dashboard", url: createPageUrl("Dashboard"), icon: TrendingUp },
-    { name: "Import Games", url: createPageUrl("Import"), icon: Database },
-    { name: "White Opening Tree", url: createPageUrl("WhiteTree"), icon: Crown },
-    { name: "Black Opening Tree", url: createPageUrl("BlackTree"), icon: Shield },
-    { name: "Performance Graph", url: createPageUrl("PerformanceGraph"), icon: Network },
     { name: "Profile", url: createPageUrl("Profile"), icon: User },
+    { name: "Performance Graph", url: createPageUrl("PerformanceGraph"), icon: Network },
   ];
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="h-full max-h-full overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className="h-screen max-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
         <div className="flex h-full">
           {/* Sidebar */}
-          <div className={`bg-slate-800/50 backdrop-blur-xl border-r border-slate-700/50 h-full flex flex-col justify-between transition-all duration-300 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`}>
+          <div className={`bg-slate-800/50 backdrop-blur-xl border-r border-slate-700/50 h-full flex flex-col justify-between transition-all duration-300 relative z-20 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`} id="app-sidebar">
             <div>
               <div className={`p-4 border-b border-slate-700/50 ${isSidebarCollapsed ? 'h-[89px] flex items-center justify-center' : 'p-6'}`}>
                 <div className="flex items-center gap-3">
@@ -91,31 +87,9 @@ export default function Layout({ children, currentPageName }) {
         </div>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col h-full max-h-full overflow-hidden">
-          <header className="bg-slate-800/30 backdrop-blur-xl border-b border-slate-700/50 px-8 py-4 flex-shrink-0">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-white">{currentPageName}</h2>
-                <p className="text-slate-400 mt-1">
-                  {currentPageName === "Dashboard" && "Overview of your chess performance"}
-                  {currentPageName === "Import" && "Import your Chess.com games"}
-                  {currentPageName === "WhiteTree" && "Analyze your performance as White"}
-                  {currentPageName === "BlackTree" && "Analyze your performance as Black"}
-                  {currentPageName === "PerformanceGraph" && "Revolutionary chess opening graph visualization"}
-                  {currentPageName === "Profile" && "Your chess profile and statistics"}
-                </p>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <p className="text-sm text-slate-400">Chess.com Connected</p>
-                  <p className="text-sm text-green-400">● Online</p>
-                </div>
-              </div>
-            </div>
-          </header>
-          
-          <main className="flex-1 p-8 min-h-0 overflow-hidden flex flex-col">
-            <div className="flex-1 min-h-0">
+        <div className="flex-1 flex flex-col min-h-0 max-h-screen overflow-hidden h-full">
+          <main className={`flex-1 min-h-0 overflow-hidden flex flex-col h-full ${currentPageName === 'PerformanceGraph' ? '' : 'p-4'}`}>
+            <div className="flex-1 min-h-0 max-h-full overflow-hidden">
               {children}
             </div>
           </main>

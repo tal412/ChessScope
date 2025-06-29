@@ -76,7 +76,6 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
                           globalMouseY >= rect.top && globalMouseY <= rect.bottom;
         
         if (isMouseOver && !isHovered && onHover) {
-          console.log('🎯 Re-triggering hover for', moveData.san);
           setIsHovered(true);
           onHover();
         }
@@ -186,7 +185,11 @@ export default function ChunkVisualization({
   onMoveHover,
   onMoveHoverEnd,
   onDirectScroll, // NEW: Direct scroll callback for external control
-  initialPath = [] // NEW: Initial path to restore tree state
+  initialPath = [], // NEW: Initial path to restore tree state
+  // NEW: Filtering parameters to sync with performance graph
+  maxDepth = 20,
+  minGameCount = 20,
+  winRateFilter = [0, 100]
 }) {
   const [path, setPath] = useState(initialPath); // Array of selected moves (SAN notation)
   const [displayPath, setDisplayPath] = useState(initialPath); // Delayed path for display
@@ -215,7 +218,6 @@ export default function ChunkVisualization({
     if (onDirectScrollRef.current) {
       const directScrollTo = (moves) => {
         // Instead of scrolling, we update the path state to trigger chunk change
-        console.log(`🚀 DIRECT CHUNK CHANGE: Moving to moves:`, moves);
         
         // Update all path states to trigger the correct chunk display
         setPath(moves);
@@ -245,7 +247,6 @@ export default function ChunkVisualization({
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
       prevExternalMovesRef.current = externalMoves;
-      console.log('🌳 Tree component mounted, maintaining its own state');
       return;
     }
     
@@ -256,7 +257,6 @@ export default function ChunkVisualization({
       externalMoves.some((move, index) => move !== prevExternalMoves[index]);
       
     if (externalMovesChanged) {
-      console.log('🎯 External moves changed:', externalMoves);
       prevExternalMovesRef.current = externalMoves;
       
       // Update all paths immediately to ensure selection state is correct
@@ -271,6 +271,48 @@ export default function ChunkVisualization({
     }
   }, [externalMoves]); // Only depend on externalMoves
 
+  // Helper function to apply filtering (same logic as PerformanceGraph)
+  const applyMoveFiltering = (moves, currentLevel) => {
+    if (!moves || moves.length === 0) return [];
+    
+    // Apply game count and win rate filtering
+    const levelAdjustedMinGames = Math.max(1, Math.floor(minGameCount / Math.pow(1.5, currentLevel)));
+    
+    let validMoves = moves.filter(move => {
+      const gameCount = move.gameCount || 0;
+      const winRate = move.details?.winRate || move.winRate || 0;
+      return gameCount >= levelAdjustedMinGames && 
+             winRate >= winRateFilter[0] && 
+             winRate <= winRateFilter[1];
+    });
+    
+    // Fallback logic for game count only (respect win rate filter)
+    if (validMoves.length === 0 && moves.length > 0) {
+      const winRateFilteredMoves = moves.filter(move => {
+        const winRate = move.details?.winRate || move.winRate || 0;
+        return winRate >= winRateFilter[0] && winRate <= winRateFilter[1];
+      });
+      
+      if (winRateFilteredMoves.length === 0) {
+        // No moves meet win rate criteria - respect the filter
+        validMoves = [];
+      } else {
+        // Some moves meet win rate but not game count - apply fallback for game count only
+        const sortedMoves = [...winRateFilteredMoves].sort((a, b) => (b.gameCount || 0) - (a.gameCount || 0));
+        validMoves = sortedMoves.slice(0, Math.min(5, winRateFilteredMoves.length));
+      }
+    }
+    
+    // Limit breadth at deeper levels
+    const maxMovesAtLevel = Math.max(3, Math.floor(8 / Math.sqrt(currentLevel + 1)));
+    if (validMoves.length > maxMovesAtLevel) {
+      validMoves = [...validMoves].sort((a, b) => (b.gameCount || 0) - (a.gameCount || 0))
+                                   .slice(0, maxMovesAtLevel);
+    }
+    
+    return validMoves;
+  };
+
   // Calculate chunks to display and global max game count
   const { chunks, globalMaxGameCount, currentChunkIndex } = useMemo(() => {
     if (!openingGraph) return { chunks: [], globalMaxGameCount: 0, currentChunkIndex: 0 };
@@ -280,25 +322,30 @@ export default function ChunkVisualization({
     
     // Get root moves (starting position)
     const rootMoves = openingGraph.getRootMoves(isWhiteTree);
-    console.log(`ChunkVisualization: Root moves for ${isWhiteTree ? 'white' : 'black'}:`, rootMoves);
     
-    if (rootMoves.length > 0) {
+    // Apply filtering to root moves
+    const filteredRootMoves = applyMoveFiltering(rootMoves, 0);
+    
+    if (filteredRootMoves.length > 0) {
       const title = isWhiteTree ? "Your First Moves" : "Opponent's First Moves";
       result.push({
         title,
-        moves: rootMoves,
+        moves: filteredRootMoves,
         depth: 0
       });
-      allMoves.push(...rootMoves);
+      allMoves.push(...filteredRootMoves);
     }
 
-    // Get moves for each position in the path
+    // Get moves for each position in the path (respect maxDepth)
     let currentMoves = [];
-    for (let i = 0; i < displayPath.length; i++) {
+    for (let i = 0; i < displayPath.length && i < maxDepth - 1; i++) {
       currentMoves = [...currentMoves, displayPath[i]];
       const availableMoves = openingGraph.getMovesFromPosition(currentMoves, isWhiteTree);
       
-      if (availableMoves.length > 0) {
+      // Apply filtering to available moves
+      const filteredMoves = applyMoveFiltering(availableMoves, i + 1);
+      
+      if (filteredMoves.length > 0) {
         // Determine whose turn it is to move
         const moveNumber = currentMoves.length + 1;
         const isWhiteToMove = moveNumber % 2 === 1;
@@ -312,10 +359,10 @@ export default function ChunkVisualization({
         
         result.push({
           title,
-          moves: availableMoves,
+          moves: filteredMoves,
           depth: i + 1
         });
-        allMoves.push(...availableMoves);
+        allMoves.push(...filteredMoves);
       }
     }
     
@@ -326,11 +373,8 @@ export default function ChunkVisualization({
     // Show the chunk corresponding to the next move to be made
     const currentChunkIndex = Math.min(displayPath.length, result.length - 1);
     
-    console.log('📊 Global max game count:', globalMaxGameCount, 'from', allMoves.length, 'total moves');
-    console.log('🎯 Current chunk index:', currentChunkIndex, 'displayPath length:', displayPath.length);
-    
     return { chunks: result, globalMaxGameCount, currentChunkIndex };
-  }, [openingGraph, isWhiteTree, displayPath]);
+  }, [openingGraph, isWhiteTree, displayPath, maxDepth, minGameCount, winRateFilter]);
 
   const handleMoveSelect = (moveData, depth) => {
     // Create new path immediately with the selected move
@@ -382,7 +426,7 @@ export default function ChunkVisualization({
         containerRef.current = el;
         scrollContainerRef.current = el;
       }}
-      className="w-full h-full min-h-0 flex flex-col overflow-hidden"
+      className="w-full h-full min-h-0 max-h-full flex flex-col overflow-hidden"
     >
       {/* Navigation Controls */}
       <div className="flex-shrink-0 p-3 border-b border-slate-700/50">
@@ -398,7 +442,7 @@ export default function ChunkVisualization({
       </div>
 
       {/* Chunk Content */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="flex-1 min-h-0 max-h-full overflow-hidden">
         <AnimatePresence mode="wait">
           {chunks.length > 0 && chunks[currentChunkIndex] && (
             <motion.div
@@ -411,7 +455,7 @@ export default function ChunkVisualization({
                 duration: 0.08,
                 ease: 'easeInOut'
               }}
-              className="flex-1 min-h-0 flex flex-col w-full h-full overflow-hidden"
+              className="flex-1 min-h-0 max-h-full flex flex-col w-full h-full overflow-hidden"
             >
               <GraphChunk
                 title={chunks[currentChunkIndex].title}
@@ -421,15 +465,7 @@ export default function ChunkVisualization({
                   const selectedSan = displayPath.length > chunks[currentChunkIndex].depth ? displayPath[chunks[currentChunkIndex].depth] : null;
                   const foundMove = selectedSan ? chunks[currentChunkIndex].moves.find(m => m.san === selectedSan) : null;
                   
-                  // Debug logging
-                  if (chunks[currentChunkIndex].depth === 0 && displayPath.length > 0) {
-                    console.log(`🔍 Selection debug for depth ${chunks[currentChunkIndex].depth}:`, {
-                      displayPath,
-                      selectedSan,
-                      foundMove: foundMove ? `${foundMove.san} (${foundMove.gameCount}g)` : 'null',
-                      availableMoves: chunks[currentChunkIndex].moves.map(m => `${m.san} (${m.gameCount}g)`)
-                    });
-                  }
+
                   
                   return foundMove;
                 })()}
@@ -441,7 +477,6 @@ export default function ChunkVisualization({
                       ...moveData,
                       maxGameCount: globalMaxGameCount
                     };
-                    console.log('🎯 Hover move:', moveData.san, 'gameCount:', moveData.gameCount, 'globalMax:', globalMaxGameCount);
                     onMoveHover(enhancedMoveData);
                   }
                 }}

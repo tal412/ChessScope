@@ -1,13 +1,5 @@
 import Layout from "./Layout.jsx";
 
-import Dashboard from "./Dashboard";
-
-import Import from "./Import";
-
-import WhiteTree from "./WhiteTree";
-
-import BlackTree from "./BlackTree";
-
 import Profile from "./Profile";
 
 import PerformanceGraph from "./PerformanceGraph";
@@ -15,14 +7,6 @@ import PerformanceGraph from "./PerformanceGraph";
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
 const PAGES = {
-    
-    Dashboard: Dashboard,
-    
-    Import: Import,
-    
-    WhiteTree: WhiteTree,
-    
-    BlackTree: BlackTree,
     
     Profile: Profile,
     
@@ -53,16 +37,7 @@ function PagesContent() {
             <div key={location.pathname}>
                 <Routes>            
                     
-                        <Route path="/" element={<Dashboard />} />
-                    
-                    
-                    <Route path="/Dashboard" element={<Dashboard />} />
-                    
-                    <Route path="/Import" element={<Import />} />
-                    
-                    <Route path="/WhiteTree" element={<WhiteTree />} />
-                    
-                    <Route path="/BlackTree" element={<BlackTree />} />
+                        <Route path="/" element={<PerformanceGraph />} />
                     
                     <Route path="/Profile" element={<Profile />} />
                     

@@ -33,7 +33,6 @@ export const useChessboardSync = ({
    * Handle new move from chessboard - called when user makes a move
    */
   const handleNewMove = (moves) => {
-    console.log('🎯 New moves from chessboard:', moves);
     setExternalMoves(moves);
     
     // Find matching node if nodes array is provided
@@ -41,8 +40,6 @@ export const useChessboardSync = ({
       const matchingNode = findMatchingNode(moves, nodes);
       
       if (matchingNode) {
-        console.log('🎯 Found matching node for moves:', moves, matchingNode);
-        
         // Call node selection callback if provided
         if (onNodeSelect) {
           onNodeSelect(matchingNode);
@@ -56,9 +53,7 @@ export const useChessboardSync = ({
           }));
           setNodes(updatedNodes);
         }
-      } else {
-        console.log('🔍 No matching node found for moves:', moves);
-      }
+              }
     }
   };
 
@@ -66,7 +61,6 @@ export const useChessboardSync = ({
    * Handle move selection from chessboard - called when user navigates through moves
    */
   const handleMoveSelect = (moves) => {
-    console.log('🎯 Move selected on chessboard:', moves);
     setExternalMoves(moves);
     handleNewMove(moves); // Use same logic
   };
@@ -75,7 +69,6 @@ export const useChessboardSync = ({
    * Sync moves to chessboard - called when external component wants to update chessboard
    */
   const syncMovesToChessboard = (moves) => {
-    console.log('🎯 Syncing moves to chessboard:', moves);
     setCurrentMoves(moves);
     setExternalMoves(moves);
   };
@@ -101,7 +94,6 @@ export const useChessboardSync = ({
       externalMoves.some((move, index) => move !== prevExternalMoves[index]);
       
     if (externalMovesChanged) {
-      console.log('🎯 External moves changed:', externalMoves);
       prevExternalMovesRef.current = externalMoves;
       setCurrentMoves(externalMoves);
     }
