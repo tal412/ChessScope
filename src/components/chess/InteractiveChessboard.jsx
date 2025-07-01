@@ -349,10 +349,14 @@ export default function InteractiveChessboard({
           const rect = boardContainer.getBoundingClientRect();
           // Only update if container has meaningful dimensions
           if (rect.width > 0 && rect.height > 0) {
-            // Use 85% of the smaller dimension for the board size (slightly smaller to account for layout changes)
+            // Use 85% of the smaller dimension for the board size
             const size = Math.min(rect.width, rect.height) * 0.85;
-            const newSize = Math.max(280, Math.min(600, size)); // Better constraints
-            setBoardSize(newSize);
+            const newSize = Math.max(280, Math.min(600, size));
+            
+            // Only update if size changed significantly to prevent excessive re-renders
+            if (Math.abs(newSize - boardSize) > 5) {
+              setBoardSize(newSize);
+            }
           }
         }
       }
@@ -377,7 +381,7 @@ export default function InteractiveChessboard({
       if (resizeObserver) resizeObserver.disconnect();
       window.removeEventListener('resize', updateBoardSize);
     };
-  }, []);
+  }, [boardSize]);
 
   // Trigger board size recalculation when Stockfish state changes
   useLayoutEffect(() => {
@@ -685,8 +689,6 @@ export default function InteractiveChessboard({
     stockfish.postMessage('go depth 12');
   }, [stockfish, isAnalyzing, game]);
 
-
-
   // Calculate current turn and valid moves
   const currentTurn = game.turn() === 'w' ? 'white' : 'black';
   const dests = calculateDests(game);
@@ -738,7 +740,7 @@ export default function InteractiveChessboard({
       <Card 
         className="bg-slate-800/50 border-slate-700/50 backdrop-blur-xl w-full h-full flex flex-col"
       >
-        <CardHeader className="card-header pb-2 px-3 pt-3">
+        <CardHeader className="card-header pb-2 px-3 pt-3 flex-shrink-0">
           <div className="flex items-center justify-between">
             <CardTitle className="text-slate-200 text-lg truncate" title={getCurrentOpeningName()}>
               {getCurrentOpeningName()}
@@ -765,11 +767,18 @@ export default function InteractiveChessboard({
         </CardHeader>
         <CardContent className="flex-1 flex flex-col gap-2 min-h-0 p-3">
           {/* Chessboard using react-chessground */}
-          <div data-board-container className="flex-1 flex items-center justify-center min-h-0" style={{ minHeight: '400px', maxHeight: 'calc(100% - 140px)' }}>
+          <div 
+            data-board-container 
+            className="flex-1 flex items-center justify-center min-h-0 w-full"
+            style={{ 
+              minHeight: '300px',
+              maxHeight: 'calc(100% - 140px)'
+            }}
+          >
             <div style={{ 
               width: boardSize, 
               height: boardSize, 
-              minWidth: '280px', 
+              minWidth: '280px',
               minHeight: '280px',
               maxWidth: '600px',
               maxHeight: '600px'

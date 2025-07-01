@@ -154,8 +154,57 @@ export default function OpeningTreePage({ playerColor = "white" }) {
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden">
-      <div className="grid grid-cols-[minmax(320px,1fr)_2fr] lg:grid-cols-[minmax(380px,1fr)_2.5fr] gap-4 h-[calc(100vh-10rem)] overflow-hidden">
-        {/* Tree View - Responsive left column */}
+      {/* Mobile/Small screens: Stack vertically */}
+      <div className="flex flex-col lg:hidden h-full gap-4 overflow-hidden">
+        {/* Tree View - Mobile: Full width, constrained height */}
+        <div className="h-1/2 min-h-0 overflow-hidden">
+          <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-xl h-full flex flex-col overflow-hidden">
+            <CardHeader className="flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-slate-200 flex items-center gap-2">
+                  <IconComponent className={`w-5 h-5 ${currentConfig.iconColor}`} />
+                  {currentConfig.title}
+                </CardTitle>
+              </div>
+              {colorStats && (
+                <div className="flex gap-4 text-xs text-slate-400 mt-2">
+                  <span>{colorStats.totalGames} games</span>
+                  <span>{colorStats.totalPositions} positions</span>
+                  <span>{colorStats.winRate.toFixed(1)}% win rate</span>
+                </div>
+              )}
+            </CardHeader>
+            <CardContent className="p-0 flex-1 min-h-0 overflow-hidden">
+              <ChunkVisualization
+                openingGraph={openingGraph}
+                isWhiteTree={isWhiteTree}
+                onCurrentMovesChange={handleCurrentMovesChange}
+                externalMoves={chessboardSync.externalMoves}
+                onMoveHover={handleMoveHover}
+                onMoveHoverEnd={handleMoveHoverEnd}
+                onDirectScroll={handleDirectScroll}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Chessboard Area - Mobile: Full width, constrained height */}
+        <div className="h-1/2 min-h-0 overflow-hidden">
+          <InteractiveChessboard
+            currentMoves={chessboardSync.currentMoves}
+            onMoveSelect={handleMoveSelect}
+            onNewMove={handleNewMove}
+            isWhiteTree={isWhiteTree}
+            hoveredMove={hoveredMove}
+            openingGraph={openingGraph}
+            className="w-full h-full"
+          />
+        </div>
+      </div>
+
+      {/* Desktop/Large screens: Side by side grid */}
+      <div className="hidden lg:grid lg:grid-cols-[minmax(350px,1fr)_2fr] xl:grid-cols-[minmax(380px,1fr)_2.5fr] gap-4 h-full overflow-hidden">
+        {/* Tree View - Desktop: Responsive left column */}
         <div className="h-full overflow-hidden">
           <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-xl h-full flex flex-col overflow-hidden">
             <CardHeader className="flex-shrink-0">
@@ -187,7 +236,7 @@ export default function OpeningTreePage({ playerColor = "white" }) {
           </Card>
         </div>
 
-        {/* Chessboard Area - Responsive right column (2x wider) */}
+        {/* Chessboard Area - Desktop: Responsive right column */}
         <div className="h-full overflow-hidden">
           <InteractiveChessboard
             currentMoves={chessboardSync.currentMoves}
