@@ -3,7 +3,7 @@ import Chessground from 'react-chessground';
 import 'react-chessground/dist/styles/chessground.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { NavigationButtons } from '@/components/ui/navigation-buttons';
+import { NavigationButtons, NavigationPresets } from '@/components/ui/navigation-buttons';
 import { ChevronLeft, ChevronRight, RotateCcw, GripVertical, ArrowUpDown, Info, Search, Loader2 } from 'lucide-react';
 import { Chess } from 'chess.js';
 import PositionInfoDialog from '../opening-tree/PositionInfoDialog';
@@ -42,12 +42,21 @@ export default function InteractiveChessboard({
   isWhiteTree = true,
   className = "",
   hoveredMove = null,
-  openingGraph = null // Add openingGraph prop for position info
+  openingGraph = null, // Add openingGraph prop for position info
+  onFlip = null // External flip handler (optional)
 }) {
   const containerRef = useRef(null);
   const isInternalMoveRef = useRef(false); // Track if move change is internal
   const [currentMoveIndex, setCurrentMoveIndex] = useState(currentMoves.length);
   const [orientation, setOrientation] = useState(isWhiteTree ? 'white' : 'black');
+  
+  // Sync orientation with isWhiteTree when using external flip control
+  useEffect(() => {
+    if (onFlip) {
+      // When external flip handler is provided, sync orientation with isWhiteTree
+      setOrientation(isWhiteTree ? 'white' : 'black');
+    }
+  }, [isWhiteTree, onFlip]);
   const [boardSize, setBoardSize] = useState(350); // Start with a reasonable default
   
   // Chess game state - single source of truth
@@ -290,6 +299,46 @@ export default function InteractiveChessboard({
     }
   }, [currentMoves.length]);
 
+  // Get opening name for current position
+  const getCurrentOpeningName = () => {
+    if (!openingGraph || !currentMoves || currentMoves.length === 0) {
+      return "Starting Position";
+    }
+
+    try {
+      // Try to get opening info using different possible methods
+      let openingInfo = null;
+      
+      if (typeof openingGraph.getOpeningInfoForMoves === 'function') {
+        openingInfo = openingGraph.getOpeningInfoForMoves(currentMoves, isWhiteTree);
+      } else if (typeof openingGraph.getMovesFromPosition === 'function') {
+        // Alternative: get the last move info
+        const moves = openingGraph.getMovesFromPosition(currentMoves.slice(0, -1), isWhiteTree);
+        const lastMove = moves?.find(move => move.san === currentMoves[currentMoves.length - 1]);
+        if (lastMove && lastMove.openingInfo) {
+          openingInfo = lastMove.openingInfo;
+        }
+      }
+      
+      if (openingInfo && openingInfo.name) {
+        // Format with ECO code if available
+        if (openingInfo.eco) {
+          return `${openingInfo.eco} ${openingInfo.name}`;
+        }
+        return openingInfo.name;
+      }
+    } catch (error) {
+      console.warn('Error getting opening info:', error);
+    }
+
+    // Fallback: show move count
+    if (currentMoves.length > 0) {
+      return `Position after ${currentMoves.length} move${currentMoves.length === 1 ? '' : 's'}`;
+    }
+
+    return "Starting Position";
+  };
+
   // Responsive board sizing using ResizeObserver and viewport-based calculations
   useLayoutEffect(() => {
     const updateBoardSize = () => {
@@ -387,8 +436,14 @@ export default function InteractiveChessboard({
   };
 
   const toggleOrientation = () => {
-    const newOrientation = orientation === 'white' ? 'black' : 'white';
-    setOrientation(newOrientation);
+    if (onFlip) {
+      // Use external flip handler (from PerformanceGraph)
+      onFlip();
+    } else {
+      // Fall back to internal flip logic for standalone use
+      const newOrientation = orientation === 'white' ? 'black' : 'white';
+      setOrientation(newOrientation);
+    }
   };
 
   // Initialize Stockfish
@@ -685,8 +740,8 @@ export default function InteractiveChessboard({
       >
         <CardHeader className="card-header pb-2 px-3 pt-3">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-slate-200 text-lg">
-              Position Analysis
+            <CardTitle className="text-slate-200 text-lg truncate" title={getCurrentOpeningName()}>
+              {getCurrentOpeningName()}
             </CardTitle>
             {/* Stockfish Analysis Button - Top Right */}
             <Button
@@ -797,21 +852,13 @@ export default function InteractiveChessboard({
             onPrevious={handlePrevMove}
             onNext={handleNextMove}
             onReset={handleReset}
-            showReset={true}
+            onFlip={toggleOrientation}
+            features={NavigationPresets.chessboard.features}
+            labels={NavigationPresets.chessboard.labels}
             disabled={false}
           />
 
           <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleOrientation}
-              className="bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/60 hover:border-slate-500 hover:text-slate-200 transition-all duration-200"
-              title="Flip board"
-            >
-              <ArrowUpDown className="w-4 h-4" />
-            </Button>
-
             {/* Position Info Button */}
             {openingGraph && currentMoves.length > 0 && (
               <PositionInfoDialog

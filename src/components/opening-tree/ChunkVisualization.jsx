@@ -3,7 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { NavigationButtons } from '@/components/ui/navigation-buttons';
+
 import { ArrowRight } from 'lucide-react';
 import { Chess } from 'chess.js';
 
@@ -428,18 +428,7 @@ export default function ChunkVisualization({
       }}
       className="w-full h-full min-h-0 max-h-full flex flex-col overflow-hidden"
     >
-      {/* Navigation Controls */}
-      <div className="flex-shrink-0 p-3 border-b border-slate-700/50">
-        <NavigationButtons
-          currentIndex={displayPath.length}
-          totalCount={chunks.length > 0 ? chunks.length - 1 : 0}
-          onPrevious={handlePrevious}
-          onNext={handleNext}
-          onReset={handleReset}
-          showReset={true}
-          disabled={false}
-        />
-      </div>
+
 
       {/* Chunk Content */}
       <div className="flex-1 min-h-0 max-h-full overflow-hidden">
