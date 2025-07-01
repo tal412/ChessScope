@@ -34,17 +34,15 @@ function PagesContent() {
     
     return (
         <Layout currentPageName={currentPage}>
-            <div key={location.pathname}>
-                <Routes>            
-                    
-                        <Route path="/" element={<PerformanceGraph />} />
-                    
-                    <Route path="/Profile" element={<Profile />} />
-                    
-                    <Route path="/PerformanceGraph" element={<PerformanceGraph />} />
-                    
-                </Routes>
-            </div>
+            <Routes>            
+                
+                    <Route path="/" element={<PerformanceGraph />} />
+                
+                <Route path="/Profile" element={<Profile />} />
+                
+                <Route path="/PerformanceGraph" element={<PerformanceGraph />} />
+                
+            </Routes>
         </Layout>
     );
 }

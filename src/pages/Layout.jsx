@@ -63,39 +63,40 @@ export default function Layout({ children, currentPageName }) {
                 ))}
               </nav>
             </div>
-          <div className="p-4 border-t border-slate-700/50">
-            <Tooltip delayDuration={0}>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group text-slate-300 hover:text-white hover:bg-slate-700/50 w-full outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0 border border-transparent"
-                >
-                  {isSidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
-                </button>
-              </TooltipTrigger>
-              {isSidebarCollapsed && (
-                <TooltipContent 
-                  side="right" 
-                  className="bg-slate-800 border-slate-700 text-white"
-                  sideOffset={10}
-                >
-                  <p>Expand Menu</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
+            
+            <div className="p-4 border-t border-slate-700/50">
+              <Tooltip delayDuration={0}>
+                <TooltipTrigger asChild>
+                  <button
+                    onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group text-slate-300 hover:text-white hover:bg-slate-700/50 w-full outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0 border border-transparent"
+                  >
+                    {isSidebarCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
+                  </button>
+                </TooltipTrigger>
+                {isSidebarCollapsed && (
+                  <TooltipContent 
+                    side="right" 
+                    className="bg-slate-800 border-slate-700 text-white"
+                    sideOffset={10}
+                  >
+                    <p>Expand Menu</p>
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </div>
+          </div>
+
+          {/* Main Content */}
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden h-full">
+            <main className={`flex-1 min-h-0 overflow-hidden flex flex-col h-full ${currentPageName === 'PerformanceGraph' ? '' : 'p-4'}`}>
+              <div className="flex-1 min-h-0 overflow-hidden h-full">
+                {children}
+              </div>
+            </main>
           </div>
         </div>
-
-        {/* Main Content */}
-        <div className="flex-1 flex flex-col min-h-0 max-h-screen overflow-hidden h-full">
-          <main className={`flex-1 min-h-0 overflow-hidden flex flex-col h-full ${currentPageName === 'PerformanceGraph' ? '' : 'p-4'}`}>
-            <div className="flex-1 min-h-0 max-h-full overflow-hidden">
-              {children}
-            </div>
-          </main>
-        </div>
       </div>
-    </div>
     </TooltipProvider>
   );
 }

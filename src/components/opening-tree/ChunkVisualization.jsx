@@ -143,9 +143,11 @@ const GraphChunk = ({ title, moves, onMoveSelect, selectedMove, depth, onMoveHov
   const sortedMoves = [...moves].sort((a, b) => b.gameCount - a.gameCount);
 
   return (
-    <div className="w-full h-full bg-slate-800/50 border border-slate-700/50 backdrop-blur-xl rounded-xl flex flex-col overflow-hidden"> {/* Simple flex container */}
+    <div 
+      className="w-full h-full bg-slate-800/50 border border-slate-700/50 backdrop-blur-xl rounded-xl overflow-hidden flex flex-col"
+    >
       {/* Header - Fixed height */}
-      <div className="p-4 pb-3 border-b border-slate-700/50">
+      <div className="p-4 pb-3 border-b border-slate-700/50 flex-shrink-0" style={{ minHeight: '80px', maxHeight: '80px' }}>
         <div className="text-slate-200 text-base flex items-center justify-between font-semibold leading-none tracking-tight">
           <span>{title}</span>
           <Badge variant="outline" className="text-xs bg-slate-700/50 text-slate-400">
@@ -154,7 +156,10 @@ const GraphChunk = ({ title, moves, onMoveSelect, selectedMove, depth, onMoveHov
         </div>
       </div>
       {/* Content with scrollable move list */}
-      <div className="flex-1 overflow-y-auto relative">
+      <div 
+        className="flex-1 overflow-y-auto overflow-x-hidden"
+        style={{ minHeight: 0 }}
+      >
         {sortedMoves.length === 0 ? (
           <p className="text-slate-500 text-center py-4 text-sm">No moves available</p>
         ) : (
@@ -426,12 +431,10 @@ export default function ChunkVisualization({
         containerRef.current = el;
         scrollContainerRef.current = el;
       }}
-      className="w-full h-full min-h-0 max-h-full flex flex-col overflow-hidden"
+      className="w-full h-full flex flex-col overflow-hidden"
     >
-
-
       {/* Chunk Content */}
-      <div className="flex-1 min-h-0 max-h-full overflow-hidden">
+      <div className="flex-1 overflow-hidden">
         <AnimatePresence mode="wait">
           {chunks.length > 0 && chunks[currentChunkIndex] && (
             <motion.div
@@ -444,7 +447,7 @@ export default function ChunkVisualization({
                 duration: 0.08,
                 ease: 'easeInOut'
               }}
-              className="flex-1 min-h-0 max-h-full flex flex-col w-full h-full overflow-hidden"
+              className="h-full w-full overflow-hidden"
             >
               <GraphChunk
                 title={chunks[currentChunkIndex].title}
@@ -453,8 +456,6 @@ export default function ChunkVisualization({
                 selectedMove={(() => {
                   const selectedSan = displayPath.length > chunks[currentChunkIndex].depth ? displayPath[chunks[currentChunkIndex].depth] : null;
                   const foundMove = selectedSan ? chunks[currentChunkIndex].moves.find(m => m.san === selectedSan) : null;
-                  
-
                   
                   return foundMove;
                 })()}
