@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { NavigationButtons, NavigationPresets } from '@/components/ui/navigation-buttons';
 import { 
   Target, 
   Info, 
@@ -1626,6 +1627,50 @@ function PerformanceGraphContent() {
     }
   };
 
+  // Navigation handlers for opening tree NavigationButtons
+  const handleTreePrevious = () => {
+    if (treeCurrentPath.length > 0) {
+      const newPath = treeCurrentPath.slice(0, -1);
+      setTreeCurrentPath(newPath);
+      chessboardSync.syncMovesToChessboard(newPath);
+      
+      // Update direct scroll function if available
+      if (treeDirectScrollFn) {
+        treeDirectScrollFn(newPath);
+      }
+    }
+  };
+
+  const handleTreeNext = () => {
+    // For opening tree, next navigation is typically done by clicking moves
+    // This could be enhanced to go to the most popular next move
+    console.log('Tree next navigation - typically done by clicking moves');
+  };
+
+  const handleTreeReset = () => {
+    const newPath = [];
+    setTreeCurrentPath(newPath);
+    chessboardSync.syncMovesToChessboard(newPath);
+    
+    // Update direct scroll function if available
+    if (treeDirectScrollFn) {
+      treeDirectScrollFn(newPath);
+    }
+  };
+
+  // Universal flip handler that flips both board orientation AND player perspective
+  const handleUniversalFlip = () => {
+    // Switch player perspective (White Tree ↔ Black Tree)
+    const newPlayer = selectedPlayer === 'white' ? 'black' : 'white';
+    setSelectedPlayer(newPlayer);
+    
+    // This will automatically trigger the tree to reload with the opposite perspective
+    // and the board orientation will follow the new player perspective
+  };
+
+  // Alias for tree flip
+  const handleTreeFlip = handleUniversalFlip;
+
   // Note: ChunkVisualization handles its own move selection internally
   // and calls onCurrentMovesChange when the path changes
 
@@ -1811,7 +1856,7 @@ function PerformanceGraphContent() {
         
         {/* Opening Tree */}
         {showOpeningTree && (
-          <section className="min-h-0 overflow-hidden border-r border-slate-700/50 bg-slate-800/50 backdrop-blur-xl grid grid-rows-[auto_1fr]">
+          <section className="min-h-0 overflow-hidden border-r border-slate-700/50 bg-slate-800/50 backdrop-blur-xl grid grid-rows-[auto_auto_1fr]">
             {/* Tree Header */}
             <header className="p-3 border-b border-slate-700/50">
               <div className="flex items-center justify-between mb-2">
@@ -1841,6 +1886,30 @@ function PerformanceGraphContent() {
                 </div>
               )}
             </header>
+
+            {/* Tree Navigation */}
+            <div className="p-3 border-b border-slate-700/50 bg-slate-700/30">
+              <NavigationButtons
+                currentIndex={treeCurrentPath.length}
+                totalCount={treeCurrentPath.length}
+                onPrevious={handleTreePrevious}
+                onNext={handleTreeNext}
+                onReset={handleTreeReset}
+                onFlip={handleTreeFlip}
+                features={NavigationPresets.chessboard.features}
+                labels={{
+                  ...NavigationPresets.chessboard.labels,
+                  previous: "Back one move",
+                  next: "Forward one move", 
+                  reset: "Reset to root position",
+                  flip: "Flip tree view"
+                }}
+                disabled={!openingGraph}
+                styling={{
+                  size: "sm"
+                }}
+              />
+            </div>
             
             {/* Tree Content */}
             <div className="min-h-0 overflow-hidden p-2">
@@ -1902,6 +1971,7 @@ function PerformanceGraphContent() {
                 isWhiteTree={selectedPlayer === 'white'}
                 openingGraph={openingGraphRef.current}
                 hoveredMove={treeHoveredMove || hoveredMove}
+                onFlip={handleUniversalFlip}
                 className="w-full max-w-none"
               />
             </div>
