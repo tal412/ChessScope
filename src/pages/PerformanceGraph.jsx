@@ -1751,19 +1751,20 @@ function PerformanceGraphContent() {
   }
 
         return (
-    <div className="h-screen w-full bg-slate-900 grid grid-rows-[auto_1fr] overflow-hidden">
+    <div className="h-full w-full bg-slate-900 flex flex-col overflow-hidden">
       
-      {/* Header Controls - Fixed Height */}
-      <header className="bg-slate-800/90 border-b border-slate-700/50 backdrop-blur-lg px-4 py-2 flex-shrink-0">
-        <div className="flex items-center justify-between gap-4 h-12">
+      {/* Header Controls - Fixed Height and Better Responsive */}
+      <header className="bg-slate-800/90 border-b border-slate-700/50 backdrop-blur-lg px-2 sm:px-4 py-2 flex-shrink-0 min-h-[4rem] max-h-[4rem]">
+        <div className="flex items-center justify-between gap-2 sm:gap-4 h-full max-w-full">
           
           {/* Left: Player Controls */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600">
-                  <Crown className="w-4 h-4 mr-2" />
-                  <span>{selectedPlayer === 'white' ? 'White' : 'Black'}</span>
+                <Button variant="outline" size="sm" className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 text-xs sm:text-sm">
+                  <Crown className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
+                  <span className="hidden sm:inline">{selectedPlayer === 'white' ? 'White' : 'Black'}</span>
+                  <span className="sm:hidden">{selectedPlayer === 'white' ? 'W' : 'B'}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="bg-slate-800 border-slate-700">
@@ -1779,80 +1780,81 @@ function PerformanceGraphContent() {
             </DropdownMenu>
           </div>
 
-          {/* Right: View Toggle Controls */}
-          <div className="flex items-center gap-2">
-            <span className="text-slate-400 text-sm font-medium">Views:</span>
+          {/* Right: View Toggle Controls - Responsive */}
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0 min-w-0">
+            <span className="text-slate-400 text-xs sm:text-sm font-medium hidden md:inline">Views:</span>
             
             <Button 
               variant="outline" 
               size="sm" 
               onClick={toggleOpeningTree}
-              className={`${showOpeningTree ? 'bg-green-600 border-green-500 hover:bg-green-700' : 'bg-slate-700 border-slate-600 hover:bg-slate-600'} text-slate-200 transition-colors`}
+              className={`${showOpeningTree ? 'bg-green-600 border-green-500 hover:bg-green-700' : 'bg-slate-700 border-slate-600 hover:bg-slate-600'} text-slate-200 transition-colors text-xs sm:text-sm px-2 sm:px-3`}
               title="Toggle Opening Tree"
             >
-              <TreePine className="w-4 h-4 mr-2" />
-              Tree
+              <TreePine className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Tree</span>
             </Button>
 
             <Button 
               variant="outline" 
               size="sm" 
               onClick={togglePositionAnalysis}
-              className={`${showPositionAnalysis ? 'bg-blue-600 border-blue-500 hover:bg-blue-700' : 'bg-slate-700 border-slate-600 hover:bg-slate-600'} text-slate-200 transition-colors`}
+              className={`${showPositionAnalysis ? 'bg-blue-600 border-blue-500 hover:bg-blue-700' : 'bg-slate-700 border-slate-600 hover:bg-slate-600'} text-slate-200 transition-colors text-xs sm:text-sm px-2 sm:px-3`}
               title="Toggle Position Analysis"
             >
-              <Brain className="w-4 h-4 mr-2" />
-              Analysis
+              <Brain className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Analysis</span>
             </Button>
 
             <Button 
               variant="outline" 
               size="sm" 
               onClick={togglePerformanceGraph}
-              className={`${showPerformanceGraph ? 'bg-red-600 border-red-500 hover:bg-red-700' : 'bg-slate-700 border-slate-600 hover:bg-slate-600'} text-slate-200 transition-colors`}
+              className={`${showPerformanceGraph ? 'bg-red-600 border-red-500 hover:bg-red-700' : 'bg-slate-700 border-slate-600 hover:bg-slate-600'} text-slate-200 transition-colors text-xs sm:text-sm px-2 sm:px-3`}
               title="Toggle Performance Graph"
             >
-              <BarChart3 className="w-4 h-4 mr-2" />
-              Graph
+              <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Graph</span>
             </Button>
           </div>
         </div>
       </header>
       
-      {/* Main Content Grid - CSS Grid for perfect responsive layout */}
-      <main 
-        className="min-h-0 overflow-hidden transition-all duration-300 ease-in-out"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: [
-            showOpeningTree && '20%',
-            showPositionAnalysis && '30%', 
-            showPerformanceGraph && '1fr'
-          ].filter(Boolean).join(' ') || '1fr'
-        }}
-      >
+      {/* Main Content - Flexible Grid with proper overflow handling */}
+      <main className="flex-1 min-h-0 overflow-hidden">
+        <div 
+          className="h-full transition-all duration-300 ease-in-out overflow-hidden"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: [
+              showOpeningTree && 'minmax(300px, 20%)',
+              showPositionAnalysis && 'minmax(250px, 30%)', 
+              showPerformanceGraph && '1fr'
+            ].filter(Boolean).join(' ') || '1fr',
+            gridTemplateRows: '1fr'
+          }}
+        >
+          {/* Global Loading Overlay */}
+          {isGenerating && (
+            <div className="col-span-full row-span-full bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-50">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500 mx-auto mb-6"></div>
+                <p className="text-slate-200 text-lg font-medium">Generating Performance Graph</p>
+                <p className="text-slate-400 text-sm mt-2">Processing your opening analysis...</p>
+              </div>
+            </div>
+          )}
           
-                  {/* Global Loading Overlay */}
-        {isGenerating && (
-          <div className="col-span-full row-span-full bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500 mx-auto mb-6"></div>
-              <p className="text-slate-200 text-lg font-medium">Generating Performance Graph</p>
-              <p className="text-slate-400 text-sm mt-2">Processing your opening analysis...</p>
+          {/* Empty State when all components hidden */}
+          {!showOpeningTree && !showPositionAnalysis && !showPerformanceGraph && (
+            <div className="col-span-full row-span-full flex items-center justify-center bg-slate-900">
+              <div className="text-center">
+                <Eye className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-slate-300 mb-2">All Components Hidden</h3>
+                <p className="text-slate-400 mb-4">Use the view controls above to show components.</p>
+              </div>
             </div>
-          </div>
-        )}
-        
-        {/* Empty State when all components hidden */}
-        {!showOpeningTree && !showPositionAnalysis && !showPerformanceGraph && (
-          <div className="col-span-full row-span-full flex items-center justify-center bg-slate-900">
-            <div className="text-center">
-              <Eye className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-slate-300 mb-2">All Components Hidden</h3>
-              <p className="text-slate-400 mb-4">Use the view controls above to show components.</p>
-            </div>
-          </div>
-        )}
+          )}
         
         {/* Opening Tree */}
         {showOpeningTree && (
@@ -2044,6 +2046,7 @@ function PerformanceGraphContent() {
           </section>
         )}
         
+        </div>
       </main>
     </div>
   );
