@@ -1969,18 +1969,55 @@ function PerformanceGraphContent() {
       
       {/* Main Content - Flexible Grid */}
       <main className="flex-1 min-h-0 overflow-hidden">
-        <div 
-          className="h-full transition-all duration-300 ease-in-out overflow-hidden"
-          style={{
-            display: 'grid',
-            gridTemplateColumns: [
-              showOpeningTree && 'minmax(280px, 20%)',
-              showPositionAnalysis && 'minmax(220px, 28%)', 
-              showPerformanceGraph && '1fr'
-            ].filter(Boolean).join(' ') || '1fr',
-            gridTemplateRows: '1fr'
-          }}
-        >
+                  <div 
+            className="h-full transition-all duration-300 ease-in-out overflow-hidden"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: (() => {
+                // Calculate optimal grid layout based on visible components
+                const visibleComponents = [
+                  showOpeningTree,
+                  showPositionAnalysis,
+                  showPerformanceGraph
+                ];
+                
+                // All three components visible - original layout
+                if (showOpeningTree && showPositionAnalysis && showPerformanceGraph) {
+                  return 'minmax(280px, 20%) minmax(220px, 28%) 1fr';
+                }
+                
+                // Performance graph hidden - rebalance tree (25%) and chessboard (75%)
+                if (showOpeningTree && showPositionAnalysis && !showPerformanceGraph) {
+                  return 'minmax(280px, 25%) 1fr';
+                }
+                
+                // Only tree and graph visible
+                if (showOpeningTree && !showPositionAnalysis && showPerformanceGraph) {
+                  return 'minmax(280px, 20%) 1fr';
+                }
+                
+                // Only chessboard and graph visible
+                if (!showOpeningTree && showPositionAnalysis && showPerformanceGraph) {
+                  return 'minmax(220px, 28%) 1fr';
+                }
+                
+                // Single component layouts
+                if (showOpeningTree && !showPositionAnalysis && !showPerformanceGraph) {
+                  return '1fr';
+                }
+                if (!showOpeningTree && showPositionAnalysis && !showPerformanceGraph) {
+                  return '1fr';
+                }
+                if (!showOpeningTree && !showPositionAnalysis && showPerformanceGraph) {
+                  return '1fr';
+                }
+                
+                // Fallback
+                return '1fr';
+              })(),
+              gridTemplateRows: '1fr'
+            }}
+          >
           {/* Global Loading Overlay */}
           {isGenerating && (
             <div className="col-span-full row-span-full bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-50">
@@ -2039,26 +2076,29 @@ function PerformanceGraphContent() {
 
               {/* Tree Navigation */}
               <div className="p-3 border-b border-slate-700/50 bg-slate-700/30 flex-shrink-0">
-                <NavigationButtons
-                  currentIndex={treeCurrentPath.length}
-                  totalCount={treeCurrentPath.length}
-                  onPrevious={handleTreePrevious}
-                  onNext={handleTreeNext}
-                  onReset={handleTreeReset}
-                  onFlip={handleTreeFlip}
-                  features={NavigationPresets.chessboard.features}
-                  labels={{
-                    ...NavigationPresets.chessboard.labels,
-                    previous: "Back one move",
-                    next: "Forward one move", 
-                    reset: "Reset to root position",
-                    flip: "Flip tree view"
-                  }}
-                  disabled={!openingGraph}
-                  styling={{
-                    size: "sm"
-                  }}
-                />
+                <div className="max-w-sm mx-auto">
+                  <NavigationButtons
+                    currentIndex={treeCurrentPath.length}
+                    totalCount={treeCurrentPath.length}
+                    onPrevious={handleTreePrevious}
+                    onNext={handleTreeNext}
+                    onReset={handleTreeReset}
+                    onFlip={handleTreeFlip}
+                    features={NavigationPresets.chessboard.features}
+                    labels={{
+                      ...NavigationPresets.chessboard.labels,
+                      previous: "Back one move",
+                      next: "Forward one move", 
+                      reset: "Reset to root position",
+                      flip: "Flip tree view"
+                    }}
+                    disabled={!openingGraph}
+                    styling={{
+                      size: "sm",
+                      className: "max-w-full"
+                    }}
+                  />
+                </div>
               </div>
               
               {/* Tree Content */}
@@ -2118,18 +2158,19 @@ function PerformanceGraphContent() {
               
               {/* Chessboard Content */}
               <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center p-2">
-                <div className="w-full h-full flex items-center justify-center">
-                  <InteractiveChessboard
-                    currentMoves={chessboardSync.currentMoves}
-                    onMoveSelect={chessboardSync.handleMoveSelect}
-                    onNewMove={chessboardSync.handleNewMove}
-                    isWhiteTree={selectedPlayer === 'white'}
-                    openingGraph={openingGraphRef.current}
-                    hoveredMove={treeHoveredMove || hoveredMove}
-                    onFlip={handleUniversalFlip}
-                    className="w-full max-w-none"
-                  />
-                </div>
+                              <div className="w-full h-full flex items-center justify-center">
+                <InteractiveChessboard
+                  currentMoves={chessboardSync.currentMoves}
+                  onMoveSelect={chessboardSync.handleMoveSelect}
+                  onNewMove={chessboardSync.handleNewMove}
+                  isWhiteTree={selectedPlayer === 'white'}
+                  openingGraph={openingGraphRef.current}
+                  graphNodes={nodes}
+                  hoveredMove={treeHoveredMove || hoveredMove}
+                  onFlip={handleUniversalFlip}
+                  className="w-full max-w-none"
+                />
+              </div>
               </div>
             </div>
           </section>
