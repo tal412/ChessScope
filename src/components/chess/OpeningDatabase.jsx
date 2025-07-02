@@ -197,10 +197,10 @@ const _identifyOpeningAsync = async (moves) => {
       }
     }
 
-    // If still no opening found, return generic response
+    // If still no opening found, return null name so UI doesn't update
     return {
       eco: "",
-      name: game.history().length > 0 ? "Unknown Opening" : "Starting Position",
+      name: game.history().length > 0 ? null : "Starting Position", // Return null for unknown openings
       variation: "",
       pgn: "",
       moves: ""
@@ -210,7 +210,7 @@ const _identifyOpeningAsync = async (moves) => {
     console.error("Error identifying opening:", error);
     return {
       eco: "",
-      name: "Error - Invalid Position",
+      name: null, // Return null instead of error message
       variation: "",
       pgn: "",
       moves: ""
@@ -238,7 +238,7 @@ const _getOpeningFromFenAsync = async (fen) => {
 
     return {
       eco: "",
-      name: "Unknown Position",
+      name: null, // Return null instead of "Unknown Position" so the UI doesn't update
       variation: "",
       pgn: "",
       moves: ""
@@ -247,7 +247,7 @@ const _getOpeningFromFenAsync = async (fen) => {
     console.error("Error getting opening from FEN:", error);
     return {
       eco: "",
-      name: "Error - Invalid FEN",
+      name: null, // Return null instead of error message
       variation: "",
       pgn: "",
       moves: ""

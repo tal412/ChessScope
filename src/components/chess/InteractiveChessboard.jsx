@@ -4,9 +4,10 @@ import 'react-chessground/dist/styles/chessground.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { NavigationButtons, NavigationPresets } from '@/components/ui/navigation-buttons';
-import { ChevronLeft, ChevronRight, RotateCcw, GripVertical, ArrowUpDown, Info, Search, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw, GripVertical, ArrowUpDown, Info, Fish, Loader2, AlertTriangle } from 'lucide-react';
 import { Chess } from 'chess.js';
 import PositionInfoDialog from '../opening-tree/PositionInfoDialog';
+import { getOpeningFromFen } from '../chess/OpeningDatabase';
 import { 
   getPositionAfterMoves, 
   getPositionFromFen, 
@@ -43,6 +44,7 @@ export default function InteractiveChessboard({
   className = "",
   hoveredMove = null,
   openingGraph = null, // Add openingGraph prop for position info
+  graphNodes = [], // Performance graph nodes to check position existence
   onFlip = null // External flip handler (optional)
 }) {
   const containerRef = useRef(null);
@@ -84,6 +86,12 @@ export default function InteractiveChessboard({
   const [stockfish, setStockfish] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [topMoves, setTopMoves] = useState([]); // Array of {move, san, eval, confidence}
+  const [stockfishEnabled, setStockfishEnabled] = useState(false); // Track if Stockfish analysis is enabled/shown
+  
+  // Opening and position tracking state
+  const [currentOpeningInfo, setCurrentOpeningInfo] = useState({ eco: "", name: "Starting Position" });
+  const [positionExistsInGraph, setPositionExistsInGraph] = useState(true);
+  const [openingLoadingCache, setOpeningLoadingCache] = useState(new Map()); // Cache for opening lookups
 
   // Calculate valid moves in chessground format
   const calculateDests = useCallback((game) => {
@@ -144,8 +152,8 @@ export default function InteractiveChessboard({
       }
     }
 
-    // Add Stockfish top moves arrows (only if no hovered move to avoid overlap)
-    if (!hoveredMove && topMoves.length > 0) {
+    // Add Stockfish top moves arrows (only if enabled, no hovered move, and has moves)
+    if (stockfishEnabled && !hoveredMove && topMoves.length > 0) {
       topMoves.forEach((moveData, index) => {
         try {
           // Different colors for ranking: blue for #1, green for #2, yellow for #3
@@ -169,7 +177,7 @@ export default function InteractiveChessboard({
     }
 
     return arrows;
-  }, [hoveredMove, game, topMoves]);
+  }, [hoveredMove, game, topMoves, stockfishEnabled]);
 
   // Handle piece selection
   const onSelect = useCallback((key) => {
@@ -207,8 +215,9 @@ export default function InteractiveChessboard({
       const newMoves = [...currentMoves.slice(0, currentMoveIndex), madeMove.san];
       setCurrentMoveIndex(newMoves.length);
       
-      // Clear Stockfish arrows after move
+      // Clear Stockfish state after move
       setTopMoves([]);
+      setStockfishEnabled(false);
       
       if (onNewMove) {
         onNewMove(newMoves);
@@ -236,8 +245,9 @@ export default function InteractiveChessboard({
       const newMoves = [...currentMoves.slice(0, currentMoveIndex), move.san];
       setCurrentMoveIndex(newMoves.length);
       
-      // Clear Stockfish arrows after move
+      // Clear Stockfish state after move
       setTopMoves([]);
+      setStockfishEnabled(false);
       
       if (onNewMove) {
         onNewMove(newMoves);
@@ -285,11 +295,12 @@ export default function InteractiveChessboard({
     
     setGame(newGame);
     
-    // Clear selection state and Stockfish arrows on external position changes
+    // Clear selection state and Stockfish data on external position changes
     setPendingMove(null);
     setSelectVisible(false);
     setSelected(null);
     setTopMoves([]); // Clear Stockfish arrows when position changes externally
+    setStockfishEnabled(false); // Disable Stockfish on position changes
   }, [currentMoves, currentMoveIndex]);
 
   // Update move index when current moves change from external source
@@ -299,44 +310,82 @@ export default function InteractiveChessboard({
     }
   }, [currentMoves.length]);
 
-  // Get opening name for current position
-  const getCurrentOpeningName = () => {
-    if (!openingGraph || !currentMoves || currentMoves.length === 0) {
+  // Update opening info and graph position existence when position changes
+  useEffect(() => {
+    const updatePositionInfo = async () => {
+      const currentFen = game.fen();
+      
+      // Check if we already have this FEN cached
+      if (openingLoadingCache.has(currentFen)) {
+        const cached = openingLoadingCache.get(currentFen);
+        setCurrentOpeningInfo(cached.openingInfo);
+        setPositionExistsInGraph(cached.existsInGraph);
+        return;
+      }
+      
+             // Get opening info from database using efficient FEN lookup
+       try {
+         const openingInfo = await getOpeningFromFen(currentFen);
+         
+         // Check if current position exists in performance graph nodes
+         const positionExists = graphNodes.some(node => 
+           node.data && node.data.fen === currentFen
+         );
+         
+         // Only update opening info if we found a valid opening in the database
+         if (openingInfo && openingInfo.name) {
+           const formattedOpening = {
+             eco: openingInfo.eco || "",
+             name: openingInfo.name
+           };
+           
+           // Cache the result
+           const cacheEntry = {
+             openingInfo: formattedOpening,
+             existsInGraph: positionExists
+           };
+           setOpeningLoadingCache(prev => new Map(prev.set(currentFen, cacheEntry)));
+           
+           // Update state with found opening
+           setCurrentOpeningInfo(formattedOpening);
+         } else {
+           // No opening found, just update graph existence but keep current opening name
+           const cacheEntry = {
+             openingInfo: currentOpeningInfo, // Keep current opening info
+             existsInGraph: positionExists
+           };
+           setOpeningLoadingCache(prev => new Map(prev.set(currentFen, cacheEntry)));
+         }
+         
+         // Always update position existence
+         setPositionExistsInGraph(positionExists);
+         
+       } catch (error) {
+         console.warn('Error getting opening info from database:', error);
+         
+         // On error, just check graph existence but don't change opening name
+         const positionExists = graphNodes.some(node => 
+           node.data && node.data.fen === currentFen
+         );
+         
+         setPositionExistsInGraph(positionExists);
+       }
+    };
+    
+    updatePositionInfo();
+  }, [game.fen(), graphNodes, currentMoves, openingLoadingCache]);
+
+  // Helper function to get formatted opening name for display
+  const getFormattedOpeningName = () => {
+    // For starting position, always show just "Starting Position" without ECO
+    if (currentMoves.length === 0) {
       return "Starting Position";
     }
-
-    try {
-      // Try to get opening info using different possible methods
-      let openingInfo = null;
-      
-      if (typeof openingGraph.getOpeningInfoForMoves === 'function') {
-        openingInfo = openingGraph.getOpeningInfoForMoves(currentMoves, isWhiteTree);
-      } else if (typeof openingGraph.getMovesFromPosition === 'function') {
-        // Alternative: get the last move info
-        const moves = openingGraph.getMovesFromPosition(currentMoves.slice(0, -1), isWhiteTree);
-        const lastMove = moves?.find(move => move.san === currentMoves[currentMoves.length - 1]);
-        if (lastMove && lastMove.openingInfo) {
-          openingInfo = lastMove.openingInfo;
-        }
-      }
-      
-      if (openingInfo && openingInfo.name) {
-        // Format with ECO code if available
-        if (openingInfo.eco) {
-          return `${openingInfo.eco} ${openingInfo.name}`;
-        }
-        return openingInfo.name;
-      }
-    } catch (error) {
-      console.warn('Error getting opening info:', error);
+    
+    if (currentOpeningInfo.eco) {
+      return `${currentOpeningInfo.eco} ${currentOpeningInfo.name}`;
     }
-
-    // Fallback: show move count
-    if (currentMoves.length > 0) {
-      return `Position after ${currentMoves.length} move${currentMoves.length === 1 ? '' : 's'}`;
-    }
-
-    return "Starting Position";
+    return currentOpeningInfo.name;
   };
 
   // Responsive board sizing using ResizeObserver and viewport-based calculations
@@ -581,9 +630,9 @@ export default function InteractiveChessboard({
     };
   }, []);
 
-  // Stockfish analysis function - gets top 3 moves using MultiPV
-  const analyzePosition = useCallback(() => {
-    console.log('🔍 Analyze button clicked!');
+  // Toggle Stockfish analysis function - turns analysis on/off
+  const toggleStockfishAnalysis = useCallback(() => {
+    console.log('🔍 Stockfish toggle clicked!');
     
     if (!stockfish) {
       console.error('❌ Stockfish not initialized yet');
@@ -591,12 +640,33 @@ export default function InteractiveChessboard({
       return;
     }
     
+    // If currently enabled, disable and clear
+    if (stockfishEnabled) {
+      console.log('🚫 Disabling Stockfish analysis');
+      setStockfishEnabled(false);
+      setIsAnalyzing(false);
+      setTopMoves([]);
+      
+      // Stop any ongoing analysis
+      if (stockfish.onmessage) {
+        stockfish.onmessage = null;
+      }
+      try {
+        stockfish.postMessage('stop');
+      } catch (e) {
+        console.log('Stop command sent');
+      }
+      return;
+    }
+    
+    // If disabled, enable and start analysis
     if (isAnalyzing) {
       console.log('⏳ Already analyzing...');
       return;
     }
     
-    console.log('🚀 Starting MultiPV analysis for top 3 moves...');
+    console.log('🚀 Enabling Stockfish - Starting MultiPV analysis for top 3 moves...');
+    setStockfishEnabled(true);
     setIsAnalyzing(true);
     setTopMoves([]);
     
@@ -687,7 +757,7 @@ export default function InteractiveChessboard({
     stockfish.postMessage('setoption name MultiPV value 3');
     stockfish.postMessage(`position fen ${fen}`);
     stockfish.postMessage('go depth 12');
-  }, [stockfish, isAnalyzing, game]);
+  }, [stockfish, isAnalyzing, game, stockfishEnabled]);
 
   // Calculate current turn and valid moves
   const currentTurn = game.turn() === 'w' ? 'white' : 'black';
@@ -742,25 +812,43 @@ export default function InteractiveChessboard({
       >
         <CardHeader className="card-header pb-2 px-3 pt-3 flex-shrink-0">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-slate-200 text-lg truncate" title={getCurrentOpeningName()}>
-              {getCurrentOpeningName()}
-            </CardTitle>
-            {/* Stockfish Analysis Button - Top Right */}
+            <div className="flex-1 min-w-0">
+              {/* Fixed height container for opening title - always reserves space for 2 lines */}
+              <div className="h-14 flex items-start">
+                <CardTitle className="text-slate-200 text-lg leading-tight line-clamp-2" title={getFormattedOpeningName()}>
+                  {getFormattedOpeningName()}
+                </CardTitle>
+              </div>
+              {/* Reserved space for Position Status Indicator - prevents layout shifts */}
+              <div className="h-4">
+                {!positionExistsInGraph && currentMoves.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 text-amber-400" />
+                    <span className="text-xs text-amber-400">Position not in performance graph</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* Stockfish Analysis Toggle Button - Top Right */}
             <Button
               variant="outline"
               size="sm"
               onClick={(e) => {
-                console.log('🖱️ Button clicked!', e);
-                analyzePosition();
+                console.log('🖱️ Stockfish toggle clicked!', e);
+                toggleStockfishAnalysis();
               }}
-              disabled={isAnalyzing}
-              className="bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/60 hover:border-slate-500 hover:text-slate-200 transition-all duration-200"
-              title="Get engine analysis"
+              disabled={isAnalyzing && !stockfishEnabled}
+              className={`transition-all duration-200 flex-shrink-0 ${
+                stockfishEnabled || isAnalyzing
+                  ? 'bg-white border-white text-slate-800 hover:bg-slate-100 hover:border-slate-200' // White/active when enabled
+                  : 'bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/60 hover:border-slate-500 hover:text-slate-200' // Default inactive state
+              }`}
+              title={stockfishEnabled ? "Disable Stockfish analysis" : "Enable Stockfish analysis"}
             >
               {isAnalyzing ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <Search className="w-4 h-4" />
+                <Fish className="w-4 h-4" />
               )}
             </Button>
           </div>
@@ -832,43 +920,60 @@ export default function InteractiveChessboard({
 
         {/* Stockfish Status Area - Fixed height to prevent layout shifts */}
         <div className="flex-shrink-0 px-2 py-1 h-8 flex items-center justify-center min-h-[32px]">
-          {isAnalyzing ? (
-            <div className="flex items-center gap-2 text-slate-400 text-xs">
-              <Loader2 className="w-3 h-3 animate-spin" />
-              <span>Stockfish analyzing...</span>
-            </div>
-          ) : topMoves.length > 0 ? (
-            <div className="text-xs text-slate-400 text-center">
-              Engine suggests: {topMoves.map((move, i) => 
-                <span key={i} className="text-slate-300 font-mono">
-                  {move.san}{typeof move.evaluation === 'number' ? ` (${move.evaluation > 0 ? '+' : ''}${move.evaluation.toFixed(1)})` : ''}
-                  {i < topMoves.length - 1 ? ', ' : ''}
-                </span>
-              )}
-            </div>
+          {stockfishEnabled ? (
+            isAnalyzing ? (
+              <div className="flex items-center gap-2 text-slate-400 text-xs">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Stockfish analyzing...</span>
+              </div>
+            ) : topMoves.length > 0 ? (
+              <div className="text-xs text-slate-400 text-center">
+                Engine suggests: {topMoves.map((move, i) => 
+                  <span key={i} className="text-slate-300 font-mono">
+                    {move.san}{typeof move.evaluation === 'number' ? ` (${move.evaluation > 0 ? '+' : ''}${move.evaluation.toFixed(1)})` : ''}
+                    {i < topMoves.length - 1 ? ', ' : ''}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="text-xs text-slate-500 opacity-50">
+                Stockfish analysis enabled
+              </div>
+            )
           ) : (
             <div className="text-xs text-slate-500 opacity-50">
-              Click 🔍 for engine analysis
+              Click 🐟 to enable Stockfish analysis
             </div>
           )}
         </div>
 
         {/* Move Navigation */}
         <div data-nav-section className="flex-shrink-0 flex items-center justify-between gap-2">
-          <NavigationButtons
-            currentIndex={currentMoveIndex}
-            totalCount={currentMoves.length}
-            onPrevious={handlePrevMove}
-            onNext={handleNextMove}
-            onReset={handleReset}
-            onFlip={toggleOrientation}
-            features={NavigationPresets.chessboard.features}
-            labels={NavigationPresets.chessboard.labels}
-            disabled={false}
-          />
+          {/* Left spacer for balance */}
+          <div className="w-8"></div>
+          
+          {/* Centered Navigation */}
+          <div className="flex-1 flex justify-center">
+            <div className="w-full max-w-sm">
+              <NavigationButtons
+                currentIndex={currentMoveIndex}
+                totalCount={currentMoves.length}
+                onPrevious={handlePrevMove}
+                onNext={handleNextMove}
+                onReset={handleReset}
+                onFlip={toggleOrientation}
+                features={NavigationPresets.chessboard.features}
+                labels={NavigationPresets.chessboard.labels}
+                disabled={false}
+                styling={{
+                  className: "max-w-full"
+                }}
+              />
+            </div>
+          </div>
 
+          {/* Right side - Position Info Button */}
           <div className="flex items-center gap-1">
-            {/* Position Info Button */}
             {openingGraph && currentMoves.length > 0 && (
               <PositionInfoDialog
                 openingGraph={openingGraph}

@@ -197,6 +197,7 @@ export default function OpeningTreePage({ playerColor = "white" }) {
             isWhiteTree={isWhiteTree}
             hoveredMove={hoveredMove}
             openingGraph={openingGraph}
+            graphNodes={[]} // No performance graph nodes in opening tree page
             className="w-full h-full"
           />
         </div>
@@ -245,6 +246,7 @@ export default function OpeningTreePage({ playerColor = "white" }) {
             isWhiteTree={isWhiteTree}
             hoveredMove={hoveredMove}
             openingGraph={openingGraph}
+            graphNodes={[]} // No performance graph nodes in opening tree page
             className="w-full h-full"
           />
         </div>
