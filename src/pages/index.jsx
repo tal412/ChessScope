@@ -1,6 +1,5 @@
 import Layout from "./Layout.jsx";
 import LoginPage from "./LoginPage";
-import Profile from "./Profile";
 import PerformanceGraph from "./PerformanceGraph";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2, Shield, Crown } from "lucide-react";
@@ -88,7 +87,6 @@ function PagesContent() {
         <Routes>
             <Route path="/" element={<Layout />}>
                 <Route index element={<PerformanceGraph />} />
-                <Route path="Profile" element={<Profile />} />
                 <Route path="PerformanceGraph" element={<PerformanceGraph />} />
                 {/* Redirect authenticated users away from login */}
                 <Route path="login" element={<PerformanceGraph />} />

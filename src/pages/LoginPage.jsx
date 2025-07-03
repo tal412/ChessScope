@@ -147,7 +147,10 @@ export default function LoginPage() {
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="username" className="text-slate-200 font-medium">Chess.com Username</Label>
+                    <div className="mb-2">
+                      <img src="/chesscom_logo_wordmark.svg" alt="Chess.com Logo" className="h-8 w-auto" />
+                    </div>
+                    <Label htmlFor="username" className="sr-only">Chess.com Username</Label>
                     <Input
                       id="username"
                       type="text"
@@ -166,7 +169,7 @@ export default function LoginPage() {
                       <div className="text-sm">
                         <p className="text-slate-200 font-medium mb-1">Secure & Private</p>
                         <p className="text-slate-400">
-                          We only read your public game history. No passwords or private data required.
+                          Only public game history is accessed. No private data is read.
                         </p>
                       </div>
                     </div>

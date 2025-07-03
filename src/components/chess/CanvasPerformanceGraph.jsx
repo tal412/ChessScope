@@ -159,6 +159,7 @@ const CanvasPerformanceGraph = ({
   onTogglePositionClusters, // Callback for position cluster toggle
   onClusterHover, // Callback for cluster hover
   onClusterHoverEnd, // Callback for cluster hover end
+  onResizeStateChange, // Callback to notify parent of resize state
   // Control props to match ReactFlow version
   maxDepth = 20,
   minGameCount = 20,
@@ -185,14 +186,29 @@ const CanvasPerformanceGraph = ({
   const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
   const [mousePressed, setMousePressed] = useState(false);
   const [lastMouse, setLastMouse] = useState({ x: 0, y: 0 });
+  // Track whether the current mouse interaction involved dragging
+  const isDraggingRef = useRef(false);
   const [positionedNodes, setPositionedNodes] = useState([]);
   const [hoveredNode, setHoveredNode] = useState(null);
   const [hoveredCluster, setHoveredCluster] = useState(null); // Track hovered cluster
   const [clusterPaths, setClusterPaths] = useState([]); // Store cluster paths for hit testing
-  const [hoveredOpeningName, setHoveredOpeningName] = useState(null); // Opening name tooltip
-  const [hoveredClusterColor, setHoveredClusterColor] = useState(null); // Cluster color for tooltip
+  // Note: Opening name tooltip state is managed by parent component through callbacks
   const [hasAutoFitted, setHasAutoFitted] = useState(false); // Track if we've done initial auto-fit
   const [isInitializing, setIsInitializing] = useState(true); // Track initial setup
+  
+  // Add new state to track if initial positioning is complete
+  const [isInitialPositioningComplete, setIsInitialPositioningComplete] = useState(false);
+  
+  // Track resize transitions to prevent zoom conflicts
+  const [isResizing, setIsResizing] = useState(false);
+  const resizeTimeoutRef = useRef(null);
+  
+  // Notify parent of resize state changes
+  useEffect(() => {
+    if (onResizeStateChange) {
+      onResizeStateChange(isResizing);
+    }
+  }, [isResizing, onResizeStateChange]);
   
   // Animation state for smooth fit view - like ReactFlow
   const animationStateRef = useRef(null);
@@ -271,9 +287,23 @@ const CanvasPerformanceGraph = ({
         const dprChanged = Math.abs(newDPR - lastDPR) > 0.01; // DPI change detection
         
         if (widthChanged || heightChanged || dprChanged) {
+          // Mark as resizing
+          setIsResizing(true);
+          
+          // Clear existing timeout
+          if (resizeTimeoutRef.current) {
+            clearTimeout(resizeTimeoutRef.current);
+          }
+          
+          // Set dimensions
           setDimensions(newDimensions);
           lastDimensions = newDimensions;
           lastDPR = newDPR;
+          
+          // Mark resize as complete after a delay
+          resizeTimeoutRef.current = setTimeout(() => {
+            setIsResizing(false);
+          }, 300); // 300ms after resize stops
           
           scheduleAutoFit(reason);
         }
@@ -351,6 +381,11 @@ const CanvasPerformanceGraph = ({
       if (resizeTimeout) {
         clearTimeout(resizeTimeout);
       }
+      
+      // Clean up resize transition timeout
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+      }
     };
   }, [positionedNodes.length, hasAutoFitted]); // Dependencies for auto-fit decision
 
@@ -420,11 +455,26 @@ const CanvasPerformanceGraph = ({
   // Process graph data and calculate positions with immediate optimal transform
   useEffect(() => {
     if (!graphData.nodes || graphData.nodes.length === 0) {
-      setPositionedNodes([]);
-      setHasAutoFitted(true); // Mark as fitted since there's nothing to fit
-      setIsInitializing(false); // Not initializing if no nodes
-      setTransform({ x: 0, y: 0, scale: 1 }); // Reset to default
+      // Defer state updates to prevent setState during render
+      requestAnimationFrame(() => {
+        setPositionedNodes([]);
+        setHasAutoFitted(true); // Mark as fitted since there's nothing to fit
+        setIsInitializing(false); // Not initializing if no nodes
+        setIsInitialPositioningComplete(true); // Mark as complete
+        setTransform({ x: 0, y: 0, scale: 1 }); // Reset to default
+      });
       return;
+    }
+
+    // Check if this is a significant graph change (different nodes)
+    const prevNodeCount = positionedNodes.length;
+    const newNodeCount = graphData.nodes.filter(n => n.type !== 'clusterBackground').length;
+    const isSignificantChange = prevNodeCount === 0 || Math.abs(prevNodeCount - newNodeCount) > 5;
+    
+    // Reset positioning state on significant changes
+    if (isSignificantChange && isInitialPositioningComplete) {
+      setIsInitialPositioningComplete(false);
+      setIsInitializing(true);
     }
 
     // Use the existing positions from the graph data instead of recalculating
@@ -449,21 +499,27 @@ const CanvasPerformanceGraph = ({
 
     }
 
-    setPositionedNodes(positioned);
-    setHasAutoFitted(false); // Will be set to true when transform is applied
-
-    // If we have valid dimensions, calculate and apply optimal transform immediately
-    if (dimensions.width > 0 && dimensions.height > 0) {
+    // Only auto-fit if this is initial positioning (not a resize after setup)
+    if (!isInitialPositioningComplete && dimensions.width > 0 && dimensions.height > 0) {
+      // Calculate optimal transform for initial setup
       const optimalTransform = calculateOptimalTransform(positioned, dimensions);
+      
+      // Apply transform before injecting nodes to avoid one-frame zoom flash
       setTransform(optimalTransform);
       setHasAutoFitted(true);
-      
-      // Mark initialization as complete after a brief delay to ensure render
+    }
+    
+    // Always update positioned nodes
+    setPositionedNodes(positioned);
+
+    // Mark initialization as complete after a short delay
+    if (!isInitialPositioningComplete) {
       setTimeout(() => {
         setIsInitializing(false);
-      }, 100); // Shorter delay since transform is applied immediately
+        setIsInitialPositioningComplete(true);
+      }, 100);
     }
-  }, [graphData, calculateOptimalTransform, dimensions]);
+  }, [graphData, calculateOptimalTransform, dimensions, isInitialPositioningComplete, positionedNodes.length]);
 
   // Fallback timeout to prevent initialization from getting stuck
   useEffect(() => {
@@ -475,21 +531,6 @@ const CanvasPerformanceGraph = ({
       return () => clearTimeout(fallbackTimeout);
     }
   }, [isInitializing]);
-
-  // Handle case where dimensions change after nodes are already positioned
-  useEffect(() => {
-    if (!hasAutoFitted && positionedNodes.length > 0 && dimensions.width > 0 && dimensions.height > 0) {
-      // Recalculate optimal transform for new dimensions
-      const optimalTransform = calculateOptimalTransform(positionedNodes, dimensions);
-      setTransform(optimalTransform);
-      setHasAutoFitted(true);
-      
-      // Mark initialization as complete
-      setTimeout(() => {
-        setIsInitializing(false);
-      }, 100);
-    }
-  }, [hasAutoFitted, positionedNodes.length, dimensions.width, dimensions.height, calculateOptimalTransform]);
 
   // Calculate cluster paths when clusters change
   useEffect(() => {
@@ -952,6 +993,12 @@ const CanvasPerformanceGraph = ({
 
   // Unified zoom function that can handle different targets
   const zoomTo = useCallback((target = 'all') => {
+    // Prevent zoom during resize transitions
+    if (isResizing) {
+      console.log('⏸️ Zoom prevented during resize transition');
+      return;
+    }
+    
     // Cancel any existing animation
     if (animationStateRef.current) {
       cancelAnimationFrame(animationStateRef.current);
@@ -1010,8 +1057,11 @@ const CanvasPerformanceGraph = ({
 
     // Handle empty target nodes
     if (targetNodes.length === 0) {
-      setTransform({ x: 0, y: 0, scale: 1 });
-      setIsInitializing(false);
+      // Defer state updates to prevent setState during render
+      requestAnimationFrame(() => {
+        setTransform({ x: 0, y: 0, scale: 1 });
+        setIsInitializing(false);
+      });
       return;
     }
 
@@ -1021,48 +1071,50 @@ const CanvasPerformanceGraph = ({
     const clusterPadding = (target === 'clusters' && positionClusters.length > 0) ? 120 : 50;
     const optimalTransform = calculateOptimalTransform(targetNodes, dimensions, clusterPadding);
 
-    // Apply transform with smooth animation
-    setTransform(currentTransform => {
-      const startTransform = { ...currentTransform };
-      const startTime = Date.now();
-      const duration = 300;
-      
-      const animate = () => {
-        const elapsed = Date.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
+    // Apply transform with smooth animation - defer to prevent setState during render
+    requestAnimationFrame(() => {
+      setTransform(currentTransform => {
+        const startTransform = { ...currentTransform };
+        const startTime = Date.now();
+        const duration = 300;
         
-        const newTransform = {
-          x: startTransform.x + (optimalTransform.x - startTransform.x) * progress,
-          y: startTransform.y + (optimalTransform.y - startTransform.y) * progress,
-          scale: startTransform.scale + (optimalTransform.scale - startTransform.scale) * progress
+        const animate = () => {
+          const elapsed = Date.now() - startTime;
+          const progress = Math.min(elapsed / duration, 1);
+          
+          const newTransform = {
+            x: startTransform.x + (optimalTransform.x - startTransform.x) * progress,
+            y: startTransform.y + (optimalTransform.y - startTransform.y) * progress,
+            scale: startTransform.scale + (optimalTransform.scale - startTransform.scale) * progress
+          };
+          
+          // Use requestAnimationFrame to update transform outside of render cycle
+          requestAnimationFrame(() => {
+            setTransform(newTransform);
+          });
+          
+          if (progress < 1) {
+            animationStateRef.current = requestAnimationFrame(animate);
+          } else {
+            animationStateRef.current = null;
+          }
         };
         
-        // Use requestAnimationFrame to update transform outside of render cycle
-        requestAnimationFrame(() => {
-          setTransform(newTransform);
-        });
+        // Start animation on next frame to avoid sync updates
+        requestAnimationFrame(animate);
         
-        if (progress < 1) {
-          animationStateRef.current = requestAnimationFrame(animate);
-        } else {
-          animationStateRef.current = null;
-        }
-      };
-      
-      // Start animation on next frame to avoid sync updates
-      requestAnimationFrame(animate);
-      
-      // Force stop after 400ms no matter what
-      setTimeout(() => {
-        if (animationStateRef.current) {
-          cancelAnimationFrame(animationStateRef.current);
-          animationStateRef.current = null;
-        }
-      }, 400);
-      
-      return currentTransform; // Return current transform for now, animation will update it
+        // Force stop after 400ms no matter what
+        setTimeout(() => {
+          if (animationStateRef.current) {
+            cancelAnimationFrame(animationStateRef.current);
+            animationStateRef.current = null;
+          }
+        }, 400);
+        
+        return currentTransform; // Return current transform for now, animation will update it
+      });
     });
-  }, [positionedNodes, positionClusters, dimensions, calculateOptimalTransform]);
+  }, [positionedNodes, positionClusters, dimensions, calculateOptimalTransform, isResizing]);
 
   // Convenience functions for backward compatibility and cleaner API
   const fitView = useCallback(() => zoomTo('all'), [zoomTo]);
@@ -1087,6 +1139,8 @@ const CanvasPerformanceGraph = ({
     
     setMousePressed(true);
     setLastMouse({ x: e.clientX, y: e.clientY });
+    // Reset drag flag at the beginning of a new interaction
+    isDraggingRef.current = false;
       }, [zoomTo]);
 
   const handleMouseMove = useCallback((e) => {
@@ -1094,6 +1148,11 @@ const CanvasPerformanceGraph = ({
       const deltaX = e.clientX - lastMouse.x;
       const deltaY = e.clientY - lastMouse.y;
       
+      // Mark as dragging if movement exceeds a small threshold (3px total)
+      if (!isDraggingRef.current && (Math.abs(deltaX) + Math.abs(deltaY) > 3)) {
+        isDraggingRef.current = true;
+      }
+
       setTransform(prev => ({
         ...prev,
         x: prev.x + deltaX,
@@ -1124,20 +1183,17 @@ const CanvasPerformanceGraph = ({
           if (cluster && onClusterHover) {
             // EXACT ReactFlow cluster hover handling
             const clusterColor = { bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' };
-            setHoveredOpeningName(cluster.name); // Show opening name tooltip
-            setHoveredClusterColor(clusterColor);
+            // Tooltip state is managed by parent component through callback
             onClusterHover(cluster.name, clusterColor);
           } else if (!cluster && onClusterHoverEnd) {
-            setHoveredOpeningName(null); // Hide opening name tooltip
-            setHoveredClusterColor(null);
+            // Tooltip state is managed by parent component through callback
             onClusterHoverEnd();
           }
         }
       } else if (hoveredCluster) {
         // Clear cluster hover when hovering over a node
         setHoveredCluster(null);
-        setHoveredOpeningName(null); // Hide opening name tooltip
-        setHoveredClusterColor(null);
+        // Tooltip state is managed by parent component through callback
         if (onClusterHoverEnd) {
           onClusterHoverEnd();
         }
@@ -1154,14 +1210,19 @@ const CanvasPerformanceGraph = ({
     setMousePressed(false);
     setHoveredNode(null);
     setHoveredCluster(null);
-    setHoveredOpeningName(null);
-    setHoveredClusterColor(null);
+    // Tooltip state is managed by parent component through callback
     // Clear any hover callbacks
     if (onNodeHoverEnd) onNodeHoverEnd(null, null);
     if (onClusterHoverEnd) onClusterHoverEnd();
   }, [onNodeHoverEnd, onClusterHoverEnd]);
 
   const handleClick = useCallback((e) => {
+    // Suppress clicks that immediately follow a drag.
+    if (isDraggingRef.current) {
+      isDraggingRef.current = false; // reset for next interaction
+      return;
+    }
+
     const node = getNodeAtPosition(e.clientX, e.clientY);
     if (node && onNodeClick) {
       onNodeClick(e, node);
@@ -1297,22 +1358,22 @@ const CanvasPerformanceGraph = ({
             variant="outline" 
             size="sm" 
             onClick={handleToggleOpeningClusters}
-            className={`${showOpeningClusters ? 'bg-purple-600 border-purple-500' : 'bg-slate-700 border-slate-600'} text-slate-200`}
+            className={`${showOpeningClusters ? 'bg-purple-600 border-purple-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
             title="Toggle Opening Clusters"
           >
-            <Layers className="w-4 h-4 mr-2" />
-            Opening Clusters
+            <Layers className="w-4 h-4 mr-0 group-hover:mr-2 2xl:mr-2 transition-all duration-100" />
+            <span className="hidden group-hover:inline 2xl:inline transition-opacity duration-100">Opening Clusters</span>
           </Button>
 
           <Button 
             variant="outline" 
             size="sm" 
             onClick={handleTogglePositionClusters}
-            className={`${showPositionClusters ? 'bg-orange-600 border-orange-500' : 'bg-slate-700 border-slate-600'} text-slate-200`}
+            className={`${showPositionClusters ? 'bg-orange-600 border-orange-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
             title="Toggle Position Clusters (Current Move)"
           >
-            <Target className="w-4 h-4 mr-2" />
-            Position Clusters
+            <Target className="w-4 h-4 mr-0 group-hover:mr-2 2xl:mr-2 transition-all duration-100" />
+            <span className="hidden group-hover:inline 2xl:inline transition-opacity duration-100">Position Clusters</span>
           </Button>
         </div>
       </div>
@@ -1362,7 +1423,7 @@ const CanvasPerformanceGraph = ({
                     className={`w-full px-2 py-1 rounded ${(isGenerating || isInitializing) ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-slate-200'}`}
                     disabled={isGenerating || isInitializing || !onMaxDepthChange}
                   >
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 25, 30, 35, 40, 50].map(d => (
+                  {[5, 10, 15, 20, 25, 30].map(d => (
                     <option key={d} value={d}>{d} moves</option>
                   ))}
                 </select>
@@ -1448,9 +1509,11 @@ const CanvasPerformanceGraph = ({
         <div className="flex items-center gap-3">
           <span>Zoom: {Math.round(transform.scale * 100)}%</span>
           <span className="text-slate-500">
-            <kbd className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 font-mono text-xs">R</kbd> fit-view
-            <span className="mx-1">•</span>
-            <kbd className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 font-mono text-xs">ESC</kbd> emergency reset
+            <kbd className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 font-mono text-xs">R</kbd>
+            <span className="mx-1">or</span>
+            <span className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 text-xs">Middle&nbsp;Mouse&nbsp;Button</span>
+            <span className="mx-1">–</span>
+            fit-view
           </span>
         </div>
       </div>
@@ -1476,27 +1539,7 @@ const CanvasPerformanceGraph = ({
         </div>
       </div>
 
-      {/* Opening Name Tooltip - EXACT ReactFlow implementation */}
-      {hoveredOpeningName && (
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 pointer-events-none">
-          <div 
-            className="border rounded-lg px-4 py-2 shadow-xl backdrop-blur-lg"
-            style={{
-              backgroundColor: hoveredClusterColor ? `${hoveredClusterColor.bg}20` : 'rgba(30, 41, 59, 0.95)',
-              borderColor: hoveredClusterColor ? hoveredClusterColor.border : '#475569'
-            }}
-          >
-            <div 
-              className="font-semibold text-lg"
-              style={{
-                color: hoveredClusterColor ? hoveredClusterColor.text : '#e2e8f0'
-              }}
-            >
-              {hoveredOpeningName}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Opening Name Tooltip is handled by parent component */}
 
       {/* Initialization Loading Overlay - Covers initial positioning flash */}
       {isInitializing && (
