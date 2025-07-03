@@ -31,7 +31,6 @@ export default function Layout() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   const navigationItems = [
-    { name: "Profile", url: createPageUrl("Profile"), icon: User },
     { name: "Performance Graph", url: createPageUrl("PerformanceGraph"), icon: Network },
   ];
 
@@ -193,11 +192,7 @@ export default function Layout() {
                 <div className="bg-slate-700/30 rounded-lg p-3">
                   <div className="text-sm">
                     <div className="flex items-center gap-2 mb-2">
-                      <div className="w-6 h-6 bg-green-600 rounded flex items-center justify-center">
-                        <svg className="w-3 h-3 text-white" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
-                        </svg>
-                      </div>
+                      <img src="/chesscom_logo_pawn.svg" alt="Pawn icon" className="w-6 h-6" />
                       <span className="text-white font-medium">{user.chessComUsername}</span>
                     </div>
                     <p className="text-slate-400 text-xs mb-1">
@@ -283,7 +278,7 @@ export default function Layout() {
                       disabled={isImporting || isLoggingOut}
                       size="sm"
                       variant="outline"
-                      className={`border-red-600/50 text-red-400 hover:bg-red-900/20 transition-all duration-200 ${isSidebarCollapsed ? 'px-3' : 'justify-start'}`}
+                      className={`border-slate-600 text-slate-300 hover:bg-slate-700 transition-all duration-200 ${isSidebarCollapsed ? 'px-3' : 'justify-start'}`}
                     >
                       {isLoggingOut ? (
                         <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
@@ -326,15 +321,6 @@ export default function Layout() {
                 Update your import preferences. Changes will re-import your games with new settings.
               </DialogDescription>
             </DialogHeader>
-
-            {/* Inline Loading Section - always present to maintain layout */}
-            <SettingsLoading 
-              isLoading={isImporting}
-              progress={importProgress}
-              status={importStatus}
-              onComplete={handleSettingsLoadingComplete}
-              className="border-t border-b border-slate-700/50 my-4"
-            />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 py-6">
               {/* Time Controls */}
@@ -555,6 +541,15 @@ export default function Layout() {
                 </AlertDescription>
               </Alert>
             )}
+
+            {/* Loading / Success indicator – always shown at the bottom */}
+            <SettingsLoading 
+              isLoading={isImporting}
+              progress={importProgress}
+              status={importStatus}
+              onComplete={handleSettingsLoadingComplete}
+              className="border-t border-b border-slate-700/50 my-4"
+            />
 
             <DialogFooter>
               <Button 

@@ -37,7 +37,17 @@ export const AuthProvider = ({ children }) => {
         const authData = JSON.parse(savedAuth);
         setUser(authData.user);
         setIsAuthenticated(true);
-        // Don't auto-sync on startup - only sync when user manually triggers it
+        // If user has auto-sync enabled, trigger a background sync immediately
+        if (authData.user?.importSettings?.autoSync) {
+          // Fire and forget – we don't await to avoid blocking UI
+          (async () => {
+            try {
+              await syncUserData(authData.user);
+            } catch (e) {
+              console.warn('Auto-sync on startup failed:', e);
+            }
+          })();
+        }
       } catch (error) {
         console.error('Error parsing saved auth:', error);
         localStorage.removeItem('chessScope_auth');

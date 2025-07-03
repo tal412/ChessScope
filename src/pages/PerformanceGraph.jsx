@@ -29,7 +29,9 @@ import {
   Maximize2,
   RotateCcw,
   RefreshCw,
-  Loader2
+  Loader2,
+  Square,
+  Network
 } from 'lucide-react';
 import { useChessboardSync } from '../hooks/useChessboardSync';
 import { loadOpeningGraph } from '../api/graphStorage';
@@ -651,6 +653,9 @@ function PerformanceGraphContent() {
   // Canvas zoomToClusters function reference
   const [canvasZoomToClusters, setCanvasZoomToClusters] = useState(null);
   
+  // Track canvas resize state
+  const [isCanvasResizing, setIsCanvasResizing] = useState(false);
+  
   // Track zoom function availability
   useEffect(() => {
     // Auto-zoom function ready when available
@@ -848,18 +853,24 @@ function PerformanceGraphContent() {
       lastPositionFenRef.current = currentPositionFen;
     }
     
+    // Check if canvas is ready and not resizing
+    const canvasIsReady = canvasZoomToClusters && !isGenerating && !isCanvasResizing;
+    
     // Immediate zoom - no debounce, no delay
-    if (positionClusters.length > 0 && canvasZoomToClusters && showPerformanceGraph && positionChanged) {
-      try {
-        canvasZoomToClusters();
-      } catch (error) {
-        console.error('❌ Error executing immediate auto-zoom:', error);
-      }
+    if (positionClusters.length > 0 && canvasIsReady && showPerformanceGraph && positionChanged) {
+      // Small delay to ensure canvas has settled after any dimension changes
+      setTimeout(() => {
+        try {
+          canvasZoomToClusters();
+        } catch (error) {
+          console.error('❌ Error executing immediate auto-zoom:', error);
+        }
+      }, 50); // 50ms delay to let any dimension changes settle
     }
     
     // Always hide overlay since we're not using debounce
     setShowZoomDebounceOverlay(false);
-  }, [positionClusters, canvasZoomToClusters, showPerformanceGraph, currentPositionFen]);
+  }, [positionClusters, canvasZoomToClusters, showPerformanceGraph, currentPositionFen, isGenerating, isCanvasResizing]);
 
   // Sync tree with chessboard moves
   useEffect(() => {
@@ -907,7 +918,13 @@ function PerformanceGraphContent() {
   // Async graph generation to prevent UI blocking
   useEffect(() => {
     const generateGraph = async () => {
-      if (!openingGraphRef.current || loading) {
+      // If we are still loading the opening graph data, wait until it finishes
+      if (loading) {
+        return; // Avoid rendering an interim placeholder that causes a visual blink
+      }
+
+      // If loading has finished but we still don't have any graph data (e.g. user hasn't imported games yet)
+      if (!openingGraphRef.current) {
         // Show a default node indicating no data is available
         const noDataNode = {
           id: 'no-data',
@@ -918,9 +935,9 @@ function PerformanceGraphContent() {
             winRate: 50,
             gameCount: 0,
             san: null,
-            openingName: loading ? 'Loading...' : 'Import games to see your opening tree',
+            openingName: 'Import games to see your opening tree',
             openingEco: '',
-            ecoOpeningName: loading ? 'Loading...' : 'Import games to see your opening tree',
+            ecoOpeningName: 'Import games to see your opening tree',
             isRoot: true,
             depth: 0,
             moveSequence: []
@@ -1517,15 +1534,21 @@ function PerformanceGraphContent() {
     }
   }, [graphData, setEdges]);
 
-  // Simple cluster hover handlers
+  // Simple cluster hover handlers - deferred to prevent setState during render
   const handleClusterHover = useCallback((clusterName, clusterColor) => {
-    setHoveredOpeningName(clusterName);
-    setHoveredClusterColor(clusterColor);
+    // Defer state updates to prevent setState during render
+    requestAnimationFrame(() => {
+      setHoveredOpeningName(clusterName);
+      setHoveredClusterColor(clusterColor);
+    });
   }, []);
 
   const handleClusterHoverEnd = useCallback(() => {
-    setHoveredOpeningName(null);
-    setHoveredClusterColor(null);
+    // Defer state updates to prevent setState during render
+    requestAnimationFrame(() => {
+      setHoveredOpeningName(null);
+      setHoveredClusterColor(null);
+    });
   }, []);
 
   // Handle node clicks
@@ -1615,12 +1638,12 @@ function PerformanceGraphContent() {
     setTempWinRateFilter(newTempFilter);
   };
 
-  // Simplified canvas resize - DISABLED to prevent zoom conflicts
+  // Trigger layout updates for components when layout changes
   const triggerCanvasResize = () => {
-    // DISABLED - was causing multiple zoom operations during opening tree interactions
-    // if (showPerformanceGraph && canvasFitView) {
-    //   setTimeout(() => canvasFitView(), 300);
-    // }
+    // Force window resize event to trigger chessboard recalculation
+    setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 100);
   };
 
   const toggleOpeningTree = () => {
@@ -1637,7 +1660,8 @@ function PerformanceGraphContent() {
     const wasHidden = !showPerformanceGraph;
     setShowPerformanceGraph(!showPerformanceGraph);
     
-    // Simplified - let Canvas handle its own initial setup
+    // Trigger resize to update chessboard when layout changes
+    triggerCanvasResize();
   };
 
   // Legacy functions for backward compatibility
@@ -1956,66 +1980,38 @@ function PerformanceGraphContent() {
             </DropdownMenu>
           </div>
 
-          {/* Center: View Toggle Buttons */}
+          {/* Center placeholder removed */}
+
+          {/* Right: View Toggle Buttons */}
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             <Button
               variant={showOpeningTree ? "default" : "outline"}
               size="sm"
               onClick={toggleOpeningTree}
-              className={`${showOpeningTree ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600'}`}
+              className={`${showOpeningTree ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}`}
             >
               <TreePine className="w-4 h-4 sm:mr-2" />
               <span className="hidden sm:inline">Tree</span>
             </Button>
-            
+
             <Button
               variant={showPositionAnalysis ? "default" : "outline"}
               size="sm"
               onClick={togglePositionAnalysis}
-              className={`${showPositionAnalysis ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600'}`}
+              className={`${showPositionAnalysis ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}`}
             >
-              <Brain className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Analysis</span>
+              <Square className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Board</span>
             </Button>
-            
+
             <Button
               variant={showPerformanceGraph ? "default" : "outline"}
               size="sm"
               onClick={togglePerformanceGraph}
-              className={`${showPerformanceGraph ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600'}`}
+              className={`${showPerformanceGraph ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}`}
             >
-              <BarChart3 className="w-4 h-4 sm:mr-2" />
+              <Network className="w-4 h-4 sm:mr-2" />
               <span className="hidden sm:inline">Graph</span>
-            </Button>
-          </div>
-
-          {/* Right: Action Buttons */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleReset}
-              className="text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
-              title="Reset view"
-            >
-              <RotateCcw className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Reset</span>
-            </Button>
-            
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsGenerating(true)}
-              disabled={isGenerating}
-              className="text-slate-400 hover:text-slate-200 hover:bg-slate-700/50"
-              title="Generate new graph"
-            >
-              {isGenerating ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4 sm:mr-2" />
-              )}
-              <span className="hidden sm:inline">Generate</span>
             </Button>
           </div>
         </div>
@@ -2098,35 +2094,7 @@ function PerformanceGraphContent() {
         {showOpeningTree && (
           <section className="h-full border-r border-slate-700/50 bg-slate-800/50 backdrop-blur-xl flex items-center justify-center overflow-hidden">
             <div className="flex flex-col h-full w-full min-w-0">
-              {/* Tree Header */}
-              <header className="p-3 border-b border-slate-700/50 flex-shrink-0">
-                <div className="flex items-center justify-between mb-2">
-                  <h2 className="text-slate-200 font-semibold flex items-center gap-2 text-sm">
-                    {selectedPlayer === 'white' ? (
-                      <Crown className="w-4 h-4 text-amber-400" />
-                    ) : (
-                      <Shield className="w-4 h-4 text-slate-400" />
-                    )}
-                    {selectedPlayer === 'white' ? 'White' : 'Black'} Tree
-                  </h2>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={toggleOpeningTree}
-                    className="text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 h-6 w-6 p-0"
-                    title="Hide opening tree"
-                  >
-                    <ChevronLeft className="w-3 h-3" />
-                  </Button>
-                </div>
-                {treeStats && (
-                  <div className="flex flex-wrap gap-2 text-xs text-slate-400">
-                    <span>{treeStats[selectedPlayer]?.totalGames || 0} games</span>
-                    <span>{treeStats[selectedPlayer]?.totalPositions || 0} pos</span>
-                    <span>{(treeStats[selectedPlayer]?.winRate || 0).toFixed(1)}%</span>
-                  </div>
-                )}
-              </header>
+              {/* Tree Header removed for cleaner look */}
 
               {/* Tree Navigation */}
               <div className="p-3 border-b border-slate-700/50 bg-slate-700/30 flex-shrink-0">
@@ -2191,29 +2159,13 @@ function PerformanceGraphContent() {
         {showPositionAnalysis && (
           <section className="h-full border-r border-slate-700/50 bg-slate-800/70 backdrop-blur-xl flex items-center justify-center overflow-hidden">
             <div className="flex flex-col h-full w-full min-w-0">
-              {/* Analysis Header */}
-              <header className="p-3 border-b border-slate-700/50 flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-slate-200 font-semibold flex items-center gap-2 text-sm">
-                    <Brain className="w-4 h-4 text-blue-400" />
-                    Position Analysis
-                  </h2>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={togglePositionAnalysis}
-                    className="text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 h-6 w-6 p-0"
-                    title="Hide position analysis"
-                  >
-                    <ChevronRight className="w-3 h-3" />
-                  </Button>
-                </div>
-              </header>
-              
+              {/* Analysis Header removed for cleaner look */}
+
               {/* Chessboard Content */}
               <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center p-2">
                               <div className="w-full h-full flex items-center justify-center">
                 <InteractiveChessboard
+                  key={`chessboard-${showOpeningTree}-${showPerformanceGraph}`}
                   currentMoves={chessboardSync.currentMoves}
                   onMoveSelect={chessboardSync.handleMoveSelect}
                   onNewMove={chessboardSync.handleNewMove}
@@ -2263,6 +2215,7 @@ function PerformanceGraphContent() {
               onClusterHoverEnd={handleClusterHoverEnd}
               onFitView={setCanvasFitView}
               onZoomToClusters={setCanvasZoomToClusters}
+              onResizeStateChange={setIsCanvasResizing}
               maxDepth={maxDepth}
               minGameCount={minGameCount}
               winRateFilter={winRateFilter}

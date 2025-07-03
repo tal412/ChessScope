@@ -22,6 +22,9 @@ export const useChessboardSync = ({
   // Refs to track changes and prevent infinite loops
   const prevExternalMovesRef = useRef([]);
   
+  // Track pending node selection updates
+  const [pendingNodeSelection, setPendingNodeSelection] = useState(null);
+  
   /**
    * Handle current moves change - called by chessboard components
    */
@@ -45,15 +48,11 @@ export const useChessboardSync = ({
           onNodeSelect(matchingNode);
         }
         
-        // Update node selection state if setNodes is provided
+        // Schedule node selection update for next render cycle
         if (setNodes) {
-          const updatedNodes = nodes.map(node => ({
-            ...node,
-            selected: node.id === matchingNode.id
-          }));
-          setNodes(updatedNodes);
+          setPendingNodeSelection(matchingNode.id);
         }
-              }
+      }
     }
   };
 
@@ -98,6 +97,20 @@ export const useChessboardSync = ({
       setCurrentMoves(externalMoves);
     }
   }, [externalMoves]);
+
+  /**
+   * Handle pending node selection updates - deferred to prevent setState during render
+   */
+  useEffect(() => {
+    if (pendingNodeSelection && setNodes && nodes.length > 0) {
+      const updatedNodes = nodes.map(node => ({
+        ...node,
+        selected: node.id === pendingNodeSelection
+      }));
+      setNodes(updatedNodes);
+      setPendingNodeSelection(null); // Clear pending update
+    }
+  }, [pendingNodeSelection, setNodes, nodes]);
 
   return {
     // State
