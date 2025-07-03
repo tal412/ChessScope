@@ -678,6 +678,9 @@ function PerformanceGraphContent() {
     };
   }, []); // Empty dependency array since handleReset is stable
 
+  // State to trigger data refresh
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
   // Load opening graph data
   useEffect(() => {
     const loadData = async () => {
@@ -721,6 +724,57 @@ function PerformanceGraphContent() {
     };
     
     loadData();
+  }, [refreshTrigger]); // Include refreshTrigger as dependency
+
+  // Listen for custom refresh event from settings
+  useEffect(() => {
+    const handleRefresh = () => {
+      console.log('🔄 PerformanceGraph received refresh event from settings');
+      
+      // Clear all cached state
+      openingGraphRef.current = null;
+      setOpeningGraph(null);
+      setTreeStats(null);
+      setGraphData({ nodes: [], edges: [], maxGameCount: 0 });
+      setNodes([]);
+      setEdges([]);
+      setOpeningClusters([]);
+      setPositionClusters([]);
+      setInitialLoad(true);
+      setGraphLoaded(false);
+      setIsGenerating(false);
+      
+      // Reset UI states
+      setHoveredMove(null);
+      setHoveredOpeningName(null);
+      setHoveredClusterColor(null);
+      setSelectedNode(null);
+      
+      // Reset chessboard state
+      if (chessboardSync?.resetToStartingPosition) {
+        chessboardSync.resetToStartingPosition();
+      }
+      
+      // Reset view states
+      setCurrentNodeId(null);
+      setHoveredNextMoveNodeId(null);
+      setCurrentPositionFen(null);
+      setTreeHoveredMove(null);
+      setTreeCurrentPath([]);
+      
+      // Trigger data reload
+      setRefreshTrigger(prev => prev + 1);
+      
+      console.log('✅ PerformanceGraph state reset complete');
+    };
+
+    console.log('🎧 PerformanceGraph setting up refresh event listener');
+    window.addEventListener('refreshPerformanceGraph', handleRefresh);
+    
+    return () => {
+      console.log('🧹 PerformanceGraph cleaning up refresh event listener');
+      window.removeEventListener('refreshPerformanceGraph', handleRefresh);
+    };
   }, []);
 
   // State for graph data
