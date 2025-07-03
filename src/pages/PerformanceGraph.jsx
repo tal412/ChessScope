@@ -30,7 +30,7 @@ import {
   RotateCcw,
   RefreshCw,
   Loader2,
-  Square,
+  Grid3x3,
   Network
 } from 'lucide-react';
 import { useChessboardSync } from '../hooks/useChessboardSync';
@@ -2000,7 +2000,7 @@ function PerformanceGraphContent() {
               onClick={togglePositionAnalysis}
               className={`${showPositionAnalysis ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}`}
             >
-              <Square className="w-4 h-4 sm:mr-2" />
+              <Grid3x3 className="w-4 h-4 sm:mr-2" />
               <span className="hidden sm:inline">Board</span>
             </Button>
 
