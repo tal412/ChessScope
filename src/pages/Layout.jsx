@@ -398,20 +398,20 @@ export default function Layout() {
 
                   {tempSettings.selectedDateRange === "custom" && (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label className="text-slate-200 text-sm">From</Label>
+                          <Label className="text-slate-200 text-sm font-medium">From</Label>
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button
                                 variant="outline"
                                 disabled={isImporting}
                                 className={cn(
-                                  "justify-start text-left font-normal bg-slate-600/50 border-slate-500 text-white hover:bg-slate-600 disabled:opacity-50",
+                                  "w-full justify-start text-left font-normal bg-slate-600/50 border-slate-500 text-white hover:bg-slate-600 disabled:opacity-50",
                                   !tempSettings.customDateRange?.from && "text-slate-400"
                                 )}
                               >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
                                 {tempSettings.customDateRange?.from ? (
                                   format(tempSettings.customDateRange.from, "MMM yyyy")
                                 ) : (
@@ -435,18 +435,18 @@ export default function Layout() {
                           </Popover>
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-slate-200 text-sm">To</Label>
+                          <Label className="text-slate-200 text-sm font-medium">To</Label>
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button
                                 variant="outline"
                                 disabled={isImporting}
                                 className={cn(
-                                  "justify-start text-left font-normal bg-slate-600/50 border-slate-500 text-white hover:bg-slate-600 disabled:opacity-50",
+                                  "w-full justify-start text-left font-normal bg-slate-600/50 border-slate-500 text-white hover:bg-slate-600 disabled:opacity-50",
                                   !tempSettings.customDateRange?.to && "text-slate-400"
                                 )}
                               >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
                                 {tempSettings.customDateRange?.to ? (
                                   format(tempSettings.customDateRange.to, "MMM yyyy")
                                 ) : (

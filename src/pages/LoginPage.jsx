@@ -252,20 +252,20 @@ export default function LoginPage() {
 
                   {selectedDateRange === "custom" && (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label className="text-slate-200 text-sm">From</Label>
+                          <Label className="text-slate-200 text-sm font-medium">From</Label>
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button
                                 variant="outline"
                                 className={cn(
-                                  "justify-start text-left font-normal bg-slate-700/50 border-slate-600 text-white hover:bg-slate-700",
+                                  "w-full justify-start text-left font-normal bg-slate-700/50 border-slate-600 text-white hover:bg-slate-700",
                                   !customDateRange.from && "text-slate-400"
                                 )}
                                 disabled={isImporting}
                               >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
                                 {customDateRange.from ? (
                                   format(customDateRange.from, "MMM yyyy")
                                 ) : (
@@ -286,18 +286,18 @@ export default function LoginPage() {
                           </Popover>
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-slate-200 text-sm">To</Label>
+                          <Label className="text-slate-200 text-sm font-medium">To</Label>
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button
                                 variant="outline"
                                 className={cn(
-                                  "justify-start text-left font-normal bg-slate-700/50 border-slate-600 text-white hover:bg-slate-700",
+                                  "w-full justify-start text-left font-normal bg-slate-700/50 border-slate-600 text-white hover:bg-slate-700",
                                   !customDateRange.to && "text-slate-400"
                                 )}
                                 disabled={isImporting}
                               >
-                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                <CalendarIcon className="mr-2 h-4 w-4 flex-shrink-0" />
                                 {customDateRange.to ? (
                                   format(customDateRange.to, "MMM yyyy")
                                 ) : (
