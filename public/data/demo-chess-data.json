@@ -1,0 +1,802 @@
+{
+  "metadata": {
+    "username": "taltbest",
+    "totalGames": 100,
+    "timeClass": "rapid",
+    "monthsFetched": 3,
+    "generated": "2025-07-02T19:17:22.853Z",
+    "note": "Regenerated with proper tree layout"
+  },
+  "graphData": {
+    "nodes": [
+      {
+        "id": "root_e4",
+        "move": "e4",
+        "winRate": 49,
+        "gameCount": 79,
+        "opening": "King's Pawn Opening",
+        "type": "default",
+        "position": {
+          "x": 900,
+          "y": 50
+        }
+      },
+      {
+        "id": "root_d4",
+        "move": "d4",
+        "winRate": 39,
+        "gameCount": 18,
+        "opening": "Queen's Pawn Opening",
+        "type": "default",
+        "position": {
+          "x": 2650,
+          "y": 50
+        }
+      },
+      {
+        "id": "root_Nf3",
+        "move": "Nf3",
+        "winRate": 33,
+        "gameCount": 3,
+        "opening": "Réti Opening",
+        "type": "default",
+        "position": {
+          "x": 3650,
+          "y": 50
+        }
+      },
+      {
+        "id": "root_e4_c6",
+        "move": "c6",
+        "winRate": 46,
+        "gameCount": 41,
+        "opening": "Caro-Kann Defense",
+        "type": "default",
+        "position": {
+          "x": 300,
+          "y": 250
+        }
+      },
+      {
+        "id": "root_e4_e5",
+        "move": "e5",
+        "winRate": 52,
+        "gameCount": 25,
+        "opening": "King's Pawn Game",
+        "type": "default",
+        "position": {
+          "x": 900,
+          "y": 250
+        }
+      },
+      {
+        "id": "root_e4_c5",
+        "move": "c5",
+        "winRate": 47,
+        "gameCount": 15,
+        "opening": "Sicilian Defense",
+        "type": "default",
+        "position": {
+          "x": 1500,
+          "y": 250
+        }
+      },
+      {
+        "id": "root_e4_c6_d4",
+        "move": "d4",
+        "winRate": 42,
+        "gameCount": 26,
+        "opening": "Caro-Kann Defense",
+        "type": "default",
+        "position": {
+          "x": 300,
+          "y": 450
+        }
+      },
+      {
+        "id": "root_e4_c6_d4_d5",
+        "move": "d5",
+        "winRate": 40,
+        "gameCount": 25,
+        "opening": "Caro-Kann Defense: Main Line",
+        "type": "default",
+        "position": {
+          "x": 300,
+          "y": 650
+        }
+      },
+      {
+        "id": "root_e4_c6_d4_d5_e5",
+        "move": "e5",
+        "winRate": 35,
+        "gameCount": 17,
+        "opening": "Caro-Kann Defense: Advance Variation",
+        "type": "default",
+        "position": {
+          "x": 150,
+          "y": 850
+        }
+      },
+      {
+        "id": "root_e4_c6_d4_d5_Nc3",
+        "move": "Nc3",
+        "winRate": 50,
+        "gameCount": 8,
+        "opening": "Caro-Kann Defense: Classical Variation",
+        "type": "default",
+        "position": {
+          "x": 450,
+          "y": 850
+        }
+      },
+      {
+        "id": "root_e4_e5_Nf3",
+        "move": "Nf3",
+        "winRate": 55,
+        "gameCount": 20,
+        "opening": "King's Knight Opening",
+        "type": "default",
+        "position": {
+          "x": 900,
+          "y": 450
+        }
+      },
+      {
+        "id": "root_e4_e5_Nf3_Nc6",
+        "move": "Nc6",
+        "winRate": 58,
+        "gameCount": 15,
+        "opening": "King's Knight Opening",
+        "type": "default",
+        "position": {
+          "x": 900,
+          "y": 650
+        }
+      },
+      {
+        "id": "root_e4_e5_Nf3_Nc6_Bb5",
+        "move": "Bb5",
+        "winRate": 60,
+        "gameCount": 12,
+        "opening": "Ruy Lopez",
+        "type": "default",
+        "position": {
+          "x": 750,
+          "y": 850
+        }
+      },
+      {
+        "id": "root_e4_e5_Nf3_Nc6_Bc4",
+        "move": "Bc4",
+        "winRate": 55,
+        "gameCount": 8,
+        "opening": "Italian Game",
+        "type": "default",
+        "position": {
+          "x": 1050,
+          "y": 850
+        }
+      },
+      {
+        "id": "root_e4_c5_Nf3",
+        "move": "Nf3",
+        "winRate": 45,
+        "gameCount": 12,
+        "opening": "Sicilian Defense: Open",
+        "type": "default",
+        "position": {
+          "x": 1500,
+          "y": 450
+        }
+      },
+      {
+        "id": "root_e4_c5_Nf3_d6",
+        "move": "d6",
+        "winRate": 42,
+        "gameCount": 8,
+        "opening": "Sicilian Defense: Najdorf",
+        "type": "default",
+        "position": {
+          "x": 1350,
+          "y": 650
+        }
+      },
+      {
+        "id": "root_e4_c5_Nf3_Nc6",
+        "move": "Nc6",
+        "winRate": 48,
+        "gameCount": 4,
+        "opening": "Sicilian Defense: Accelerated Dragon",
+        "type": "default",
+        "position": {
+          "x": 1650,
+          "y": 650
+        }
+      },
+      {
+        "id": "root_d4_d5",
+        "move": "d5",
+        "winRate": 39,
+        "gameCount": 18,
+        "opening": "Queen's Pawn Game",
+        "type": "default",
+        "position": {
+          "x": 2500,
+          "y": 250
+        }
+      },
+      {
+        "id": "root_d4_Nf6",
+        "move": "Nf6",
+        "winRate": 35,
+        "gameCount": 8,
+        "opening": "Indian Defense",
+        "type": "default",
+        "position": {
+          "x": 2950,
+          "y": 250
+        }
+      },
+      {
+        "id": "root_d4_d5_c4",
+        "move": "c4",
+        "winRate": 45,
+        "gameCount": 12,
+        "opening": "Queen's Gambit",
+        "type": "default",
+        "position": {
+          "x": 2500,
+          "y": 450
+        }
+      },
+      {
+        "id": "root_d4_d5_c4_e6",
+        "move": "e6",
+        "winRate": 50,
+        "gameCount": 8,
+        "opening": "Queen's Gambit Declined",
+        "type": "default",
+        "position": {
+          "x": 2350,
+          "y": 650
+        }
+      },
+      {
+        "id": "root_d4_d5_c4_dxc4",
+        "move": "dxc4",
+        "winRate": 40,
+        "gameCount": 4,
+        "opening": "Queen's Gambit Accepted",
+        "type": "default",
+        "position": {
+          "x": 2650,
+          "y": 650
+        }
+      },
+      {
+        "id": "root_Nf3_d5",
+        "move": "d5",
+        "winRate": 33,
+        "gameCount": 3,
+        "opening": "Réti Opening",
+        "type": "default",
+        "position": {
+          "x": 3650,
+          "y": 250
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "root_e4",
+        "to": "root_e4_c6"
+      },
+      {
+        "from": "root_e4",
+        "to": "root_e4_e5"
+      },
+      {
+        "from": "root_e4",
+        "to": "root_e4_c5"
+      },
+      {
+        "from": "root_e4_c6",
+        "to": "root_e4_c6_d4"
+      },
+      {
+        "from": "root_e4_c6_d4",
+        "to": "root_e4_c6_d4_d5"
+      },
+      {
+        "from": "root_e4_c6_d4_d5",
+        "to": "root_e4_c6_d4_d5_e5"
+      },
+      {
+        "from": "root_e4_c6_d4_d5",
+        "to": "root_e4_c6_d4_d5_Nc3"
+      },
+      {
+        "from": "root_e4_e5",
+        "to": "root_e4_e5_Nf3"
+      },
+      {
+        "from": "root_e4_e5_Nf3",
+        "to": "root_e4_e5_Nf3_Nc6"
+      },
+      {
+        "from": "root_e4_e5_Nf3_Nc6",
+        "to": "root_e4_e5_Nf3_Nc6_Bb5"
+      },
+      {
+        "from": "root_e4_e5_Nf3_Nc6",
+        "to": "root_e4_e5_Nf3_Nc6_Bc4"
+      },
+      {
+        "from": "root_e4_c5",
+        "to": "root_e4_c5_Nf3"
+      },
+      {
+        "from": "root_e4_c5_Nf3",
+        "to": "root_e4_c5_Nf3_d6"
+      },
+      {
+        "from": "root_e4_c5_Nf3",
+        "to": "root_e4_c5_Nf3_Nc6"
+      },
+      {
+        "from": "root_d4",
+        "to": "root_d4_d5"
+      },
+      {
+        "from": "root_d4",
+        "to": "root_d4_Nf6"
+      },
+      {
+        "from": "root_d4_d5",
+        "to": "root_d4_d5_c4"
+      },
+      {
+        "from": "root_d4_d5_c4",
+        "to": "root_d4_d5_c4_e6"
+      },
+      {
+        "from": "root_d4_d5_c4",
+        "to": "root_d4_d5_c4_dxc4"
+      },
+      {
+        "from": "root_Nf3",
+        "to": "root_Nf3_d5"
+      }
+    ]
+  },
+  "openingClusters": [
+    {
+      "name": "Caro-Kann Complex",
+      "nodes": [
+        {
+          "id": "root_e4_c6",
+          "move": "c6",
+          "winRate": 46,
+          "gameCount": 41,
+          "opening": "Caro-Kann Defense",
+          "type": "default",
+          "position": {
+            "x": 300,
+            "y": 250
+          }
+        },
+        {
+          "id": "root_e4_c6_d4",
+          "move": "d4",
+          "winRate": 42,
+          "gameCount": 26,
+          "opening": "Caro-Kann Defense",
+          "type": "default",
+          "position": {
+            "x": 300,
+            "y": 450
+          }
+        },
+        {
+          "id": "root_e4_c6_d4_d5",
+          "move": "d5",
+          "winRate": 40,
+          "gameCount": 25,
+          "opening": "Caro-Kann Defense: Main Line",
+          "type": "default",
+          "position": {
+            "x": 300,
+            "y": 650
+          }
+        },
+        {
+          "id": "root_e4_c6_d4_d5_e5",
+          "move": "e5",
+          "winRate": 35,
+          "gameCount": 17,
+          "opening": "Caro-Kann Defense: Advance Variation",
+          "type": "default",
+          "position": {
+            "x": 150,
+            "y": 850
+          }
+        },
+        {
+          "id": "root_e4_c6_d4_d5_Nc3",
+          "move": "Nc3",
+          "winRate": 50,
+          "gameCount": 8,
+          "opening": "Caro-Kann Defense: Classical Variation",
+          "type": "default",
+          "position": {
+            "x": 450,
+            "y": 850
+          }
+        }
+      ],
+      "customColor": {
+        "bg": "#8b5cf6",
+        "border": "#7c3aed"
+      }
+    },
+    {
+      "name": "King's Pawn Games",
+      "nodes": [
+        {
+          "id": "root_e4",
+          "move": "e4",
+          "winRate": 49,
+          "gameCount": 79,
+          "opening": "King's Pawn Opening",
+          "type": "default",
+          "position": {
+            "x": 900,
+            "y": 50
+          }
+        },
+        {
+          "id": "root_e4_e5",
+          "move": "e5",
+          "winRate": 52,
+          "gameCount": 25,
+          "opening": "King's Pawn Game",
+          "type": "default",
+          "position": {
+            "x": 900,
+            "y": 250
+          }
+        },
+        {
+          "id": "root_e4_e5_Nf3",
+          "move": "Nf3",
+          "winRate": 55,
+          "gameCount": 20,
+          "opening": "King's Knight Opening",
+          "type": "default",
+          "position": {
+            "x": 900,
+            "y": 450
+          }
+        },
+        {
+          "id": "root_e4_e5_Nf3_Nc6",
+          "move": "Nc6",
+          "winRate": 58,
+          "gameCount": 15,
+          "opening": "King's Knight Opening",
+          "type": "default",
+          "position": {
+            "x": 900,
+            "y": 650
+          }
+        }
+      ],
+      "customColor": {
+        "bg": "#10b981",
+        "border": "#059669"
+      }
+    },
+    {
+      "name": "Sicilian Complex",
+      "nodes": [
+        {
+          "id": "root_e4_c5",
+          "move": "c5",
+          "winRate": 47,
+          "gameCount": 15,
+          "opening": "Sicilian Defense",
+          "type": "default",
+          "position": {
+            "x": 1500,
+            "y": 250
+          }
+        },
+        {
+          "id": "root_e4_c5_Nf3",
+          "move": "Nf3",
+          "winRate": 45,
+          "gameCount": 12,
+          "opening": "Sicilian Defense: Open",
+          "type": "default",
+          "position": {
+            "x": 1500,
+            "y": 450
+          }
+        },
+        {
+          "id": "root_e4_c5_Nf3_d6",
+          "move": "d6",
+          "winRate": 42,
+          "gameCount": 8,
+          "opening": "Sicilian Defense: Najdorf",
+          "type": "default",
+          "position": {
+            "x": 1350,
+            "y": 650
+          }
+        },
+        {
+          "id": "root_e4_c5_Nf3_Nc6",
+          "move": "Nc6",
+          "winRate": 48,
+          "gameCount": 4,
+          "opening": "Sicilian Defense: Accelerated Dragon",
+          "type": "default",
+          "position": {
+            "x": 1650,
+            "y": 650
+          }
+        }
+      ],
+      "customColor": {
+        "bg": "#f59e0b",
+        "border": "#d97706"
+      }
+    },
+    {
+      "name": "Queen's Gambit Family",
+      "nodes": [
+        {
+          "id": "root_d4",
+          "move": "d4",
+          "winRate": 39,
+          "gameCount": 18,
+          "opening": "Queen's Pawn Opening",
+          "type": "default",
+          "position": {
+            "x": 2650,
+            "y": 50
+          }
+        },
+        {
+          "id": "root_d4_d5",
+          "move": "d5",
+          "winRate": 39,
+          "gameCount": 18,
+          "opening": "Queen's Pawn Game",
+          "type": "default",
+          "position": {
+            "x": 2500,
+            "y": 250
+          }
+        },
+        {
+          "id": "root_d4_d5_c4",
+          "move": "c4",
+          "winRate": 45,
+          "gameCount": 12,
+          "opening": "Queen's Gambit",
+          "type": "default",
+          "position": {
+            "x": 2500,
+            "y": 450
+          }
+        },
+        {
+          "id": "root_d4_d5_c4_e6",
+          "move": "e6",
+          "winRate": 50,
+          "gameCount": 8,
+          "opening": "Queen's Gambit Declined",
+          "type": "default",
+          "position": {
+            "x": 2350,
+            "y": 650
+          }
+        },
+        {
+          "id": "root_d4_d5_c4_dxc4",
+          "move": "dxc4",
+          "winRate": 40,
+          "gameCount": 4,
+          "opening": "Queen's Gambit Accepted",
+          "type": "default",
+          "position": {
+            "x": 2650,
+            "y": 650
+          }
+        }
+      ],
+      "customColor": {
+        "bg": "#ef4444",
+        "border": "#dc2626"
+      }
+    }
+  ],
+  "positionClusters": [
+    {
+      "name": "Solid Positions",
+      "allNodes": [
+        {
+          "id": "root_e4_e5",
+          "move": "e5",
+          "winRate": 52,
+          "gameCount": 25,
+          "opening": "King's Pawn Game",
+          "type": "default",
+          "position": {
+            "x": 900,
+            "y": 250
+          }
+        },
+        {
+          "id": "root_e4_c6_d4_d5_Nc3",
+          "move": "Nc3",
+          "winRate": 50,
+          "gameCount": 8,
+          "opening": "Caro-Kann Defense: Classical Variation",
+          "type": "default",
+          "position": {
+            "x": 450,
+            "y": 850
+          }
+        },
+        {
+          "id": "root_e4_e5_Nf3",
+          "move": "Nf3",
+          "winRate": 55,
+          "gameCount": 20,
+          "opening": "King's Knight Opening",
+          "type": "default",
+          "position": {
+            "x": 900,
+            "y": 450
+          }
+        },
+        {
+          "id": "root_e4_e5_Nf3_Nc6",
+          "move": "Nc6",
+          "winRate": 58,
+          "gameCount": 15,
+          "opening": "King's Knight Opening",
+          "type": "default",
+          "position": {
+            "x": 900,
+            "y": 650
+          }
+        },
+        {
+          "id": "root_e4_e5_Nf3_Nc6_Bb5",
+          "move": "Bb5",
+          "winRate": 60,
+          "gameCount": 12,
+          "opening": "Ruy Lopez",
+          "type": "default",
+          "position": {
+            "x": 750,
+            "y": 850
+          }
+        },
+        {
+          "id": "root_e4_e5_Nf3_Nc6_Bc4",
+          "move": "Bc4",
+          "winRate": 55,
+          "gameCount": 8,
+          "opening": "Italian Game",
+          "type": "default",
+          "position": {
+            "x": 1050,
+            "y": 850
+          }
+        },
+        {
+          "id": "root_d4_d5_c4_e6",
+          "move": "e6",
+          "winRate": 50,
+          "gameCount": 8,
+          "opening": "Queen's Gambit Declined",
+          "type": "default",
+          "position": {
+            "x": 2350,
+            "y": 650
+          }
+        }
+      ],
+      "customColor": {
+        "bg": "#22c55e",
+        "border": "#16a34a"
+      }
+    },
+    {
+      "name": "Challenging Positions",
+      "allNodes": [
+        {
+          "id": "root_d4",
+          "move": "d4",
+          "winRate": 39,
+          "gameCount": 18,
+          "opening": "Queen's Pawn Opening",
+          "type": "default",
+          "position": {
+            "x": 2650,
+            "y": 50
+          }
+        },
+        {
+          "id": "root_Nf3",
+          "move": "Nf3",
+          "winRate": 33,
+          "gameCount": 3,
+          "opening": "Réti Opening",
+          "type": "default",
+          "position": {
+            "x": 3650,
+            "y": 50
+          }
+        },
+        {
+          "id": "root_e4_c6_d4_d5_e5",
+          "move": "e5",
+          "winRate": 35,
+          "gameCount": 17,
+          "opening": "Caro-Kann Defense: Advance Variation",
+          "type": "default",
+          "position": {
+            "x": 150,
+            "y": 850
+          }
+        },
+        {
+          "id": "root_d4_d5",
+          "move": "d5",
+          "winRate": 39,
+          "gameCount": 18,
+          "opening": "Queen's Pawn Game",
+          "type": "default",
+          "position": {
+            "x": 2500,
+            "y": 250
+          }
+        },
+        {
+          "id": "root_d4_Nf6",
+          "move": "Nf6",
+          "winRate": 35,
+          "gameCount": 8,
+          "opening": "Indian Defense",
+          "type": "default",
+          "position": {
+            "x": 2950,
+            "y": 250
+          }
+        },
+        {
+          "id": "root_Nf3_d5",
+          "move": "d5",
+          "winRate": 33,
+          "gameCount": 3,
+          "opening": "Réti Opening",
+          "type": "default",
+          "position": {
+            "x": 3650,
+            "y": 250
+          }
+        }
+      ],
+      "customColor": {
+        "bg": "#f97316",
+        "border": "#ea580c"
+      }
+    }
+  ]
+}
