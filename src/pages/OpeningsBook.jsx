@@ -29,9 +29,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useAuth } from '../contexts/AuthContext';
 
 export default function OpeningsBook() {
   const navigate = useNavigate();
+  const { isSyncing, syncProgress, syncStatus } = useAuth(); // Get syncing state, progress, and status from auth context
   const [openings, setOpenings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -101,12 +103,58 @@ export default function OpeningsBook() {
     }
   };
 
-  if (loading) {
+  if (loading || isSyncing) {
     return (
       <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-amber-500 animate-spin mx-auto mb-4" />
-          <p className="text-slate-300">Loading your openings...</p>
+          <div className="relative mb-8">
+            <div className="animate-spin rounded-full h-20 w-20 border-4 border-slate-700 border-t-purple-500 mx-auto"></div>
+            <div className="absolute inset-0 rounded-full bg-purple-500/10 blur-lg"></div>
+          </div>
+          <div className="space-y-3">
+            <h2 className="text-2xl font-bold text-slate-200">
+              {isSyncing ? 'Syncing Games' : 'Loading Openings Book'}
+            </h2>
+            <p className="text-slate-400 text-base max-w-md mx-auto">
+              {isSyncing ? 
+                'Updating your chess database with latest games. This may take a moment...' : 
+                'Loading your saved openings and analysis'
+              }
+            </p>
+            <div className="flex items-center justify-center gap-2 mt-6">
+              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+            </div>
+            {isSyncing && (
+              <div className="mt-6 space-y-4">
+                <div className="w-80 mx-auto space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-300 font-medium truncate pr-4">
+                      {syncProgress >= 100 ? 'Finalizing...' : syncStatus || 'Updating Analysis...'}
+                    </span>
+                    <span className="text-slate-400 flex-shrink-0">
+                      {Math.round(syncProgress || 0)}%
+                    </span>
+                  </div>
+                  
+                  <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full origin-left"
+                      style={{ 
+                        transform: `scaleX(${Math.min(syncProgress || 0, 100) / 100})`,
+                        transition: 'transform 0.3s ease-out',
+                        willChange: 'transform'
+                      }}
+                    />
+                  </div>
+                </div>
+                <p className="text-slate-500 text-sm">
+                  This runs in the background - feel free to switch tabs
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );
