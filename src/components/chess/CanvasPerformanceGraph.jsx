@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -216,7 +216,6 @@ const CanvasPerformanceGraph = ({
   const [positionedNodes, setPositionedNodes] = useState([]);
   const [hoveredNode, setHoveredNode] = useState(null);
   const [hoveredCluster, setHoveredCluster] = useState(null); // Track hovered cluster
-  const [clusterPaths, setClusterPaths] = useState([]); // Store cluster paths for hit testing
   // Note: Opening name tooltip state is managed by parent component through callbacks
   const [hasAutoFitted, setHasAutoFitted] = useState(false); // Track if we've done initial auto-fit
   const [isInitializing, setIsInitializing] = useState(true); // Track initial setup
@@ -412,7 +411,7 @@ const CanvasPerformanceGraph = ({
         clearTimeout(resizeTimeoutRef.current);
       }
     };
-  }, [hasAutoFitted]); // Removed positionedNodes.length from dependencies - it was causing infinite loops
+  }, [positionedNodes.length, hasAutoFitted]); // Dependencies for auto-fit decision
 
   // Auto-fit is handled directly in the graph processing effect below
 
@@ -491,17 +490,6 @@ const CanvasPerformanceGraph = ({
       return;
     }
 
-    // Check if this is a significant graph change (different nodes)
-    const prevNodeCount = positionedNodes.length;
-    const newNodeCount = graphData.nodes.filter(n => n.type !== 'clusterBackground').length;
-    const isSignificantChange = prevNodeCount === 0 || Math.abs(prevNodeCount - newNodeCount) > 5;
-    
-    // Reset positioning state on significant changes
-    if (isSignificantChange && isInitialPositioningComplete) {
-      setIsInitialPositioningComplete(false);
-      setIsInitializing(true);
-    }
-
     // Use the existing positions from the graph data instead of recalculating
     const nodes = graphData.nodes.filter(n => n.type !== 'clusterBackground');
     const positioned = nodes.map(node => ({
@@ -512,16 +500,15 @@ const CanvasPerformanceGraph = ({
       height: 180
     }));
 
-    // Debug: Check positioned nodes bounds
-    if (positioned.length > 0) {
-      const bounds = positioned.reduce((acc, node) => ({
-        minX: Math.min(acc.minX, node.x),
-        maxX: Math.max(acc.maxX, node.x),
-        minY: Math.min(acc.minY, node.y),
-        maxY: Math.max(acc.maxY, node.y)
-      }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
-      
-
+    // Check if this is a significant graph change (different nodes)
+    const newNodeCount = positioned.length;
+    const prevNodeCount = positionedNodes.length;
+    const isSignificantChange = prevNodeCount === 0 || Math.abs(prevNodeCount - newNodeCount) > 5;
+    
+    // Reset positioning state on significant changes
+    if (isSignificantChange && isInitialPositioningComplete) {
+      setIsInitialPositioningComplete(false);
+      setIsInitializing(true);
     }
 
     // Only auto-fit if this is initial positioning (not a resize after setup)
@@ -544,7 +531,7 @@ const CanvasPerformanceGraph = ({
         setIsInitialPositioningComplete(true);
       }, 100);
     }
-  }, [graphData, calculateOptimalTransform, dimensions, isInitialPositioningComplete]); // Removed positionedNodes.length - it was causing infinite loops
+  }, [graphData, calculateOptimalTransform, dimensions, isInitialPositioningComplete]); // Removed positionedNodes.length dependency
 
   // Fallback timeout to prevent initialization from getting stuck
   useEffect(() => {
@@ -557,11 +544,10 @@ const CanvasPerformanceGraph = ({
     }
   }, [isInitializing]);
 
-  // Calculate cluster paths when clusters change
-  useEffect(() => {
+  // Calculate cluster paths when clusters change - use useMemo to prevent infinite loops
+  const clusterPathsData = useMemo(() => {
     if (!showOpeningClusters || !openingClusters.length || !positionedNodes.length) {
-      setClusterPaths([]);
-      return;
+      return [];
     }
 
     const newClusterPaths = [];
@@ -641,7 +627,7 @@ const CanvasPerformanceGraph = ({
       newClusterPaths.push({ cluster, path: hitTestPath });
     });
 
-    setClusterPaths(newClusterPaths);
+    return newClusterPaths;
   }, [showOpeningClusters, openingClusters, positionedNodes]);
 
   // Canvas rendering function - HIGH DPI SUPPORT
@@ -1099,7 +1085,7 @@ const CanvasPerformanceGraph = ({
 
   // Hit testing for clusters
   const getClusterAtPosition = useCallback((clientX, clientY) => {
-    if (!showOpeningClusters || clusterPaths.length === 0) return null;
+    if (!showOpeningClusters || clusterPathsData.length === 0) return null;
 
     const canvas = canvasRef.current;
     if (!canvas) return null;
@@ -1113,8 +1099,8 @@ const CanvasPerformanceGraph = ({
     const worldY = (canvasY - transform.y) / transform.scale;
 
     // Check clusters in reverse order (top to bottom in rendering)
-    for (let i = clusterPaths.length - 1; i >= 0; i--) {
-      const { cluster, path } = clusterPaths[i];
+    for (let i = clusterPathsData.length - 1; i >= 0; i--) {
+      const { cluster, path } = clusterPathsData[i];
       
       // Use point-in-polygon test for the cluster path
       if (isPointInPath(worldX, worldY, path)) {
@@ -1123,7 +1109,7 @@ const CanvasPerformanceGraph = ({
     }
 
     return null;
-  }, [showOpeningClusters, clusterPaths, transform]);
+  }, [showOpeningClusters, clusterPathsData, transform]);
 
   // Point-in-polygon test using ray casting algorithm
   const isPointInPath = (x, y, path) => {
