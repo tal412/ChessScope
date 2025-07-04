@@ -818,17 +818,19 @@ const fetchLichessGames = async (username, importSettings = {}) => {
     // Calculate date range for Lichess API
     const currentDate = new Date();
     let sinceDate = new Date();
+    let untilDate = null;
     
     try {
       if (selectedDateRange === "custom") {
         if (customDateRange.from && customDateRange.to) {
           sinceDate = new Date(customDateRange.from);
-          const toDate = new Date(customDateRange.to);
+          untilDate = new Date(customDateRange.to);
           
           // Validate date range
-          if (sinceDate >= toDate) {
+          if (sinceDate >= untilDate) {
             console.warn('Invalid date range: start date must be before end date');
             sinceDate.setMonth(currentDate.getMonth() - 3); // fallback to 3 months
+            untilDate = null;
           }
         } else {
           sinceDate.setMonth(currentDate.getMonth() - 3); // default to 3 months
@@ -849,6 +851,8 @@ const fetchLichessGames = async (username, importSettings = {}) => {
     
     // Convert to Unix timestamp (milliseconds)
     const sinceTimestamp = sinceDate.getTime();
+    // For until parameter, add a day to include the full end date
+    const untilTimestamp = untilDate ? untilDate.getTime() + (24 * 60 * 60 * 1000) : null;
     
     // Build Lichess API URL like the working openingtree project
     const lichessBaseURL = 'https://lichess.org/api/games/user/';
@@ -877,8 +881,9 @@ const fetchLichessGames = async (username, importSettings = {}) => {
     const perfFilter = perfs ? `&perfType=${perfs}` : '';
     const ratedFilter = '&rated=true'; // Only rated games
     const timeSinceFilter = `&since=${sinceTimestamp}`;
+    const timeUntilFilter = untilTimestamp ? `&until=${untilTimestamp}` : '';
     
-    const apiUrl = `${lichessBaseURL}${playerNameFilter}?max=1500${ratedFilter}${perfFilter}${timeSinceFilter}`;
+    const apiUrl = `${lichessBaseURL}${playerNameFilter}?max=1500${ratedFilter}${perfFilter}${timeSinceFilter}${timeUntilFilter}`;
     
     console.log('Fetching Lichess games from:', apiUrl);
     
