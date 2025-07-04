@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import InteractiveChessboard from '../components/chess/InteractiveChessboard';
-import ChunkVisualization from '../components/opening-tree/ChunkVisualization';
-import ClusterOverlay from '../components/opening-tree/ClusterOverlay';
+import ChunkVisualization from '../components/opening-moves/ChunkVisualization';
+import ClusterOverlay from '../components/opening-moves/ClusterOverlay';
 import CanvasPerformanceGraph from '../components/chess/CanvasPerformanceGraph';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
@@ -25,7 +25,6 @@ import {
   Filter,
   BarChart3,
   Menu,
-  TreePine,
   Maximize2,
   RotateCcw,
   RefreshCw,
@@ -619,20 +618,20 @@ function PerformanceGraphContent() {
   const [showPositionClusters, setShowPositionClusters] = useState(true); // Show position clusters by default
   
   // Flexible Layout State - allows independent control of each component
-  const [showOpeningTree, setShowOpeningTree] = useState(true); // Show opening tree
+  const [showOpeningMoves, setShowOpeningMoves] = useState(true); // Show opening moves
   const [showPositionAnalysis, setShowPositionAnalysis] = useState(true); // Show position analysis (chessboard)
   const [showPerformanceGraph, setShowPerformanceGraph] = useState(true); // Show performance graph
   
   // Legacy chessboard state (now handled by showPositionAnalysis)
   const showChessboard = showPositionAnalysis; // Backward compatibility
   
-  // Opening Tree integration state
+  // Opening Moves integration state
   const [openingGraph, setOpeningGraph] = useState(null); // Opening graph data
-  const [treeStats, setTreeStats] = useState(null); // Tree statistics
-  const [treeHoveredMove, setTreeHoveredMove] = useState(null); // Tree hovered move for arrows
-  const [treeDirectScrollFn, setTreeDirectScrollFn] = useState(null); // Direct scroll function from tree
+  const [movesStats, setMovesStats] = useState(null); // Moves statistics
+  const [movesHoveredMove, setMovesHoveredMove] = useState(null); // Moves hovered move for arrows
+  const [movesDirectScrollFn, setMovesDirectScrollFn] = useState(null); // Direct scroll function from moves
   const [hoveredNextMoveNodeId, setHoveredNextMoveNodeId] = useState(null); // Track hovered next move node
-  const [treeCurrentPath, setTreeCurrentPath] = useState([]); // Persistent tree path state
+  const [movesCurrentPath, setMovesCurrentPath] = useState([]); // Persistent moves path state
   
   // Use shared chessboard sync hook
   const chessboardSync = useChessboardSync({
@@ -714,10 +713,10 @@ function PerformanceGraphContent() {
         setGraphLoaded(true); // Trigger recalculation
         setInitialLoad(false); // Mark initial load as complete
         
-        // Also set up opening tree with the same graph
+        // Also set up opening moves with the same graph
         setOpeningGraph(graph);
         const overallStats = graph.getOverallStats();
-        setTreeStats(overallStats);
+        setMovesStats(overallStats);
         
 
         
@@ -739,7 +738,7 @@ function PerformanceGraphContent() {
       // Clear all cached state
       openingGraphRef.current = null;
       setOpeningGraph(null);
-      setTreeStats(null);
+      setMovesStats(null);
       setGraphData({ nodes: [], edges: [], maxGameCount: 0 });
       setNodes([]);
       setEdges([]);
@@ -764,8 +763,8 @@ function PerformanceGraphContent() {
       setCurrentNodeId(null);
       setHoveredNextMoveNodeId(null);
       setCurrentPositionFen(null);
-      setTreeHoveredMove(null);
-      setTreeCurrentPath([]);
+      setMovesHoveredMove(null);
+      setMovesCurrentPath([]);
       
       // Trigger data reload
       setRefreshTrigger(prev => prev + 1);
@@ -872,15 +871,15 @@ function PerformanceGraphContent() {
     setShowZoomDebounceOverlay(false);
   }, [positionClusters, canvasZoomToClusters, showPerformanceGraph, currentPositionFen, isGenerating, isCanvasResizing]);
 
-  // Sync tree with chessboard moves
+  // Sync moves with chessboard moves
   useEffect(() => {
-    if (treeDirectScrollFn && chessboardSync.currentMoves && showOpeningTree) {
-      // Update tree to show current position - only when tree is visible
+    if (movesDirectScrollFn && chessboardSync.currentMoves && showOpeningMoves) {
+      // Update moves to show current position - only when moves is visible
       setTimeout(() => {
-        treeDirectScrollFn(chessboardSync.currentMoves);
+        movesDirectScrollFn(chessboardSync.currentMoves);
       }, 100);
     }
-  }, [chessboardSync.currentMoves, treeDirectScrollFn, showOpeningTree]);
+  }, [chessboardSync.currentMoves, movesDirectScrollFn, showOpeningMoves]);
 
   // Update opening clusters when graph data changes or clustering is toggled
   useEffect(() => {
@@ -935,9 +934,9 @@ function PerformanceGraphContent() {
             winRate: 50,
             gameCount: 0,
             san: null,
-            openingName: 'Import games to see your opening tree',
+            openingName: 'Import games to see your opening moves',
             openingEco: '',
-            ecoOpeningName: 'Import games to see your opening tree',
+            ecoOpeningName: 'Import games to see your opening moves',
             isRoot: true,
             depth: 0,
             moveSequence: []
@@ -953,8 +952,8 @@ function PerformanceGraphContent() {
       const rootMoves = openingGraphRef.current.getRootMoves(selectedPlayer === 'white');
       
       if (!rootMoves || rootMoves.length === 0) {
-        console.warn(`No root moves found for ${selectedPlayer} - showing default empty tree`);
-        // Return a default tree with just the root node so it's never completely empty
+        console.warn(`No root moves found for ${selectedPlayer} - showing default empty moves`);
+        // Return a default moves with just the root node so it's never completely empty
         const rootFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
         const defaultRootNode = {
           id: rootFen,
@@ -1588,7 +1587,7 @@ function PerformanceGraphContent() {
       
       const nextMove = hoveredMoves[hoveredMoves.length - 1];
       
-      // Create move data similar to opening tree format
+              // Create move data similar to opening moves format
       const moveData = {
         san: nextMove,
         gameCount: node.data.gameCount || 0,
@@ -1646,8 +1645,8 @@ function PerformanceGraphContent() {
     }, 100);
   };
 
-  const toggleOpeningTree = () => {
-    setShowOpeningTree(!showOpeningTree);
+  const toggleOpeningMoves = () => {
+    setShowOpeningMoves(!showOpeningMoves);
     triggerCanvasResize();
   };
 
@@ -1678,12 +1677,12 @@ function PerformanceGraphContent() {
 
 
 
-  // Tree integration handlers
-  const handleTreeCurrentMovesChange = (moves) => {
-    // Tree updates current moves - sync with performance graph
+  // Moves integration handlers
+  const handleMovesCurrentMovesChange = (moves) => {
+    // Moves updates current moves - sync with performance graph
     
-    // Store tree path persistently
-    setTreeCurrentPath(moves);
+    // Store moves path persistently
+    setMovesCurrentPath(moves);
     
     // Check if moves are actually different from current chessboard state
     const currentMoves = chessboardSync.currentMoves || [];
@@ -1691,7 +1690,7 @@ function PerformanceGraphContent() {
                         moves.some((move, index) => move !== currentMoves[index]);
     
     if (movesChanged) {
-      // Update chessboard to reflect tree selection
+      // Update chessboard to reflect moves selection
       chessboardSync.syncMovesToChessboard(moves);
     }
     
@@ -1708,59 +1707,59 @@ function PerformanceGraphContent() {
     }
   };
 
-  // Navigation handlers for opening tree NavigationButtons
-  const handleTreePrevious = () => {
-    if (treeCurrentPath.length > 0) {
-      const newPath = treeCurrentPath.slice(0, -1);
-      setTreeCurrentPath(newPath);
+  // Navigation handlers for opening moves NavigationButtons
+  const handleMovesPrevious = () => {
+    if (movesCurrentPath.length > 0) {
+      const newPath = movesCurrentPath.slice(0, -1);
+      setMovesCurrentPath(newPath);
       chessboardSync.syncMovesToChessboard(newPath);
       
       // Update direct scroll function if available
-      if (treeDirectScrollFn) {
-        treeDirectScrollFn(newPath);
+      if (movesDirectScrollFn) {
+        movesDirectScrollFn(newPath);
       }
     }
   };
 
-  const handleTreeNext = () => {
-    // For opening tree, next navigation is typically done by clicking moves
+  const handleMovesNext = () => {
+    // For opening moves, next navigation is typically done by clicking moves
     // This could be enhanced to go to the most popular next move
-    console.log('Tree next navigation - typically done by clicking moves');
+    console.log('Moves next navigation - typically done by clicking moves');
   };
 
-  const handleTreeReset = () => {
+  const handleMovesReset = () => {
     const newPath = [];
-    setTreeCurrentPath(newPath);
+    setMovesCurrentPath(newPath);
     chessboardSync.syncMovesToChessboard(newPath);
     
     // Update direct scroll function if available
-    if (treeDirectScrollFn) {
-      treeDirectScrollFn(newPath);
+    if (movesDirectScrollFn) {
+      movesDirectScrollFn(newPath);
     }
   };
 
   // Universal flip handler that flips both board orientation AND player perspective
   const handleUniversalFlip = () => {
-    // Switch player perspective (White Tree ↔ Black Tree)
+    // Switch player perspective (White Moves ↔ Black Moves)
     const newPlayer = selectedPlayer === 'white' ? 'black' : 'white';
     setSelectedPlayer(newPlayer);
     
-    // This will automatically trigger the tree to reload with the opposite perspective
+    // This will automatically trigger the moves to reload with the opposite perspective
     // and the board orientation will follow the new player perspective
   };
 
-  // Alias for tree flip
-  const handleTreeFlip = handleUniversalFlip;
+  // Alias for moves flip
+  const handleMovesFlip = handleUniversalFlip;
 
   // Note: ChunkVisualization handles its own move selection internally
   // and calls onCurrentMovesChange when the path changes
 
-  const handleTreeDirectScroll = (scrollFn) => {
-    setTreeDirectScrollFn(() => scrollFn);
+  const handleMovesDirectScroll = (scrollFn) => {
+    setMovesDirectScrollFn(() => scrollFn);
   };
 
-  const handleTreeMoveHover = (moveData) => {
-    setTreeHoveredMove(moveData);
+  const handleMovesMoveHover = (moveData) => {
+    setMovesHoveredMove(moveData);
     
     // Find the corresponding node in the graph for the hovered move
     if (moveData && moveData.san) {
@@ -1787,8 +1786,8 @@ function PerformanceGraphContent() {
     }
   };
 
-  const handleTreeMoveHoverEnd = () => {
-    setTreeHoveredMove(null);
+  const handleMovesMoveHoverEnd = () => {
+    setMovesHoveredMove(null);
     setHoveredNextMoveNodeId(null);
   };
 
@@ -1812,7 +1811,7 @@ function PerformanceGraphContent() {
   // Calculate responsive grid layout
   const getResponsiveGridLayout = () => {
     const visibleComponents = [
-      showOpeningTree && 'tree',
+      showOpeningMoves && 'moves',
       showPositionAnalysis && 'analysis', 
       showPerformanceGraph && 'graph'
     ].filter(Boolean);
@@ -1838,7 +1837,7 @@ function PerformanceGraphContent() {
           return {
             gridTemplateColumns: '1fr',
             gridTemplateRows: '1fr', 
-            forceComponents: ['tree']
+            forceComponents: ['moves']
           };
         }
       } else {
@@ -1853,15 +1852,15 @@ function PerformanceGraphContent() {
     // Tablet layout (768px - 1024px) - Limit to 2 components max
     if (isTablet) {
       if (visibleComponents.length >= 3) {
-        // Show tree + graph (most important combination)
+        // Show moves + graph (most important combination)
         return {
           gridTemplateColumns: 'minmax(200px, 25%) 1fr',
           gridTemplateRows: '1fr',
-          forceComponents: ['tree', 'graph']
+          forceComponents: ['moves', 'graph']
         };
       } else if (visibleComponents.length === 2) {
         const columns = [];
-        if (showOpeningTree) columns.push('minmax(200px, 30%)');
+        if (showOpeningMoves) columns.push('minmax(200px, 30%)');
         if (showPositionAnalysis) columns.push('minmax(200px, 35%)');
         if (showPerformanceGraph) columns.push('1fr');
         
@@ -1875,7 +1874,7 @@ function PerformanceGraphContent() {
 
     // Desktop layout (>= 1024px) - Original flexible layout
     const columns = [];
-    if (showOpeningTree) columns.push('minmax(280px, 20%)');
+    if (showOpeningMoves) columns.push('minmax(280px, 20%)');
     if (showPositionAnalysis) columns.push('minmax(220px, 28%)');
     if (showPerformanceGraph) columns.push('1fr');
     
@@ -1985,13 +1984,13 @@ function PerformanceGraphContent() {
           {/* Right: View Toggle Buttons */}
           <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             <Button
-              variant={showOpeningTree ? "default" : "outline"}
+              variant={showOpeningMoves ? "default" : "outline"}
               size="sm"
-              onClick={toggleOpeningTree}
-              className={`${showOpeningTree ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}`}
+              onClick={toggleOpeningMoves}
+              className={`${showOpeningMoves ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}`}
             >
-              <TreePine className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Tree</span>
+              <Menu className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Moves</span>
             </Button>
 
             <Button
@@ -2026,39 +2025,39 @@ function PerformanceGraphContent() {
               gridTemplateColumns: (() => {
                 // Calculate optimal grid layout based on visible components
                 const visibleComponents = [
-                  showOpeningTree,
+                  showOpeningMoves,
                   showPositionAnalysis,
                   showPerformanceGraph
                 ];
                 
                 // All three components visible - original layout
-                if (showOpeningTree && showPositionAnalysis && showPerformanceGraph) {
+                if (showOpeningMoves && showPositionAnalysis && showPerformanceGraph) {
                   return 'minmax(280px, 20%) minmax(220px, 28%) 1fr';
                 }
                 
-                // Performance graph hidden - rebalance tree (25%) and chessboard (75%)
-                if (showOpeningTree && showPositionAnalysis && !showPerformanceGraph) {
+                // Performance graph hidden - rebalance moves (25%) and chessboard (75%)
+                if (showOpeningMoves && showPositionAnalysis && !showPerformanceGraph) {
                   return 'minmax(280px, 25%) 1fr';
                 }
                 
-                // Only tree and graph visible
-                if (showOpeningTree && !showPositionAnalysis && showPerformanceGraph) {
+                // Only moves and graph visible
+                if (showOpeningMoves && !showPositionAnalysis && showPerformanceGraph) {
                   return 'minmax(280px, 20%) 1fr';
                 }
                 
                 // Only chessboard and graph visible
-                if (!showOpeningTree && showPositionAnalysis && showPerformanceGraph) {
+                if (!showOpeningMoves && showPositionAnalysis && showPerformanceGraph) {
                   return 'minmax(220px, 28%) 1fr';
                 }
                 
                 // Single component layouts
-                if (showOpeningTree && !showPositionAnalysis && !showPerformanceGraph) {
+                if (showOpeningMoves && !showPositionAnalysis && !showPerformanceGraph) {
                   return '1fr';
                 }
-                if (!showOpeningTree && showPositionAnalysis && !showPerformanceGraph) {
+                if (!showOpeningMoves && showPositionAnalysis && !showPerformanceGraph) {
                   return '1fr';
                 }
-                if (!showOpeningTree && !showPositionAnalysis && showPerformanceGraph) {
+                if (!showOpeningMoves && !showPositionAnalysis && showPerformanceGraph) {
                   return '1fr';
                 }
                 
@@ -2080,7 +2079,7 @@ function PerformanceGraphContent() {
           )}
           
           {/* Empty State when all components hidden */}
-          {!showOpeningTree && !showPositionAnalysis && !showPerformanceGraph && (
+          {!showOpeningMoves && !showPositionAnalysis && !showPerformanceGraph && (
             <div className="col-span-full row-span-full flex items-center justify-center bg-slate-900">
               <div className="text-center">
                 <Eye className="w-16 h-16 text-slate-600 mx-auto mb-4" />
@@ -2090,29 +2089,29 @@ function PerformanceGraphContent() {
             </div>
           )}
         
-        {/* Opening Tree */}
-        {showOpeningTree && (
+        {/* Opening Moves */}
+        {showOpeningMoves && (
           <section className="h-full border-r border-slate-700/50 bg-slate-800/50 backdrop-blur-xl flex items-center justify-center overflow-hidden">
             <div className="flex flex-col h-full w-full min-w-0">
-              {/* Tree Header removed for cleaner look */}
+                              {/* Moves Header removed for cleaner look */}
 
-              {/* Tree Navigation */}
-              <div className="p-3 border-b border-slate-700/50 bg-slate-700/30 flex-shrink-0">
-                <div className="max-w-sm mx-auto">
-                  <NavigationButtons
-                    currentIndex={treeCurrentPath.length}
-                    totalCount={treeCurrentPath.length}
-                    onPrevious={handleTreePrevious}
-                    onNext={handleTreeNext}
-                    onReset={handleTreeReset}
-                    onFlip={handleTreeFlip}
+                              {/* Moves Navigation */}
+                <div className="p-3 border-b border-slate-700/50 bg-slate-700/30 flex-shrink-0">
+                  <div className="max-w-sm mx-auto">
+                    <NavigationButtons
+                      currentIndex={movesCurrentPath.length}
+                      totalCount={movesCurrentPath.length}
+                      onPrevious={handleMovesPrevious}
+                      onNext={handleMovesNext}
+                      onReset={handleMovesReset}
+                      onFlip={handleMovesFlip}
                     features={NavigationPresets.chessboard.features}
                     labels={{
                       ...NavigationPresets.chessboard.labels,
-                      previous: "Back one move",
-                      next: "Forward one move", 
-                      reset: "Reset to root position",
-                      flip: "Flip tree view"
+                                              previous: "Back one move",
+                        next: "Forward one move", 
+                        reset: "Reset to root position",
+                        flip: "Flip moves view"
                     }}
                     disabled={!openingGraph}
                     styling={{
@@ -2123,19 +2122,19 @@ function PerformanceGraphContent() {
                 </div>
               </div>
               
-              {/* Tree Content */}
-              <div className="flex-1 min-h-0 overflow-hidden p-2">
-                {openingGraph ? (
-                  <div className="h-full w-full">
-                    <ChunkVisualization
-                      openingGraph={openingGraph}
-                      isWhiteTree={selectedPlayer === 'white'}
-                      onCurrentMovesChange={handleTreeCurrentMovesChange}
-                      externalMoves={chessboardSync.currentMoves}
-                      onMoveHover={handleTreeMoveHover}
-                      onMoveHoverEnd={handleTreeMoveHoverEnd}
-                      onDirectScroll={handleTreeDirectScroll}
-                      initialPath={treeCurrentPath}
+                              {/* Moves Content */}
+                <div className="flex-1 min-h-0 overflow-hidden p-2">
+                  {openingGraph ? (
+                    <div className="h-full w-full">
+                      <ChunkVisualization
+                        openingGraph={openingGraph}
+                        isWhiteTree={selectedPlayer === 'white'}
+                        onCurrentMovesChange={handleMovesCurrentMovesChange}
+                        externalMoves={chessboardSync.currentMoves}
+                        onMoveHover={handleMovesMoveHover}
+                        onMoveHoverEnd={handleMovesMoveHoverEnd}
+                        onDirectScroll={handleMovesDirectScroll}
+                        initialPath={movesCurrentPath}
                       maxDepth={maxDepth}
                       minGameCount={minGameCount}
                       winRateFilter={winRateFilter}
@@ -2144,7 +2143,7 @@ function PerformanceGraphContent() {
                 ) : (
                   <div className="flex items-center justify-center h-full">
                     <div className="text-center p-4">
-                      <TreePine className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                      <Menu className="w-8 h-8 text-slate-500 mx-auto mb-2" />
                       <p className="text-slate-400 text-xs">No data</p>
                       <p className="text-slate-500 text-xs">Import games</p>
                     </div>
@@ -2165,14 +2164,14 @@ function PerformanceGraphContent() {
               <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center p-2">
                               <div className="w-full h-full flex items-center justify-center">
                 <InteractiveChessboard
-                  key={`chessboard-${showOpeningTree}-${showPerformanceGraph}`}
+                  key={`chessboard-${showOpeningMoves}-${showPerformanceGraph}`}
                   currentMoves={chessboardSync.currentMoves}
                   onMoveSelect={chessboardSync.handleMoveSelect}
                   onNewMove={chessboardSync.handleNewMove}
                   isWhiteTree={selectedPlayer === 'white'}
                   openingGraph={openingGraphRef.current}
                   graphNodes={nodes}
-                  hoveredMove={treeHoveredMove || hoveredMove}
+                  hoveredMove={movesHoveredMove || hoveredMove}
                   onFlip={handleUniversalFlip}
                   className="w-full max-w-none"
                 />

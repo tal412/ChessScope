@@ -213,7 +213,21 @@ export const NavigationPresets = {
     }
   },
   
-  // Opening tree navigation
+  // Opening moves navigation
+  openingMoves: {
+    features: {
+      showReset: true,
+      showFlip: false,
+      showCounter: true
+    },
+    labels: {
+      previous: "Back one move",
+      next: "Forward one move", 
+      reset: "Reset to root position"
+    }
+  },
+  
+  // Legacy alias for backward compatibility
   openingTree: {
     features: {
       showReset: true,
