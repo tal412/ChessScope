@@ -1,4 +1,3 @@
-
 export function parsePgn(pgnString) {
   if (!pgnString) return [];
 
@@ -104,6 +103,159 @@ export function extractGameData(chessComGame, username) {
     };
   } catch (error) {
     console.error("Error extracting game data:", error);
+    return null;
+  }
+}
+
+// Generic game data extraction that works for both Chess.com and Lichess
+export function extractGameDataGeneric(gameData, username, platform = 'chess.com') {
+  try {
+    let moves = [];
+    let gameId, url, timeControl, endTime, rated, timeClass, rules;
+    let whiteRating, blackRating, whiteUsername, blackUsername;
+    
+    if (platform === 'lichess' && gameData.pgn) {
+      // Parse Lichess PGN headers
+      const pgnString = gameData.pgn;
+      moves = extractMovesFromPgn(pgnString);
+      
+      // Extract data from PGN headers
+      const headers = {};
+      const headerLines = pgnString.split('\n').filter(line => line.trim().startsWith('['));
+      
+      for (const line of headerLines) {
+        const match = line.match(/\[(\w+)\s+"([^"]+)"\]/);
+        if (match) {
+          headers[match[1]] = match[2];
+        }
+      }
+      
+      // Map Lichess PGN headers to our format
+      gameId = headers.Site ? headers.Site.split('/').pop() : `${Date.now()}_${Math.random()}`;
+      url = headers.Site || `https://lichess.org/${gameId}`;
+      timeControl = headers.TimeControl || "unknown";
+      endTime = headers.UTCDate && headers.UTCTime ? 
+        new Date(`${headers.UTCDate} ${headers.UTCTime}`).toISOString() : 
+        new Date().toISOString();
+      rated = headers.Rated ? headers.Rated.toLowerCase() === 'true' : true;
+      
+      // Determine time class from time control
+      if (headers.TimeControl && headers.TimeControl !== '-') {
+        const [base, increment] = headers.TimeControl.split('+').map(x => parseInt(x) || 0);
+        const totalMinutes = base / 60;
+        if (totalMinutes < 3) timeClass = 'bullet';
+        else if (totalMinutes <= 10) timeClass = 'blitz';
+        else if (totalMinutes <= 30) timeClass = 'rapid';
+        else timeClass = 'classical';
+      } else {
+        timeClass = 'correspondence';
+      }
+      
+      rules = headers.Variant || "standard";
+      whiteRating = headers.WhiteElo ? parseInt(headers.WhiteElo) : null;
+      blackRating = headers.BlackElo ? parseInt(headers.BlackElo) : null;
+      whiteUsername = headers.White;
+      blackUsername = headers.Black;
+    } else if (platform === 'lichess') {
+      // Lichess structured format (fallback)
+      gameId = gameData.id;
+      url = gameData.url || `https://lichess.org/${gameData.id}`;
+      timeControl = gameData.timeControl || `${gameData.clock?.initial || 0}+${gameData.clock?.increment || 0}`;
+      endTime = gameData.createdAt || gameData.lastMoveAt;
+      rated = gameData.rated !== false;
+      timeClass = gameData.speed; // bullet, blitz, rapid, classical, correspondence
+      rules = gameData.variant || "standard";
+      whiteRating = gameData.players?.white?.rating;
+      blackRating = gameData.players?.black?.rating;
+      whiteUsername = gameData.players?.white?.user?.name || gameData.players?.white?.userId;
+      blackUsername = gameData.players?.black?.user?.name || gameData.players?.black?.userId;
+      
+      // Extract moves
+      if (gameData.pgn) {
+        moves = extractMovesFromPgn(gameData.pgn);
+      } else if (gameData.moves) {
+        moves = gameData.moves;
+      }
+    } else {
+      // Chess.com format
+      gameId = gameData.url ? gameData.url.split('/').pop() : `${Date.now()}_${Math.random()}`;
+      url = gameData.url;
+      timeControl = gameData.time_control;
+      endTime = gameData.end_time;
+      rated = gameData.rated;
+      timeClass = gameData.time_class;
+      rules = gameData.rules || "chess";
+      whiteRating = gameData.white?.rating;
+      blackRating = gameData.black?.rating;
+      whiteUsername = gameData.white?.username;
+      blackUsername = gameData.black?.username;
+      
+      // Extract moves
+      if (gameData.pgn) {
+        moves = extractMovesFromPgn(gameData.pgn);
+      } else if (gameData.moves) {
+        moves = gameData.moves;
+      }
+    }
+    
+    // Determine player color and result
+    const isWhite = whiteUsername?.toLowerCase() === username?.toLowerCase();
+    const playerColor = isWhite ? "white" : "black";
+    
+    let result = "draw";
+    if (platform === 'lichess' && gameData.pgn) {
+      // Parse result from PGN headers
+      const headers = {};
+      const headerLines = gameData.pgn.split('\n').filter(line => line.trim().startsWith('['));
+      
+      for (const line of headerLines) {
+        const match = line.match(/\[(\w+)\s+"([^"]+)"\]/);
+        if (match) {
+          headers[match[1]] = match[2];
+        }
+      }
+      
+      const gameResult = headers.Result;
+      if (gameResult === '1-0' && isWhite) result = "win";
+      else if (gameResult === '0-1' && !isWhite) result = "win";
+      else if (gameResult === '1-0' && !isWhite) result = "lose";
+      else if (gameResult === '0-1' && isWhite) result = "lose";
+      else if (gameResult === '1/2-1/2' || gameResult === '*') result = "draw";
+    } else if (platform === 'lichess') {
+      // Lichess structured format (fallback)
+      if (gameData.winner === 'white' && isWhite) result = "win";
+      else if (gameData.winner === 'black' && !isWhite) result = "win";
+      else if (gameData.winner === 'white' && !isWhite) result = "lose";
+      else if (gameData.winner === 'black' && isWhite) result = "lose";
+      else if (gameData.status === 'draw') result = "draw";
+    } else {
+      // Chess.com result format
+      if (gameData.white?.result === "win" && isWhite) result = "win";
+      else if (gameData.black?.result === "win" && !isWhite) result = "win";
+      else if ((gameData.white?.result === "checkmated" || gameData.white?.result === "resigned" || gameData.white?.result === "timeout") && isWhite) result = "lose";
+      else if ((gameData.black?.result === "checkmated" || gameData.black?.result === "resigned" || gameData.black?.result === "timeout") && !isWhite) result = "lose";
+    }
+
+    return {
+      username,
+      game_id: gameId,
+      url,
+      time_control: timeControl,
+      end_time: endTime,
+      rated,
+      time_class: timeClass,
+      rules,
+      white_rating: whiteRating,
+      black_rating: blackRating,
+      white_username: whiteUsername,
+      black_username: blackUsername,
+      moves,
+      player_color: playerColor,
+      result,
+      platform
+    };
+  } catch (error) {
+    console.error("Error extracting generic game data:", error);
     return null;
   }
 }

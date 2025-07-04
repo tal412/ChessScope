@@ -226,25 +226,37 @@ export default function Layout() {
                   <TooltipTrigger asChild>
                     <div className={`bg-slate-700/30 rounded-lg overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'cursor-pointer' : ''}`}>
                       <div className="p-3 h-[88px] relative">
-                        <img 
-                          src="/chesscom_logo_pawn.svg" 
-                          alt="Chess.com" 
-                          className={`w-6 h-6 absolute transition-all duration-300 ease-in-out ${
-                            showPawnInPosition 
-                              ? 'left-3 top-3' 
-                              : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
-                          }`} 
-                        />
+                        {user.platform === 'lichess' ? (
+                          <img 
+                            src="/Lichess_Logo_2019.svg.png" 
+                            alt="Lichess" 
+                            className={`w-6 h-6 absolute transition-all duration-300 ease-in-out ${
+                              showPawnInPosition 
+                                ? 'left-3 top-3' 
+                                : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
+                            }`} 
+                          />
+                        ) : (
+                          <img 
+                            src="/chesscom_logo_pawn.svg" 
+                            alt="Chess.com" 
+                            className={`w-6 h-6 absolute transition-all duration-300 ease-in-out ${
+                              showPawnInPosition 
+                                ? 'left-3 top-3' 
+                                : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
+                            }`} 
+                          />
+                        )}
                         <div className={`text-sm transition-all duration-300 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'} pl-8 pt-3`}>
                           <div className="mb-1">
                             <span className={`text-white font-medium transition-all duration-300 ${showUserContent ? 'opacity-100' : 'opacity-0'}`}>
-                              {user.chessComUsername}
+                              {user.username || user.chessComUsername}
                             </span>
                           </div>
                           <div className={`transition-all duration-300 ${showUserContent ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
                             <p className="text-slate-400 text-xs leading-tight">
-                              {user.chessComUser?.rating ? 
-                                `${user.chessComUser.rating} (${user.chessComUser.gameType})` : 
+                              {(user.platformUser || user.chessComUser)?.rating ? 
+                                `${(user.platformUser || user.chessComUser).rating} (${(user.platformUser || user.chessComUser).gameType})` : 
                                 'Loading...'
                               }
                             </p>
@@ -267,10 +279,10 @@ export default function Layout() {
                     sideOffset={10}
                   >
                     <div className="text-sm">
-                      <p className="font-medium">{user.chessComUsername}</p>
+                      <p className="font-medium">{user.username || user.chessComUsername}</p>
                       <p className="text-slate-400 text-xs">
-                        {user.chessComUser?.rating ? 
-                          `${user.chessComUser.rating} (${user.chessComUser.gameType})` : 
+                        {(user.platformUser || user.chessComUser)?.rating ? 
+                          `${(user.platformUser || user.chessComUser).rating} (${(user.platformUser || user.chessComUser).gameType})` : 
                           'Loading...'
                         }
                       </p>
@@ -516,12 +528,18 @@ export default function Layout() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {[
+                  {(user?.platform === 'lichess' ? [
+                    { id: 'bullet', label: 'Bullet', desc: '< 3 minutes' },
+                    { id: 'blitz', label: 'Blitz', desc: '3-8 minutes' },
+                    { id: 'rapid', label: 'Rapid', desc: '8-25 minutes' },
+                    { id: 'classical', label: 'Classical', desc: '> 25 minutes' },
+                    { id: 'correspondence', label: 'Correspondence', desc: 'Several days' }
+                  ] : [
                     { id: 'bullet', label: 'Bullet', desc: '< 3 minutes' },
                     { id: 'blitz', label: 'Blitz', desc: '3-10 minutes' },
                     { id: 'rapid', label: 'Rapid', desc: '10-30 minutes' },
                     { id: 'daily', label: 'Daily', desc: 'Correspondence' }
-                  ].map((timeControl) => (
+                  ]).map((timeControl) => (
                     <div key={timeControl.id} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-slate-600/30 transition-colors">
                       <Checkbox
                         id={`settings-${timeControl.id}`}
