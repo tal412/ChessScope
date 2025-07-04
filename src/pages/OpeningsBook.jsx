@@ -4,6 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { AppBar } from '@/components/ui/flexible-layout';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { 
   BookOpen, 
   Plus, 
@@ -14,7 +21,8 @@ import {
   Trash2,
   Eye,
   ChevronRight,
-  Loader2
+  Loader2,
+  Filter
 } from 'lucide-react';
 import { userOpening } from '@/api/openingEntities';
 import { Chessground } from 'react-chessground';
@@ -30,6 +38,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from '../contexts/AuthContext';
+
 
 export default function OpeningsBook() {
   const navigate = useNavigate();
@@ -103,7 +112,7 @@ export default function OpeningsBook() {
     }
   };
 
-  if (loading || isSyncing) {
+  if (loading && !isSyncing) {
     return (
       <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
         <div className="text-center">
@@ -113,47 +122,16 @@ export default function OpeningsBook() {
           </div>
           <div className="space-y-3">
             <h2 className="text-2xl font-bold text-slate-200">
-              {isSyncing ? 'Syncing Games' : 'Loading Openings Book'}
+              Loading Openings Book
             </h2>
             <p className="text-slate-400 text-base max-w-md mx-auto">
-              {isSyncing ? 
-                'Updating your chess database with latest games. This may take a moment...' : 
-                'Loading your saved openings and analysis'
-              }
+              Loading your saved openings and analysis
             </p>
             <div className="flex items-center justify-center gap-2 mt-6">
               <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
               <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
               <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
             </div>
-            {isSyncing && (
-              <div className="mt-6 space-y-4">
-                <div className="w-80 mx-auto space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-300 font-medium truncate pr-4">
-                      {syncProgress >= 100 ? 'Finalizing...' : syncStatus || 'Updating Analysis...'}
-                    </span>
-                    <span className="text-slate-400 flex-shrink-0">
-                      {Math.round(syncProgress || 0)}%
-                    </span>
-                  </div>
-                  
-                  <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full origin-left"
-                      style={{ 
-                        transform: `scaleX(${Math.min(syncProgress || 0, 100) / 100})`,
-                        transition: 'transform 0.3s ease-out',
-                        willChange: 'transform'
-                      }}
-                    />
-                  </div>
-                </div>
-                <p className="text-slate-500 text-sm">
-                  This runs in the background - feel free to switch tabs
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -161,67 +139,80 @@ export default function OpeningsBook() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <BookOpen className="w-8 h-8 text-amber-500" />
-              <h1 className="text-3xl font-bold text-slate-100">Openings Book</h1>
-            </div>
+    <div className="min-h-screen bg-slate-900 flex flex-col">
+      {/* Header using AppBar */}
+      <AppBar
+        title="Openings Book"
+        icon={BookOpen}
+        centerControls={
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Input
+              type="text"
+              placeholder="Search openings..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-slate-800 border-slate-700 text-slate-200"
+            />
+          </div>
+        }
+        rightControls={
+          <>
             <Button 
               onClick={handleCreateOpening}
+              size="sm"
               className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
             >
               <Plus className="w-4 h-4 mr-2" />
               Add Opening
             </Button>
-          </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white">
+                  <div className="flex items-center gap-2">
+                    {filterColor === 'all' ? (
+                      <Filter className="w-4 h-4 text-slate-400" />
+                    ) : filterColor === 'white' ? (
+                      <Crown className="w-4 h-4 text-amber-400" />
+                    ) : (
+                      <Shield className="w-4 h-4 text-slate-400" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {filterColor === 'all' ? 'All' : filterColor === 'white' ? 'White' : 'Black'}
+                    </span>
+                  </div>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-slate-800 border-slate-700">
+                <DropdownMenuItem 
+                  onClick={() => setFilterColor('all')}
+                  className="text-slate-200 hover:text-white hover:bg-slate-700"
+                >
+                  <Filter className="w-4 h-4 mr-2 text-slate-400" />
+                  All
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setFilterColor('white')}
+                  className="text-slate-200 hover:text-white hover:bg-slate-700"
+                >
+                  <Crown className="w-4 h-4 mr-2 text-amber-400" />
+                  White
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => setFilterColor('black')}
+                  className="text-slate-200 hover:text-white hover:bg-slate-700"
+                >
+                  <Shield className="w-4 h-4 mr-2 text-slate-400" />
+                  Black
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </>
+        }
+      />
 
-          {/* Search and Filters */}
-          <div className="flex gap-4 items-center">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <Input
-                type="text"
-                placeholder="Search openings..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 bg-slate-800 border-slate-700 text-slate-200"
-              />
-            </div>
-            
-            <div className="flex gap-2">
-              <Button
-                variant={filterColor === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilterColor('all')}
-                className={filterColor === 'all' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}
-              >
-                All
-              </Button>
-              <Button
-                variant={filterColor === 'white' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilterColor('white')}
-                className={filterColor === 'white' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}
-              >
-                <Crown className="w-4 h-4 mr-1 text-amber-400" />
-                White
-              </Button>
-              <Button
-                variant={filterColor === 'black' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setFilterColor('black')}
-                className={filterColor === 'black' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}
-              >
-                <Shield className="w-4 h-4 mr-1 text-slate-400" />
-                Black
-              </Button>
-            </div>
-          </div>
-        </div>
+      <div className="flex-1 p-6">
+        <div className="max-w-7xl mx-auto">
 
         {/* Empty State */}
         {filteredOpenings.length === 0 && (
@@ -327,6 +318,7 @@ export default function OpeningsBook() {
               </CardContent>
             </Card>
           ))}
+        </div>
         </div>
       </div>
 

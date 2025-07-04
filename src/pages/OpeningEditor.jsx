@@ -7,22 +7,31 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+
+import { 
+  FlexibleLayout, 
+  AppBar, 
+  ComponentToggleButton, 
+  LayoutSection,
+  ComponentConfigs
+} from '@/components/ui/flexible-layout';
 import { 
   Save, 
   X, 
   ChevronLeft,
   Trash2,
   Plus,
-  Eye,
-  Edit3,
   MessageSquare,
   LinkIcon,
   Info,
   Crown,
   Shield,
   Loader2,
-  BarChart3
+  BarChart3,
+  FileText,
+  Grid3x3,
+  Network,
+  Edit
 } from 'lucide-react';
 import InteractiveChessboard from '@/components/chess/InteractiveChessboard';
 import { UserOpening, UserOpeningMove, MoveAnnotation } from '@/api/entities';
@@ -86,7 +95,12 @@ export default function OpeningEditor() {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [activeTab, setActiveTab] = useState('moves');
+  
+  // Layout state - using flexible layout system
+  const [layoutInfo, setLayoutInfo] = useState({});
+  const [showDetails, setShowDetails] = useState(true);
+  const [showEditor, setShowEditor] = useState(true);
+  const [showTree, setShowTree] = useState(true);
   
   // Canvas state
   const [canvasMode, setCanvasMode] = useState('opening'); // 'opening' | 'performance'
@@ -566,6 +580,30 @@ export default function OpeningEditor() {
     }
   }, [canvasMode, handleNodeSelect]); // handleNodeSelect is stable, moveTree accessed via closure
 
+  // Layout control handlers - memoized to prevent infinite re-renders
+  const handleLayoutChange = useCallback((layoutData) => {
+    setLayoutInfo(layoutData);
+  }, []);
+
+  const toggleDetails = () => {
+    setShowDetails(!showDetails);
+  };
+
+  const toggleEditor = () => {
+    setShowEditor(!showEditor);
+  };
+
+  const toggleTree = () => {
+    setShowTree(!showTree);
+  };
+
+  // Component visibility state for flexible layout
+  const componentVisibility = {
+    details: showDetails,
+    editor: showEditor,
+    tree: showTree
+  };
+
   if (loading) {
     return (
       <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
@@ -578,24 +616,45 @@ export default function OpeningEditor() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/openings-book')}
-              className="text-slate-300 hover:text-white"
-            >
-              <ChevronLeft className="w-5 h-5 mr-1" />
-              Back
-            </Button>
-            <h1 className="text-2xl font-bold text-slate-100">
-              {isNewOpening ? 'Create New Opening' : 'Edit Opening'}
-            </h1>
-          </div>
-          <div className="flex gap-2">
+    <div className="h-full w-full bg-slate-900 flex flex-col">
+      {/* Header using AppBar */}
+      <AppBar
+        title={isNewOpening ? 'Create New Opening' : 'Edit Opening'}
+        icon={Edit}
+        leftControls={
+          <Button
+            variant="ghost"
+            onClick={() => navigate('/openings-book')}
+            className="text-slate-300 hover:text-white"
+          >
+            <ChevronLeft className="w-5 h-5 mr-1" />
+            Back
+          </Button>
+        }
+        centerControls={
+          <>
+            <ComponentToggleButton
+              isActive={showDetails}
+              onClick={toggleDetails}
+              icon={FileText}
+              label="Details"
+            />
+            <ComponentToggleButton
+              isActive={showEditor}
+              onClick={toggleEditor}
+              icon={Grid3x3}
+              label="Editor"
+            />
+            <ComponentToggleButton
+              isActive={showTree}
+              onClick={toggleTree}
+              icon={Network}
+              label="Tree"
+            />
+          </>
+        }
+        rightControls={
+          <>
             <Button
               variant="outline"
               onClick={() => navigate('/openings-book')}
@@ -616,314 +675,288 @@ export default function OpeningEditor() {
               )}
               Save Opening
             </Button>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        {error && (
-          <Alert className="mb-6 bg-red-900/20 border-red-700">
+      {/* Error Alert */}
+      {error && (
+        <div className="p-4 bg-slate-800 border-b border-slate-700">
+          <Alert className="bg-red-900/20 border-red-700">
             <AlertDescription className="text-red-400">
               {error}
             </AlertDescription>
           </Alert>
-        )}
+        </div>
+      )}
 
-        {/* Main Content Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left: Opening Details */}
-          <div className="lg:col-span-1 space-y-4">
-            <Card className="bg-slate-800 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-slate-100">Opening Details</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label className="text-slate-300">Name</Label>
-                  <Input
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Italian Game - Giuoco Piano"
-                    className="bg-slate-700 border-slate-600 text-slate-100"
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-slate-300">Description</Label>
-                  <Textarea
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Describe your opening..."
-                    className="bg-slate-700 border-slate-600 text-slate-100"
-                    rows={3}
-                  />
-                </div>
-
-                <div>
-                  <Label className="text-slate-300">Color</Label>
-                  <div className="flex gap-2 mt-2">
-                    <Button
-                      variant={color === 'white' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setColor('white')}
-                      className={color === 'white' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}
-                    >
-                      <Crown className="w-4 h-4 mr-1 text-amber-400" />
-                      White
-                    </Button>
-                    <Button
-                      variant={color === 'black' ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setColor('black')}
-                      className={color === 'black' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}
-                    >
-                      <Shield className="w-4 h-4 mr-1 text-slate-400" />
-                      Black
-                    </Button>
-                  </div>
-                </div>
-
-                <div>
-                  <Label className="text-slate-300">Tags</Label>
-                  <div className="flex gap-2 mt-2">
-                    <Input
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
-                      placeholder="Add tag..."
-                      className="bg-slate-700 border-slate-600 text-slate-100"
-                    />
-                    <Button
-                      onClick={handleAddTag}
-                      size="sm"
-                      className="bg-slate-600 hover:bg-slate-700"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
-                  </div>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {tags.map((tag) => (
-                      <Badge
-                        key={tag}
-                        variant="secondary"
-                        className="bg-slate-700 text-slate-300"
-                      >
-                        {tag}
-                        <button
-                          onClick={() => handleRemoveTag(tag)}
-                          className="ml-2 hover:text-red-400"
-                        >
-                          ×
-                        </button>
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Move Annotations */}
-            {selectedNode && selectedNode.san !== 'Start' && (
-              <Card className="bg-slate-800 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-slate-100 text-lg">
-                    Move: {selectedNode.san}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label className="text-slate-300">
-                      <MessageSquare className="w-4 h-4 inline mr-1" />
-                      Comment
-                    </Label>
-                    <Textarea
-                      value={selectedNode.comment || ''}
-                      onChange={(e) => {
-                        selectedNode.comment = e.target.value;
-                        setMoveTree({ ...moveTree }); // Force re-render
-                      }}
-                      placeholder="Add notes about this move..."
-                      className="bg-slate-700 border-slate-600 text-slate-100 mt-2"
-                      rows={3}
-                    />
-                  </div>
-
-                  <div>
-                    <Label className="text-slate-300">
-                      <LinkIcon className="w-4 h-4 inline mr-1" />
-                      Links
-                    </Label>
-                    <div className="space-y-2 mt-2">
-                      {selectedNode.links?.map((link, index) => (
-                        <div key={index} className="flex gap-2">
-                          <Input
-                            value={link.title}
-                            onChange={(e) => {
-                              selectedNode.links[index].title = e.target.value;
-                              setMoveTree({ ...moveTree });
-                            }}
-                            placeholder="Link title"
-                            className="bg-slate-700 border-slate-600 text-slate-100 flex-1"
-                          />
-                          <Input
-                            value={link.url}
-                            onChange={(e) => {
-                              selectedNode.links[index].url = e.target.value;
-                              setMoveTree({ ...moveTree });
-                            }}
-                            placeholder="URL"
-                            className="bg-slate-700 border-slate-600 text-slate-100 flex-1"
-                          />
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => {
-                              selectedNode.links.splice(index, 1);
-                              setMoveTree({ ...moveTree });
-                            }}
-                            className="text-red-400 hover:text-red-300"
-                          >
-                            <X className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ))}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => {
-                          if (!selectedNode.links) selectedNode.links = [];
-                          selectedNode.links.push({ title: '', url: '' });
-                          setMoveTree({ ...moveTree });
-                        }}
-                        className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Link
-                      </Button>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label className="text-slate-300">
-                      Main Line Status
-                    </Label>
-                    <Button
-                      size="sm"
-                      className="w-full mt-2 bg-slate-600 hover:bg-slate-700"
-                      disabled={selectedNode.isMainLine}
-                      onClick={() => {
-                        // Make this variation the main line
-                        const parent = selectedNode.parent;
-                        if (parent) {
-                          parent.children.forEach(child => {
-                            child.isMainLine = child === selectedNode;
-                          });
-                          setMoveTree({ ...moveTree });
-                        }
-                      }}
-                    >
-                      {selectedNode.isMainLine ? 'Already Main Line' : 'Set as Main Line'}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-          </div>
-
-          {/* Right: Board and Tree View */}
-          <div className="lg:col-span-2">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="bg-slate-800">
-                <TabsTrigger value="moves" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">
-                  <Edit3 className="w-4 h-4 mr-2" />
-                  Edit Moves
-                </TabsTrigger>
-                <TabsTrigger value="tree" className="data-[state=active]:bg-slate-600 data-[state=active]:text-white">
-                  <Eye className="w-4 h-4 mr-2" />
-                  Tree View
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="moves" className="mt-4">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  {/* Chessboard */}
-                  <Card className="bg-slate-800 border-slate-700">
-                    <CardContent className="p-4">
-                      <InteractiveChessboard
-                        currentMoves={currentPath}
-                        onNewMove={handleNewMove}
-                        onMoveSelect={(moves) => {
-                          // When user navigates via chessboard, sync with tree
-                          handleNewMove(moves);
-                        }}
-                        isWhiteTree={color === 'white'}
-                        className="w-full"
-                      />
-                    </CardContent>
-                  </Card>
-
-                  {/* Tree View for Navigation */}
-                  <Card className="bg-slate-800 border-slate-700">
-                    <CardHeader className="flex flex-row items-center justify-between py-3">
-                      <CardTitle className="text-slate-100 text-lg">Opening Tree</CardTitle>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setCanvasMode(canvasMode === 'opening' ? 'performance' : 'opening')}
-                        className="border-slate-600 text-slate-300 hover:bg-slate-700"
-                      >
-                        <BarChart3 className="w-4 h-4 mr-2" />
-                        {canvasMode === 'opening' ? 'Performance' : 'Tree'}
-                      </Button>
-                    </CardHeader>
-                    <CardContent className="p-4 h-[500px]">
-                      <CanvasPerformanceGraph
-                        graphData={canvasMode === 'opening' ? graphData : performanceGraphData}
-                        mode={canvasMode}
-                        onNodeClick={handleCanvasNodeClick}
-                        currentNodeId={selectedNode?.id}
-                        isGenerating={false}
-                        showPerformanceLegend={false}
-                        showPerformanceControls={false}
-                        className="w-full h-full"
-                      />
-                    </CardContent>
-                  </Card>
-                </div>
-              </TabsContent>
-
-              <TabsContent value="tree" className="mt-4">
+      {/* Main Content using FlexibleLayout */}
+      <FlexibleLayout
+        components={componentVisibility}
+        componentConfig={ComponentConfigs.openingEditor}
+        onLayoutChange={handleLayoutChange}
+      >
+        {{
+          details: (
+            <LayoutSection
+              key="details"
+            >
+              <div className="space-y-4">
                 <Card className="bg-slate-800 border-slate-700">
-                  <CardHeader className="flex flex-row items-center justify-between">
-                    <CardTitle className="text-slate-100">
-                      {canvasMode === 'opening' ? 'Full Tree View' : 'Performance Analysis'} 
-                    </CardTitle>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setCanvasMode(canvasMode === 'opening' ? 'performance' : 'opening')}
-                      className="border-slate-600 text-slate-300 hover:bg-slate-700"
-                    >
-                      <BarChart3 className="w-4 h-4 mr-2" />
-                      {canvasMode === 'opening' ? 'Show Performance' : 'Show Tree'}
-                    </Button>
+                  <CardHeader>
+                    <CardTitle className="text-slate-100">Opening Details</CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4 h-[700px]">
-                    <CanvasPerformanceGraph
-                      graphData={canvasMode === 'opening' ? graphData : performanceGraphData}
-                      mode={canvasMode}
-                      onNodeClick={handleCanvasNodeClick}
-                      currentNodeId={selectedNode?.id}
-                      isGenerating={false}
-                      showPerformanceLegend={false}
-                      showPerformanceControls={canvasMode === 'performance'}
-                      className="w-full h-full"
-                    />
+                  <CardContent className="space-y-4">
+                    <div>
+                      <Label className="text-slate-300">Name</Label>
+                      <Input
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="e.g. Italian Game - Giuoco Piano"
+                        className="bg-slate-700 border-slate-600 text-slate-100"
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-slate-300">Description</Label>
+                      <Textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Describe your opening..."
+                        className="bg-slate-700 border-slate-600 text-slate-100"
+                        rows={3}
+                      />
+                    </div>
+
+                    <div>
+                      <Label className="text-slate-300">Color</Label>
+                      <div className="flex gap-2 mt-2">
+                        <Button
+                          variant={color === 'white' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setColor('white')}
+                          className={color === 'white' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}
+                        >
+                          <Crown className="w-4 h-4 mr-1 text-amber-400" />
+                          White
+                        </Button>
+                        <Button
+                          variant={color === 'black' ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setColor('black')}
+                          className={color === 'black' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}
+                        >
+                          <Shield className="w-4 h-4 mr-1 text-slate-400" />
+                          Black
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <Label className="text-slate-300">Tags</Label>
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          value={tagInput}
+                          onChange={(e) => setTagInput(e.target.value)}
+                          onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
+                          placeholder="Add tag..."
+                          className="bg-slate-700 border-slate-600 text-slate-100"
+                        />
+                        <Button
+                          onClick={handleAddTag}
+                          size="sm"
+                          className="bg-slate-600 hover:bg-slate-700"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </Button>
+                      </div>
+                      <div className="flex flex-wrap gap-2 mt-2">
+                        {tags.map((tag) => (
+                          <Badge
+                            key={tag}
+                            variant="secondary"
+                            className="bg-slate-700 text-slate-300"
+                          >
+                            {tag}
+                            <button
+                              onClick={() => handleRemoveTag(tag)}
+                              className="ml-2 hover:text-red-400"
+                            >
+                              ×
+                            </button>
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
                   </CardContent>
                 </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
-        </div>
-      </div>
+
+                {/* Move Annotations */}
+                {selectedNode && selectedNode.san !== 'Start' && (
+                  <Card className="bg-slate-800 border-slate-700">
+                    <CardHeader>
+                      <CardTitle className="text-slate-100 text-lg">
+                        Move: {selectedNode.san}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div>
+                        <Label className="text-slate-300">
+                          <MessageSquare className="w-4 h-4 inline mr-1" />
+                          Comment
+                        </Label>
+                        <Textarea
+                          value={selectedNode.comment || ''}
+                          onChange={(e) => {
+                            selectedNode.comment = e.target.value;
+                            setMoveTree({ ...moveTree }); // Force re-render
+                          }}
+                          placeholder="Add notes about this move..."
+                          className="bg-slate-700 border-slate-600 text-slate-100 mt-2"
+                          rows={3}
+                        />
+                      </div>
+
+                      <div>
+                        <Label className="text-slate-300">
+                          <LinkIcon className="w-4 h-4 inline mr-1" />
+                          Links
+                        </Label>
+                        <div className="space-y-2 mt-2">
+                          {selectedNode.links?.map((link, index) => (
+                            <div key={index} className="flex gap-2">
+                              <Input
+                                value={link.title}
+                                onChange={(e) => {
+                                  selectedNode.links[index].title = e.target.value;
+                                  setMoveTree({ ...moveTree });
+                                }}
+                                placeholder="Link title"
+                                className="bg-slate-700 border-slate-600 text-slate-100 flex-1"
+                              />
+                              <Input
+                                value={link.url}
+                                onChange={(e) => {
+                                  selectedNode.links[index].url = e.target.value;
+                                  setMoveTree({ ...moveTree });
+                                }}
+                                placeholder="URL"
+                                className="bg-slate-700 border-slate-600 text-slate-100 flex-1"
+                              />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => {
+                                  selectedNode.links.splice(index, 1);
+                                  setMoveTree({ ...moveTree });
+                                }}
+                                className="text-red-400 hover:text-red-300"
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ))}
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              if (!selectedNode.links) selectedNode.links = [];
+                              selectedNode.links.push({ title: '', url: '' });
+                              setMoveTree({ ...moveTree });
+                            }}
+                            className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Link
+                          </Button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label className="text-slate-300">
+                          Main Line Status
+                        </Label>
+                        <Button
+                          size="sm"
+                          className="w-full mt-2 bg-slate-600 hover:bg-slate-700"
+                          disabled={selectedNode.isMainLine}
+                          onClick={() => {
+                            // Make this variation the main line
+                            const parent = selectedNode.parent;
+                            if (parent) {
+                              parent.children.forEach(child => {
+                                child.isMainLine = child === selectedNode;
+                              });
+                              setMoveTree({ ...moveTree });
+                            }
+                          }}
+                        >
+                          {selectedNode.isMainLine ? 'Already Main Line' : 'Set as Main Line'}
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
+            </LayoutSection>
+          ),
+
+          editor: (
+            <LayoutSection
+              key="editor"
+              noPadding={true}
+            >
+              <div className="h-full w-full flex items-center justify-center p-4">
+                <InteractiveChessboard
+                  currentMoves={currentPath}
+                  onNewMove={handleNewMove}
+                  onMoveSelect={(moves) => {
+                    // When user navigates via chessboard, sync with tree
+                    handleNewMove(moves);
+                  }}
+                  isWhiteTree={color === 'white'}
+                  className="w-full max-w-none"
+                />
+              </div>
+            </LayoutSection>
+          ),
+
+          tree: (
+            <LayoutSection
+              key="tree"
+              noPadding={true}
+              className="border-r-0"
+            >
+              <Card className="bg-slate-800 border-slate-700 h-full m-4">
+                <CardHeader className="flex flex-row items-center justify-between py-3">
+                  <CardTitle className="text-slate-100 text-lg">Opening Tree</CardTitle>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCanvasMode(canvasMode === 'opening' ? 'performance' : 'opening')}
+                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                  >
+                    <BarChart3 className="w-4 h-4 mr-2" />
+                    {canvasMode === 'opening' ? 'Performance' : 'Tree'}
+                  </Button>
+                </CardHeader>
+                <CardContent className="p-4 h-[calc(100%-5rem)]">
+                  <CanvasPerformanceGraph
+                    graphData={canvasMode === 'opening' ? graphData : performanceGraphData}
+                    mode={canvasMode}
+                    onNodeClick={handleCanvasNodeClick}
+                    currentNodeId={selectedNode?.id}
+                    isGenerating={false}
+                    showPerformanceLegend={false}
+                    showPerformanceControls={false}
+                    className="w-full h-full"
+                  />
+                </CardContent>
+              </Card>
+            </LayoutSection>
+          )
+        }}
+      </FlexibleLayout>
     </div>
   );
 } 
