@@ -4,10 +4,12 @@ import 'react-chessground/dist/styles/chessground.css';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { NavigationButtons, NavigationPresets } from '@/components/ui/navigation-buttons';
-import { ChevronLeft, ChevronRight, RotateCcw, GripVertical, ArrowUpDown, Info, Fish, Loader2, AlertTriangle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw, GripVertical, ArrowUpDown, Info, Fish, Loader2, AlertTriangle, BookOpen } from 'lucide-react';
 import { Chess } from 'chess.js';
 import PositionInfoDialog from '../opening-moves/PositionInfoDialog';
+import OpeningSelector from '../opening-moves/OpeningSelector';
 import { getOpeningFromFen } from '../chess/OpeningDatabase';
+import { checkPositionInOpenings } from '@/api/openingEntities';
 import { 
   getPositionAfterMoves, 
   getPositionFromFen, 
@@ -92,6 +94,7 @@ export default function InteractiveChessboard({
   const [currentOpeningInfo, setCurrentOpeningInfo] = useState({ eco: "", name: "Starting Position" });
   const [positionExistsInGraph, setPositionExistsInGraph] = useState(true);
   const [openingLoadingCache, setOpeningLoadingCache] = useState(new Map()); // Cache for opening lookups
+  const [positionInOpenings, setPositionInOpenings] = useState([]); // Track which openings contain this position
 
   // Calculate valid moves in chessground format
   const calculateDests = useCallback((game) => {
@@ -320,6 +323,7 @@ export default function InteractiveChessboard({
         const cached = openingLoadingCache.get(currentFen);
         setCurrentOpeningInfo(cached.openingInfo);
         setPositionExistsInGraph(cached.existsInGraph);
+        setPositionInOpenings(cached.inOpenings || []);
         return;
       }
       
@@ -332,6 +336,10 @@ export default function InteractiveChessboard({
            node.data && node.data.fen === currentFen
          );
          
+         // Check if position exists in user's saved openings
+         const username = localStorage.getItem('chesscope_username');
+         const inOpenings = username ? await checkPositionInOpenings(currentFen, username) : [];
+         
          // Only update opening info if we found a valid opening in the database
          if (openingInfo && openingInfo.name) {
            const formattedOpening = {
@@ -342,7 +350,8 @@ export default function InteractiveChessboard({
            // Cache the result
            const cacheEntry = {
              openingInfo: formattedOpening,
-             existsInGraph: positionExists
+             existsInGraph: positionExists,
+             inOpenings: inOpenings
            };
            setOpeningLoadingCache(prev => new Map(prev.set(currentFen, cacheEntry)));
            
@@ -352,13 +361,15 @@ export default function InteractiveChessboard({
            // No opening found, just update graph existence but keep current opening name
            const cacheEntry = {
              openingInfo: currentOpeningInfo, // Keep current opening info
-             existsInGraph: positionExists
+             existsInGraph: positionExists,
+             inOpenings: inOpenings
            };
            setOpeningLoadingCache(prev => new Map(prev.set(currentFen, cacheEntry)));
          }
          
-         // Always update position existence
+         // Always update position existence and openings
          setPositionExistsInGraph(positionExists);
+         setPositionInOpenings(inOpenings);
          
        } catch (error) {
          console.warn('Error getting opening info from database:', error);
@@ -369,6 +380,7 @@ export default function InteractiveChessboard({
          );
          
          setPositionExistsInGraph(positionExists);
+         setPositionInOpenings([]);
        }
     };
     
@@ -972,8 +984,23 @@ export default function InteractiveChessboard({
             </div>
           </div>
 
-          {/* Right side - Position Info Button */}
+          {/* Right side - Position Info Button and Book Icon */}
           <div className="flex items-center gap-1">
+            {positionInOpenings.length > 0 && (
+              <OpeningSelector fen={game.fen()}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="bg-amber-500/20 border-amber-500 text-amber-400 hover:bg-amber-500/30 hover:border-amber-400 hover:text-amber-300 transition-all duration-200"
+                  title={`In ${positionInOpenings.length} saved opening${positionInOpenings.length > 1 ? 's' : ''}`}
+                >
+                  <BookOpen className="w-4 h-4" />
+                  {positionInOpenings.length > 1 && (
+                    <span className="ml-1 text-xs">{positionInOpenings.length}</span>
+                  )}
+                </Button>
+              </OpeningSelector>
+            )}
             {openingGraph && currentMoves.length > 0 && (
               <PositionInfoDialog
                 openingGraph={openingGraph}

@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { useChessboardSync } from '../hooks/useChessboardSync';
 import { loadOpeningGraph } from '../api/graphStorage';
+import { checkPositionInOpenings } from '../api/openingEntities';
 
 
 
@@ -608,6 +609,9 @@ function PerformanceGraphContent() {
   const [hoveredOpeningName, setHoveredOpeningName] = useState(null); // Hover state for ECO opening names
   const [hoveredClusterColor, setHoveredClusterColor] = useState(null); // Store the cluster color for hover tooltip
   
+  // Saved openings state
+  const [nodeOpeningsMap, setNodeOpeningsMap] = useState(new Map()); // Map of FEN -> openings containing it
+  
   // Chessboard integration state
   const [hoveredMove, setHoveredMove] = useState(null); // Track hovered move for arrows
   const [currentNodeId, setCurrentNodeId] = useState(null); // Track currently selected node
@@ -845,16 +849,21 @@ function PerformanceGraphContent() {
   
   // Function to enrich nodes with opening cluster information and current position
   const enrichNodesWithOpeningClusters = (nodes, clusters) => {
-    const baseEnrichedNodes = nodes.map(node => ({
-      ...node,
-      data: {
-        ...node.data,
-        isCurrentPosition: node.id === currentNodeId, // Add current position info
-        isHoveredNextMove: node.id === hoveredNextMoveNodeId, // Add hovered next move info
-        openingClusteringEnabled: openingClusteringEnabled && clusters.length > 0,
-        openingClusterId: undefined
-      }
-    }));
+    const baseEnrichedNodes = nodes.map(node => {
+      const savedOpenings = nodeOpeningsMap.get(node.data.fen) || [];
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          isCurrentPosition: node.id === currentNodeId, // Add current position info
+          isHoveredNextMove: node.id === hoveredNextMoveNodeId, // Add hovered next move info
+          openingClusteringEnabled: openingClusteringEnabled && clusters.length > 0,
+          openingClusterId: undefined,
+          savedOpenings: savedOpenings, // Add saved openings info
+          inSavedOpening: savedOpenings.length > 0
+        }
+      };
+    });
 
     if (!openingClusteringEnabled || clusters.length === 0) {
       return baseEnrichedNodes;
@@ -933,6 +942,32 @@ function PerformanceGraphContent() {
     }
   }, [chessboardSync.currentMoves, movesDirectScrollFn, showOpeningMoves]);
 
+  // Load saved openings for all nodes
+  useEffect(() => {
+    const loadNodeOpenings = async () => {
+      if (graphData.nodes.length === 0) return;
+      
+      const username = localStorage.getItem('chesscope_username');
+      if (!username) return;
+      
+      const newMap = new Map();
+      
+      // Check each unique FEN position
+      const uniqueFens = new Set(graphData.nodes.map(node => node.data.fen));
+      
+      for (const fen of uniqueFens) {
+        const openings = await checkPositionInOpenings(fen, username);
+        if (openings.length > 0) {
+          newMap.set(fen, openings);
+        }
+      }
+      
+      setNodeOpeningsMap(newMap);
+    };
+    
+    loadNodeOpenings();
+  }, [graphData.nodes]);
+
   // Update opening clusters when graph data changes or clustering is toggled
   useEffect(() => {
     if (graphData.nodes.length > 0) {
@@ -964,7 +999,7 @@ function PerformanceGraphContent() {
       
       setNodes([...allBackgroundNodes, ...enrichedNodes]);
     }
-  }, [graphData, openingClusteringEnabled, currentNodeId, hoveredNextMoveNodeId, positionClusters, showPositionClusters, setNodes]);
+  }, [graphData, openingClusteringEnabled, currentNodeId, hoveredNextMoveNodeId, positionClusters, showPositionClusters, nodeOpeningsMap, setNodes]);
   
   // Async graph generation to prevent UI blocking
   useEffect(() => {

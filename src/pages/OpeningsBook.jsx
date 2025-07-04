@@ -1,0 +1,309 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { 
+  BookOpen, 
+  Plus, 
+  Search, 
+  Crown, 
+  Shield,
+  Edit,
+  Trash2,
+  Eye,
+  ChevronRight,
+  Loader2
+} from 'lucide-react';
+import { userOpening } from '@/api/openingEntities';
+import { Chessground } from 'react-chessground';
+import 'react-chessground/dist/styles/chessground.css';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+export default function OpeningsBook() {
+  const navigate = useNavigate();
+  const [openings, setOpenings] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterColor, setFilterColor] = useState('all'); // 'all', 'white', 'black'
+  const [deleteOpening, setDeleteOpening] = useState(null);
+
+  // Load user's openings
+  useEffect(() => {
+    loadOpenings();
+  }, []);
+
+  const loadOpenings = async () => {
+    try {
+      setLoading(true);
+      const username = localStorage.getItem('chesscope_username');
+      
+      if (!username) {
+        console.warn('No username found');
+        setLoading(false);
+        return;
+      }
+
+      const userOpenings = await userOpening.getByUsername(username);
+      setOpenings(userOpenings);
+    } catch (error) {
+      console.error('Error loading openings:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Filter openings based on search and color
+  const filteredOpenings = openings.filter(opening => {
+    const matchesSearch = opening.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         opening.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesColor = filterColor === 'all' || opening.color === filterColor;
+    
+    return matchesSearch && matchesColor;
+  });
+
+  // Handle creating a new opening
+  const handleCreateOpening = () => {
+    navigate('/openings-book/editor/new');
+  };
+
+  // Handle opening click - go to analysis view
+  const handleOpeningClick = (openingId) => {
+    navigate(`/openings-book/opening/${openingId}`);
+  };
+
+  // Handle edit opening
+  const handleEditOpening = (e, openingId) => {
+    e.stopPropagation();
+    navigate(`/openings-book/editor/${openingId}`);
+  };
+
+  // Handle delete opening
+  const handleDeleteOpening = async () => {
+    if (!deleteOpening) return;
+    
+    try {
+      await userOpening.delete(deleteOpening.id);
+      await loadOpenings();
+      setDeleteOpening(null);
+    } catch (error) {
+      console.error('Error deleting opening:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-amber-500 animate-spin mx-auto mb-4" />
+          <p className="text-slate-300">Loading your openings...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-slate-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <BookOpen className="w-8 h-8 text-amber-500" />
+              <h1 className="text-3xl font-bold text-slate-100">Openings Book</h1>
+            </div>
+            <Button 
+              onClick={handleCreateOpening}
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Add Opening
+            </Button>
+          </div>
+
+          {/* Search and Filters */}
+          <div className="flex gap-4 items-center">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <Input
+                type="text"
+                placeholder="Search openings..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 bg-slate-800 border-slate-700 text-slate-200"
+              />
+            </div>
+            
+            <div className="flex gap-2">
+              <Button
+                variant={filterColor === 'all' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterColor('all')}
+                className={filterColor === 'all' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}
+              >
+                All
+              </Button>
+              <Button
+                variant={filterColor === 'white' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterColor('white')}
+                className={filterColor === 'white' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}
+              >
+                <Crown className="w-4 h-4 mr-1 text-amber-400" />
+                White
+              </Button>
+              <Button
+                variant={filterColor === 'black' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setFilterColor('black')}
+                className={filterColor === 'black' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}
+              >
+                <Shield className="w-4 h-4 mr-1 text-slate-400" />
+                Black
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {/* Empty State */}
+        {filteredOpenings.length === 0 && (
+          <div className="text-center py-16">
+            <BookOpen className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-slate-300 mb-2">
+              {searchTerm || filterColor !== 'all' 
+                ? 'No openings found' 
+                : 'No openings yet'}
+            </h3>
+            <p className="text-slate-400 mb-6">
+              {searchTerm || filterColor !== 'all'
+                ? 'Try adjusting your search or filters'
+                : 'Create your first opening to get started'}
+            </p>
+            {!searchTerm && filterColor === 'all' && (
+              <Button onClick={handleCreateOpening} className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white">
+                <Plus className="w-4 h-4 mr-2" />
+                Create Your First Opening
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* Openings Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {filteredOpenings.map((opening) => (
+            <Card 
+              key={opening.id}
+              className="bg-slate-800 border-slate-700 hover:border-amber-500/50 transition-all cursor-pointer group"
+              onClick={() => handleOpeningClick(opening.id)}
+            >
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-lg text-slate-100 truncate">
+                      {opening.name}
+                    </CardTitle>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Badge variant="outline" className={opening.color === 'white' ? 'border-amber-500/50 text-amber-400' : 'border-slate-500 text-slate-400'}>
+                        {opening.color === 'white' ? (
+                          <Crown className="w-3 h-3 mr-1" />
+                        ) : (
+                          <Shield className="w-3 h-3 mr-1" />
+                        )}
+                        {opening.color}
+                      </Badge>
+                      {opening.tags && opening.tags.length > 0 && (
+                        <Badge variant="outline" className="text-xs">
+                          {opening.tags.length} tags
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => handleEditOpening(e, opening.id)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteOpening(opening);
+                      }}
+                      className="h-8 w-8 p-0 text-red-400 hover:text-red-300"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent className="pb-4">
+                {/* Mini Chessboard Preview */}
+                <div className="aspect-square mb-3 rounded-lg overflow-hidden bg-slate-900">
+                  <Chessground
+                    fen={opening.initial_fen}
+                    orientation={opening.color}
+                    viewOnly={true}
+                    coordinates={false}
+                    style={{
+                      width: '100%',
+                      height: '100%'
+                    }}
+                  />
+                </div>
+                
+                {opening.description && (
+                  <p className="text-sm text-slate-400 line-clamp-2 mb-2">
+                    {opening.description}
+                  </p>
+                )}
+                
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span>{opening.initial_moves?.length || 0} moves</span>
+                  <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteOpening} onOpenChange={() => setDeleteOpening(null)}>
+        <AlertDialogContent className="bg-slate-800 border-slate-700">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-100">Delete Opening</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Are you sure you want to delete "{deleteOpening?.name}"? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600">
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteOpening}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+} 
