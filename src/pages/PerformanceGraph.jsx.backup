@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { ReactFlow, useNodesState, useEdgesState, MiniMap, Background, Panel, useReactFlow, useViewport, Handle, Position } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import InteractiveChessboard from '../components/chess/InteractiveChessboard';
-import ChunkVisualization from '../components/opening-tree/ChunkVisualization';
-import ClusterOverlay from '../components/opening-tree/ClusterOverlay';
+import ChunkVisualization from '../components/opening-moves/ChunkVisualization';
+import ClusterOverlay from '../components/opening-moves/ClusterOverlay';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';

@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { NavigationButtons, NavigationPresets } from '@/components/ui/navigation-buttons';
 import { ChevronLeft, ChevronRight, RotateCcw, GripVertical, ArrowUpDown, Info, Fish, Loader2, AlertTriangle } from 'lucide-react';
 import { Chess } from 'chess.js';
-import PositionInfoDialog from '../opening-tree/PositionInfoDialog';
+import PositionInfoDialog from '../opening-moves/PositionInfoDialog';
 import { getOpeningFromFen } from '../chess/OpeningDatabase';
 import { 
   getPositionAfterMoves, 
