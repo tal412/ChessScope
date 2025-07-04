@@ -98,6 +98,58 @@ const createTables = async () => {
       )
     `);
 
+    // Create tables for Openings Book feature
+    db.run(`
+      CREATE TABLE IF NOT EXISTS user_openings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        name TEXT NOT NULL,
+        color TEXT NOT NULL,
+        initial_fen TEXT DEFAULT 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        initial_moves TEXT DEFAULT '[]',
+        description TEXT,
+        tags TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(username, name)
+      )
+    `);
+    
+    db.run(`
+      CREATE TABLE IF NOT EXISTS user_opening_moves (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        opening_id INTEGER NOT NULL,
+        fen TEXT NOT NULL,
+        san TEXT NOT NULL,
+        uci TEXT,
+        move_number INTEGER NOT NULL,
+        parent_fen TEXT,
+        is_main_line BOOLEAN DEFAULT 1,
+        evaluation TEXT,
+        comment TEXT,
+        arrows TEXT,
+        highlights TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (opening_id) REFERENCES user_openings(id) ON DELETE CASCADE,
+        UNIQUE(opening_id, fen, parent_fen)
+      )
+    `);
+    
+    db.run(`
+      CREATE TABLE IF NOT EXISTS move_annotations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        move_id INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        content TEXT NOT NULL,
+        url TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (move_id) REFERENCES user_opening_moves(id) ON DELETE CASCADE
+      )
+    `);
+
+
+
     // Create indexes for better performance
     db.run('CREATE INDEX IF NOT EXISTS idx_chess_games_username ON chess_games(username)');
     db.run('CREATE INDEX IF NOT EXISTS idx_chess_games_end_time ON chess_games(end_time)');
@@ -105,6 +157,12 @@ const createTables = async () => {
     db.run('CREATE INDEX IF NOT EXISTS idx_opening_nodes_username ON opening_nodes(username)');
     db.run('CREATE INDEX IF NOT EXISTS idx_opening_nodes_color ON opening_nodes(color)');
     db.run('CREATE INDEX IF NOT EXISTS idx_opening_nodes_total_games ON opening_nodes(total_games)');
+    
+    // Create indexes for Openings Book feature
+    db.run('CREATE INDEX IF NOT EXISTS idx_user_openings_username ON user_openings(username)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_user_opening_moves_opening_id ON user_opening_moves(opening_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_user_opening_moves_fen ON user_opening_moves(fen)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_move_annotations_move_id ON move_annotations(move_id)');
 
     // Save to localStorage
     saveDatabase();
@@ -294,6 +352,30 @@ export class BaseModel {
     }
   }
 
+  async update(id, data) {
+    if (!db) {
+      throw new Error('Database not initialized');
+    }
+
+    const keys = Object.keys(data);
+    const setClause = keys.map(key => `${key} = ?`).join(', ');
+    const values = [...keys.map(key => data[key]), id];
+    
+    const query = `UPDATE ${this.tableName} SET ${setClause} WHERE id = ?`;
+    
+    try {
+      const stmt = db.prepare(query);
+      stmt.run(values);
+      stmt.free();
+      
+      saveDatabase();
+      return { id, ...data };
+    } catch (error) {
+      console.error(`Error updating record in ${this.tableName}:`, error);
+      throw error;
+    }
+  }
+
   async delete(id) {
     if (!db) {
       throw new Error('Database not initialized');
@@ -447,11 +529,15 @@ export const deleteOldGames = async (keepRecentCount = 1000) => {
     }
     
     // Rebuild opening trees
+    // TODO: Rebuild opening trees functionality needs to be re-implemented
+    // since Import.jsx no longer exists
+    /*
     if (remainingGames.length > 0) {
       const { buildOpeningTree } = await import('../pages/Import.jsx');
       const username = remainingGames[0].username;
       await buildOpeningTree(remainingGames, username);
     }
+    */
     
     return { deleted: gamesToDelete.length, kept: keepRecentCount };
   } catch (error) {

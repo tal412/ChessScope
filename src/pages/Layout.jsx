@@ -13,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Network, User, Settings, Shield, RefreshCw, Loader2, Calendar as CalendarIcon, Globe, CheckCircle, AlertCircle, LogOut, ChevronLeft, ChevronRight, Github, Linkedin } from "lucide-react";
+import { Network, User, Settings, Shield, RefreshCw, Loader2, Calendar as CalendarIcon, Globe, CheckCircle, AlertCircle, LogOut, ChevronLeft, ChevronRight, Github, Linkedin, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -103,6 +103,7 @@ export default function Layout() {
 
   const navigationItems = [
     { name: "Performance Graph", url: createPageUrl("PerformanceGraph"), icon: Network },
+    { name: "Openings Book", url: createPageUrl("openings-book"), icon: BookOpen },
   ];
 
   const handleManualSync = async () => {
