@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -91,10 +91,6 @@ export default function OpeningEditor() {
   // Canvas state
   const [canvasMode, setCanvasMode] = useState('opening'); // 'opening' | 'performance'
   const [openingGraph, setOpeningGraph] = useState(null); // For performance mode
-  const [performanceGraphData, setPerformanceGraphData] = useState({ nodes: [], edges: [], maxGameCount: 0 });
-  
-  // Graph data for canvas view
-  const [graphData, setGraphData] = useState({ nodes: [], edges: [] });
   
   // Load existing opening
   useEffect(() => {
@@ -103,99 +99,9 @@ export default function OpeningEditor() {
     }
   }, [openingId]);
   
-  // Update graph data when tree changes or mode changes
-  useEffect(() => {
-    if (canvasMode === 'opening') {
-      updateGraphData();
-    } else if (canvasMode === 'performance' && openingGraph) {
-      generatePerformanceGraph();
-    }
-  }, [moveTree, selectedNode, canvasMode, openingGraph]);
-
-  // Load performance graph data
-  useEffect(() => {
-    const loadPerformanceData = async () => {
-      if (canvasMode === 'performance') {
-        const username = localStorage.getItem('chesscope_username');
-        if (username) {
-          const graph = await loadOpeningGraph(username);
-          setOpeningGraph(graph);
-        }
-      }
-    };
-    loadPerformanceData();
-  }, [canvasMode]);
-
-  const loadOpening = async () => {
-    try {
-      setLoading(true);
-      
-      // Load opening
-      const openings = await UserOpening.filter({ id: parseInt(openingId) });
-      if (openings.length === 0) {
-        navigate('/openings-book');
-        return;
-      }
-      
-      const opening = openings[0];
-      setName(opening.name);
-      setDescription(opening.description || '');
-      setColor(opening.color);
-      setTags(opening.tags || []);
-      
-      // Load moves
-      const moves = await UserOpeningMove.getByOpeningId(parseInt(openingId));
-      
-      // Create root node
-      const root = new MoveNode('Start', opening.initial_fen);
-      
-      // Build tree from moves
-      const nodeMap = new Map();
-      nodeMap.set(opening.initial_fen, root);
-      
-      // Sort moves by move number to ensure proper tree construction
-      moves.sort((a, b) => a.move_number - b.move_number);
-      
-      // First pass: create all nodes
-      for (const move of moves) {
-        const parentNode = nodeMap.get(move.parent_fen);
-        if (parentNode) {
-          const childNode = parentNode.addChild(move.san, move.fen);
-          childNode.isMainLine = move.is_main_line;
-          childNode.comment = move.comment || '';
-          childNode.links = []; // Initialize empty, will load separately
-          childNode.arrows = move.arrows || [];
-          nodeMap.set(move.fen, childNode);
-          
-          // Store move ID for loading annotations
-          childNode.moveId = move.id;
-        }
-      }
-      
-      // Second pass: load annotations (links) for each move
-      for (const [fen, node] of nodeMap) {
-        if (node.moveId) {
-          const annotations = await MoveAnnotation.getByMoveId(node.moveId);
-          node.links = annotations
-            .filter(ann => ann.type === 'link')
-            .map(ann => ({ title: ann.content, url: ann.url }));
-        }
-      }
-      
-      setMoveTree(root);
-      setCurrentNode(root);
-      setSelectedNode(root);
-      
-    } catch (error) {
-      console.error('Error loading opening:', error);
-      navigate('/openings-book');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const updateGraphData = () => {
-    if (!moveTree) return;
+  // Memoize the graph structure (without selection state)
+  const graphStructure = useMemo(() => {
+    if (!moveTree) return { nodes: [], edges: [] };
     
     const nodes = [];
     const edges = [];
@@ -212,7 +118,7 @@ export default function OpeningEditor() {
       const x = xOffset * horizontalSpacing;
       const y = depth * verticalSpacing;
       
-      // Add node with all necessary data
+      // Add node with all necessary data except selection state
       nodes.push({
         id: nodeId,
         type: 'custom',
@@ -221,7 +127,6 @@ export default function OpeningEditor() {
           label: node.san,
           san: node.san,
           fen: node.fen,
-          isSelected: node === selectedNode,
           isMainLine: node.isMainLine,
           hasComment: !!node.comment,
           hasLinks: node.links && node.links.length > 0,
@@ -269,11 +174,28 @@ export default function OpeningEditor() {
     // Start traversal from root
     traverseTree(moveTree);
     
-    setGraphData({ nodes, edges });
-  };
+    return { nodes, edges };
+  }, [moveTree]);
 
-  const generatePerformanceGraph = () => {
-    if (!openingGraph) return;
+  // Combine structure with selection state
+  const memoizedGraphData = useMemo(() => {
+    if (canvasMode !== 'opening') return graphStructure;
+    
+    // Add selection state to nodes
+    const nodesWithSelection = graphStructure.nodes.map(node => ({
+      ...node,
+      data: {
+        ...node.data,
+        isSelected: node.id === selectedNode?.id
+      }
+    }));
+    
+    return { nodes: nodesWithSelection, edges: graphStructure.edges };
+  }, [graphStructure, selectedNode?.id, canvasMode]);
+
+  // Memoize performance graph data
+  const memoizedPerformanceGraphData = useMemo(() => {
+    if (!openingGraph || canvasMode !== 'performance') return { nodes: [], edges: [], maxGameCount: 0 };
     
     // Get moves from the current opening tree path
     const mainLineMoves = [];
@@ -355,7 +277,89 @@ export default function OpeningEditor() {
       maxGameCount = Math.max(maxGameCount, Math.floor(80 - index * 15));
     });
     
-    setPerformanceGraphData({ nodes, edges, maxGameCount });
+    return { nodes, edges, maxGameCount };
+  }, [moveTree, openingGraph, canvasMode, name]);
+
+  // Load performance graph data
+  useEffect(() => {
+    const loadPerformanceData = async () => {
+      if (canvasMode === 'performance') {
+        const username = localStorage.getItem('chesscope_username');
+        if (username) {
+          const graph = await loadOpeningGraph(username);
+          setOpeningGraph(graph);
+        }
+      }
+    };
+    loadPerformanceData();
+  }, [canvasMode]);
+
+  const loadOpening = async () => {
+    try {
+      setLoading(true);
+      
+      // Load opening
+      const openings = await UserOpening.filter({ id: parseInt(openingId) });
+      if (openings.length === 0) {
+        navigate('/openings-book');
+        return;
+      }
+      
+      const opening = openings[0];
+      setName(opening.name);
+      setDescription(opening.description || '');
+      setColor(opening.color);
+      setTags(opening.tags || []);
+      
+      // Load moves
+      const moves = await UserOpeningMove.getByOpeningId(parseInt(openingId));
+      
+      // Create root node
+      const root = new MoveNode('Start', opening.initial_fen);
+      
+      // Build tree from moves
+      const nodeMap = new Map();
+      nodeMap.set(opening.initial_fen, root);
+      
+      // Sort moves by move number to ensure proper tree construction
+      moves.sort((a, b) => a.move_number - b.move_number);
+      
+      // First pass: create all nodes
+      for (const move of moves) {
+        const parentNode = nodeMap.get(move.parent_fen);
+        if (parentNode) {
+          const childNode = parentNode.addChild(move.san, move.fen);
+          childNode.isMainLine = move.is_main_line;
+          childNode.comment = move.comment || '';
+          childNode.links = []; // Initialize empty, will load separately
+          childNode.arrows = move.arrows || [];
+          nodeMap.set(move.fen, childNode);
+          
+          // Store move ID for loading annotations
+          childNode.moveId = move.id;
+        }
+      }
+      
+      // Second pass: load annotations (links) for each move
+      for (const [fen, node] of nodeMap) {
+        if (node.moveId) {
+          const annotations = await MoveAnnotation.getByMoveId(node.moveId);
+          node.links = annotations
+            .filter(ann => ann.type === 'link')
+            .map(ann => ({ title: ann.content, url: ann.url }));
+        }
+      }
+      
+      setMoveTree(root);
+      setCurrentNode(root);
+      setSelectedNode(root);
+      
+    } catch (error) {
+      console.error('Error loading opening:', error);
+      navigate('/openings-book');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSave = async () => {
@@ -866,7 +870,7 @@ export default function OpeningEditor() {
                     </CardHeader>
                     <CardContent className="p-4 h-[500px]">
                       <CanvasPerformanceGraph
-                        graphData={canvasMode === 'opening' ? graphData : performanceGraphData}
+                        graphData={canvasMode === 'opening' ? memoizedGraphData : memoizedPerformanceGraphData}
                         mode={canvasMode}
                         onNodeClick={(e, node) => {
                           if (canvasMode === 'opening' && node.data && !node.data.isRoot) {
@@ -905,7 +909,7 @@ export default function OpeningEditor() {
                   </CardHeader>
                   <CardContent className="p-4 h-[700px]">
                     <CanvasPerformanceGraph
-                      graphData={canvasMode === 'opening' ? graphData : performanceGraphData}
+                      graphData={canvasMode === 'opening' ? memoizedGraphData : memoizedPerformanceGraphData}
                       mode={canvasMode}
                       onNodeClick={(e, node) => {
                         if (canvasMode === 'opening' && node.data && !node.data.isRoot) {
