@@ -818,7 +818,7 @@ const fetchLichessGames = async (username, importSettings = {}) => {
     // Calculate date range for Lichess API
     const currentDate = new Date();
     let sinceDate = new Date();
-    let untilDate = null;
+    let untilDate = new Date(); // Default to current date for all ranges
     
     try {
       if (selectedDateRange === "custom") {
@@ -830,7 +830,7 @@ const fetchLichessGames = async (username, importSettings = {}) => {
           if (sinceDate >= untilDate) {
             console.warn('Invalid date range: start date must be before end date');
             sinceDate.setMonth(currentDate.getMonth() - 3); // fallback to 3 months
-            untilDate = null;
+            untilDate = new Date(); // Reset to current date
           }
         } else {
           sinceDate.setMonth(currentDate.getMonth() - 3); // default to 3 months
@@ -843,6 +843,7 @@ const fetchLichessGames = async (username, importSettings = {}) => {
         } else {
           sinceDate.setMonth(currentDate.getMonth() - monthsBack);
         }
+        // untilDate is already set to current date
       }
     } catch (dateError) {
       console.warn('Error processing date range, defaulting to 3 months:', dateError);
@@ -851,8 +852,8 @@ const fetchLichessGames = async (username, importSettings = {}) => {
     
     // Convert to Unix timestamp (milliseconds)
     const sinceTimestamp = sinceDate.getTime();
-    // For until parameter, add a day to include the full end date
-    const untilTimestamp = untilDate ? untilDate.getTime() + (24 * 60 * 60 * 1000) : null;
+    // For until parameter, add a day to include today's games
+    const untilTimestamp = untilDate.getTime() + (24 * 60 * 60 * 1000);
     
     // Build Lichess API URL like the working openingtree project
     const lichessBaseURL = 'https://lichess.org/api/games/user/';
@@ -881,7 +882,7 @@ const fetchLichessGames = async (username, importSettings = {}) => {
     const perfFilter = perfs ? `&perfType=${perfs}` : '';
     const ratedFilter = '&rated=true'; // Only rated games
     const timeSinceFilter = `&since=${sinceTimestamp}`;
-    const timeUntilFilter = untilTimestamp ? `&until=${untilTimestamp}` : '';
+    const timeUntilFilter = `&until=${untilTimestamp}`;
     
     const apiUrl = `${lichessBaseURL}${playerNameFilter}?max=1500${ratedFilter}${perfFilter}${timeSinceFilter}${timeUntilFilter}`;
     
