@@ -1,8 +1,9 @@
-import React, { useState } from "react";
-import { Outlet, Link, useLocation } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -24,11 +25,14 @@ function createPageUrl(name) {
 
 export default function Layout() {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, logout, syncUserData, updateImportSettings, isSyncing, isImporting, importProgress, importStatus } = useAuth();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [tempSettings, setTempSettings] = useState({});
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
+  const [settingsSaveStarted, setSettingsSaveStarted] = useState(false);
 
   const navigationItems = [
     { name: "Performance Graph", url: createPageUrl("PerformanceGraph"), icon: Network },
@@ -46,34 +50,36 @@ export default function Layout() {
   const handleSettingsOpen = () => {
     setTempSettings(user?.importSettings || {});
     setIsSettingsOpen(true);
+    setSettingsSaveStarted(false);
   };
 
   const handleSettingsSave = async () => {
     try {
-      console.log('🎯 Starting settings save with completion callback');
-      await updateImportSettings(tempSettings, handleSettingsLoadingComplete);
+      console.log('🎯 Starting settings save');
+      setSettingsSaveStarted(true); // Mark that save has started
+      await updateImportSettings(tempSettings, handleSettingsLoadingComplete); // Add callback back
     } catch (error) {
       console.error('Failed to update settings:', error);
+      setSettingsSaveStarted(false); // Reset on error
     }
   };
 
   const handleSettingsLoadingComplete = () => {
     console.log('🎉 Settings loading complete callback called!');
+    
+    // Close dialog immediately
     setIsSettingsOpen(false);
+    setSettingsSaveStarted(false);
     
-    // Debug: Log current pathname
-    console.log('📍 Current pathname:', location.pathname);
-    
-    // If user is on performance graph page (either root "/" or "/PerformanceGraph"), dispatch custom event to refresh data
-    if (location.pathname === '/' || location.pathname === '/PerformanceGraph') {
-      console.log('✅ On PerformanceGraph page, will dispatch refresh event');
-      // Dispatch a custom event that the PerformanceGraph component can listen for
-      setTimeout(() => {
-        console.log('🚀 Dispatching refreshPerformanceGraph event from settings');
-        window.dispatchEvent(new CustomEvent('refreshPerformanceGraph'));
-      }, 300); // Increased delay to ensure dialog closes completely
-    } else {
-      console.log('❌ Not on PerformanceGraph page, no refresh event');
+    // Dispatch refresh event immediately
+    try {
+      const event = new CustomEvent('refreshPerformanceGraph', { 
+        detail: { source: 'settings', timestamp: Date.now() } 
+      });
+      window.dispatchEvent(event);
+      console.log('✅ refreshPerformanceGraph event dispatched successfully');
+    } catch (error) {
+      console.error('❌ Error dispatching refresh event:', error);
     }
   };
 
@@ -94,11 +100,13 @@ export default function Layout() {
   const handleLogout = async () => {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
+    setShowLogoutDialog(false); // Close dialog first
     try {
       await logout();
+      // Force navigation to main page with full page reload
+      window.location.href = "/";
     } catch (error) {
       console.error('Logout failed:', error);
-    } finally {
       setIsLoggingOut(false);
     }
   };
@@ -274,7 +282,7 @@ export default function Layout() {
                 <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>
                     <Button
-                      onClick={handleLogout}
+                      onClick={() => setShowLogoutDialog(true)}
                       disabled={isImporting || isLoggingOut}
                       size="sm"
                       variant="outline"
@@ -313,7 +321,12 @@ export default function Layout() {
         </div>
 
         {/* Settings Dialog */}
-        <Dialog open={isSettingsOpen} onOpenChange={setIsSettingsOpen}>
+        <Dialog open={isSettingsOpen} onOpenChange={(open) => {
+          setIsSettingsOpen(open);
+          if (!open) {
+            setSettingsSaveStarted(false); // Reset when dialog closes
+          }
+        }}>
           <DialogContent className="bg-slate-800/95 backdrop-blur-xl border-slate-700/50 text-white max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl">Import Settings</DialogTitle>
@@ -543,13 +556,17 @@ export default function Layout() {
             )}
 
             {/* Loading / Success indicator – always shown at the bottom */}
-            <SettingsLoading 
-              isLoading={isImporting}
-              progress={importProgress}
-              status={importStatus}
-              onComplete={handleSettingsLoadingComplete}
-              className="border-t border-b border-slate-700/50 my-4"
-            />
+            {isImporting ? (
+              <SettingsLoading 
+                isLoading={isImporting}
+                progress={importProgress}
+                status={importStatus}
+                onComplete={handleSettingsLoadingComplete}
+                className="border-t border-b border-slate-700/50 my-4"
+              />
+            ) : (
+              <div className="border-t border-b border-slate-700/50 my-4 min-h-[60px]" />
+            )}
 
             <DialogFooter>
               <Button 
@@ -566,7 +583,7 @@ export default function Layout() {
                          (tempSettings.selectedDateRange === "custom" && (!tempSettings.customDateRange?.from || !tempSettings.customDateRange?.to))}
                 className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white disabled:opacity-50"
               >
-                {isImporting ? (
+                {(isImporting || settingsSaveStarted) ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     Updating...
@@ -581,6 +598,37 @@ export default function Layout() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Logout Confirmation Dialog */}
+        <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
+          <AlertDialogContent className="bg-slate-800/95 backdrop-blur-xl border-slate-700/50">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-xl text-white">Confirm Logout</AlertDialogTitle>
+              <AlertDialogDescription className="text-slate-400">
+                Are you sure you want to logout? This will clear your session and return you to the main page.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white">
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
+              >
+                {isLoggingOut ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Logging out...
+                  </>
+                ) : (
+                  'Logout'
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </TooltipProvider>
   );

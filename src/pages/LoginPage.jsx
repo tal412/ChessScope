@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,8 +19,11 @@ import { SettingsLoading } from '@/components/ui/settings-loading';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { login, isImporting, importProgress, importStatus } = useAuth();
   const { toast } = useToast();
+  const [isVisible, setIsVisible] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
   
   const [chessComUsername, setChessComUsername] = useState('');
   const [googleAccount, setGoogleAccount] = useState('');
@@ -36,6 +39,40 @@ export default function LoginPage() {
   });
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [autoSync, setAutoSync] = useState(true);
+
+  // Entrance animation effect
+  useEffect(() => {
+    // Start animations immediately
+    setIsVisible(true);
+  }, []);
+
+  // Handle back navigation
+  const handleBack = () => {
+    if (step === 2) {
+      // Go back to step 1
+      setIsVisible(false);
+      setTimeout(() => {
+        setStep(1);
+        setIsVisible(true);
+      }, 100);
+    } else {
+      // Go back to home
+      setIsLeaving(true);
+      setTimeout(() => {
+        navigate('/', { state: { returning: true } });
+      }, 50);
+    }
+  };
+
+  // Handle browser back button
+  useEffect(() => {
+    const handlePopState = () => {
+      setIsLeaving(true);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   const handleChessComSubmit = async (e) => {
     e.preventDefault();
@@ -111,14 +148,39 @@ export default function LoginPage() {
   };
 
   const handleImportComplete = () => {
-    setStep(2);
+    setIsVisible(false);
+    setTimeout(() => {
+      setStep(2);
+      // Start animations immediately on step 2
+      setIsVisible(true);
+    }, 100);
   };
 
   if (step === 1) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-6 relative">
-        <div className="w-full max-w-7xl">
-          <div className="text-center mb-12">
+      <div className="min-h-screen flex items-center justify-center p-6 relative">
+        {/* Back Button */}
+        <Button
+          onClick={handleBack}
+          variant="ghost"
+          className={`absolute top-6 left-6 text-slate-400 hover:text-white transition-all duration-500 ${
+            isVisible && !isLeaving ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform -translate-x-4'
+          }`}
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          Back
+        </Button>
+
+        <div className={`w-full max-w-7xl transition-all duration-500 ${
+          isLeaving ? 'transform -translate-x-8 opacity-0' :
+          isVisible ? 'transform translate-x-0 opacity-100' : 
+          'transform translate-x-8 opacity-0'
+        }`}>
+          <div className={`text-center mb-12 transition-all duration-500 delay-75 ${
+            isLeaving ? 'opacity-0 transform -translate-x-4' :
+            isVisible ? 'opacity-100 transform translate-x-0' : 
+            'opacity-0 transform translate-x-4'
+          }`}>
             <div className="flex items-center justify-center mb-6">
               <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center">
                 <Shield className="w-8 h-8 text-slate-900" />
@@ -131,7 +193,11 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleChessComSubmit} className="space-y-8">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className={`grid grid-cols-1 lg:grid-cols-3 gap-8 transition-all duration-500 delay-100 ${
+              isLeaving ? 'opacity-0 transform -translate-x-6' :
+              isVisible ? 'opacity-100 transform translate-x-0' : 
+              'opacity-0 transform translate-x-6'
+            }`}>
               {/* Left Column - Account Connection */}
               <Card className="bg-slate-800/50 backdrop-blur-xl border-slate-700/50">
                 <CardHeader className="pb-4">
@@ -342,40 +408,60 @@ export default function LoginPage() {
               </Card>
             </div>
 
-            {/* Embedded Loading Section - always present to maintain layout */}
-            <div className="max-w-3xl mx-auto">
-              <SettingsLoading 
-                isLoading={isImporting}
-                progress={importProgress}
-                status={importStatus}
-                onComplete={handleImportComplete}
-                className="border-t border-b border-slate-700/50 my-6"
-              />
-            </div>
-
+            {/* Error Display */}
             {error && (
-              <Alert className="bg-red-500/10 border-red-500/50 max-w-2xl mx-auto">
-                <AlertCircle className="h-4 w-4 text-red-400" />
-                <AlertDescription className="text-red-300">{error}</AlertDescription>
+              <Alert className="border-red-500/50 bg-red-500/10 max-w-3xl mx-auto">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-red-200">
+                  {error}
+                </AlertDescription>
               </Alert>
             )}
 
-            <div className="flex justify-center">
+            {/* Embedded Loading Section - always present to maintain layout */}
+            <div className={`max-w-3xl mx-auto transition-all duration-500 delay-150 ${
+              isLeaving ? 'opacity-0 transform -translate-x-4' :
+              isVisible ? 'opacity-100 transform translate-x-0' : 
+              'opacity-0 transform translate-x-4'
+            }`}>
+              {isImporting && (
+                <SettingsLoading 
+                  isLoading={isImporting}
+                  progress={importProgress}
+                  status={importStatus}
+                  onComplete={handleImportComplete}
+                  successMessage="Games Imported Successfully!"
+                  className="border-t border-b border-slate-700/50 my-6"
+                />
+              )}
+              {/* Placeholder to maintain consistent height */}
+              {!isImporting && (
+                <div className="border-t border-b border-slate-700/50 my-6 min-h-[60px]" />
+              )}
+            </div>
+
+            {/* Submit Button */}
+            <div className={`flex justify-center transition-all duration-500 delay-200 ${
+              isLeaving ? 'opacity-0 transform -translate-x-2' :
+              isVisible ? 'opacity-100 transform translate-x-0' : 
+              'opacity-0 transform translate-x-2'
+            }`}>
               <Button 
                 type="submit" 
+                size="lg"
                 disabled={isImporting || selectedTimeControls.length === 0}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-3 text-lg font-medium disabled:opacity-50"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-12 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 min-w-[300px]"
               >
                 {isImporting ? (
-                  <>
-                    <Loader2 className="animate-spin w-5 h-5 mr-2" />
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 animate-spin" />
                     Importing Games...
-                  </>
+                  </div>
                 ) : (
-                  <>
+                  <div className="flex items-center gap-3">
+                    <ChevronRight className="w-5 h-5" />
                     Connect & Import Games
-                    <ChevronRight className="w-5 h-5 ml-2" />
-                  </>
+                  </div>
                 )}
               </Button>
             </div>
@@ -387,10 +473,30 @@ export default function LoginPage() {
 
   // Google Drive Step
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-6">
-      <div className="max-w-md w-full">
+    <div className="min-h-screen flex items-center justify-center p-6 relative">
+      {/* Back Button */}
+      <Button
+        onClick={handleBack}
+        variant="ghost"
+        className={`absolute top-6 left-6 text-slate-400 hover:text-white transition-all duration-500 ${
+          isVisible && !isLeaving ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform -translate-x-4'
+        }`}
+      >
+        <ArrowLeft className="w-5 h-5 mr-2" />
+        Back
+      </Button>
+
+      <div className={`max-w-md w-full transition-all duration-500 ${
+        isLeaving ? 'transform -translate-x-8 opacity-0' :
+        isVisible ? 'transform translate-x-0 opacity-100' : 
+        'transform translate-x-8 opacity-0'
+      }`}>
         <Card className="bg-slate-800/50 backdrop-blur-xl border-slate-700/50">
-          <CardHeader className="text-center">
+          <CardHeader className={`text-center transition-all duration-500 delay-75 ${
+            isLeaving ? 'opacity-0 transform -translate-x-4' :
+            isVisible ? 'opacity-100 transform translate-x-0' : 
+            'opacity-0 transform translate-x-4'
+          }`}>
             <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <Cloud className="w-8 h-8 text-white" />
             </div>
@@ -399,7 +505,11 @@ export default function LoginPage() {
               Backup your chess analysis data to Google Drive for safekeeping
             </p>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className={`space-y-6 transition-all duration-500 delay-100 ${
+            isLeaving ? 'opacity-0 transform -translate-x-4' :
+            isVisible ? 'opacity-100 transform translate-x-0' : 
+            'opacity-0 transform translate-x-4'
+          }`}>
             <div className="bg-slate-700/30 p-4 rounded-lg border border-slate-600/50">
               <div className="flex items-start gap-3">
                 <Shield className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
