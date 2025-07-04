@@ -65,9 +65,18 @@ const buildGameUrl = (baseUrl, moveNumber) => {
   if (!baseUrl) return '#';
   // If moveNumber is 0 (starting position), don't add move parameter
   if (moveNumber === 0) return baseUrl;
-  // Add the move parameter to jump to the specific move
-  const separator = baseUrl.includes('?') ? '&' : '?';
-  return `${baseUrl}${separator}move=${moveNumber}`;
+  
+  // Check if it's a Lichess URL
+  if (baseUrl.includes('lichess.org')) {
+    // Lichess uses #moveNumber format (e.g., https://lichess.org/gameId#7)
+    // Remove any existing hash first
+    const urlWithoutHash = baseUrl.split('#')[0];
+    return `${urlWithoutHash}#${moveNumber}`;
+  } else {
+    // Chess.com and others use ?move= format
+    const separator = baseUrl.includes('?') ? '&' : '?';
+    return `${baseUrl}${separator}move=${moveNumber}`;
+  }
 };
 
 export default function PositionInfoDialog({ 
