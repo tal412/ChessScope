@@ -11,6 +11,13 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { NavigationButtons, NavigationPresets } from '@/components/ui/navigation-buttons';
 import { 
+  FlexibleLayout, 
+  AppBar, 
+  ComponentToggleButton, 
+  LayoutSection,
+  ComponentConfigs
+} from '@/components/ui/flexible-layout';
+import { 
   Target, 
   Info, 
   Home, 
@@ -36,6 +43,7 @@ import { useChessboardSync } from '../hooks/useChessboardSync';
 import { loadOpeningGraph } from '../api/graphStorage';
 import { checkPositionInOpenings } from '../api/openingEntities';
 import { useAuth } from '../contexts/AuthContext';
+
 
 
 
@@ -1970,113 +1978,22 @@ function PerformanceGraphContent() {
     setHoveredNextMoveNodeId(null);
   };
 
-  // State for responsive layout tracking
-  const [isMobile, setIsMobile] = useState(false);
-  const [isTablet, setIsTablet] = useState(false);
+  // Layout state - using flexible layout system
+  const [layoutInfo, setLayoutInfo] = useState({});
 
-  // Responsive breakpoint detection
-  useEffect(() => {
-    const checkScreenSize = () => {
-      const width = window.innerWidth;
-      setIsMobile(width < 768);
-      setIsTablet(width >= 768 && width < 1024);
-    };
-    
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
-
-  // Calculate responsive grid layout
-  const getResponsiveGridLayout = () => {
-    const visibleComponents = [
-      showOpeningMoves && 'moves',
-      showPositionAnalysis && 'analysis', 
-      showPerformanceGraph && 'graph'
-    ].filter(Boolean);
-
-    // Mobile layout (< 768px) - Stack vertically or limit to single component
-    if (isMobile) {
-      // On mobile, show only one component at a time for best UX
-      if (visibleComponents.length > 1) {
-        // Default to showing performance graph on mobile when multiple are selected
-        if (showPerformanceGraph) {
-          return {
-            gridTemplateColumns: '1fr',
-            gridTemplateRows: '1fr',
-            forceComponents: ['graph']
-          };
-        } else if (showPositionAnalysis) {
-          return {
-            gridTemplateColumns: '1fr', 
-            gridTemplateRows: '1fr',
-            forceComponents: ['analysis']
-          };
-        } else {
-          return {
-            gridTemplateColumns: '1fr',
-            gridTemplateRows: '1fr', 
-            forceComponents: ['moves']
-          };
-        }
-      } else {
-        return {
-          gridTemplateColumns: '1fr',
-          gridTemplateRows: '1fr',
-          forceComponents: visibleComponents
-        };
-      }
-    }
-
-    // Tablet layout (768px - 1024px) - Limit to 2 components max
-    if (isTablet) {
-      if (visibleComponents.length >= 3) {
-        // Show moves + graph (most important combination)
-        return {
-          gridTemplateColumns: 'minmax(200px, 25%) 1fr',
-          gridTemplateRows: '1fr',
-          forceComponents: ['moves', 'graph']
-        };
-      } else if (visibleComponents.length === 2) {
-        const columns = [];
-        if (showOpeningMoves) columns.push('minmax(200px, 30%)');
-        if (showPositionAnalysis) columns.push('minmax(200px, 35%)');
-        if (showPerformanceGraph) columns.push('1fr');
-        
-        return {
-          gridTemplateColumns: columns.join(' '),
-          gridTemplateRows: '1fr',
-          forceComponents: visibleComponents
-        };
-      }
-    }
-
-    // Desktop layout (>= 1024px) - Original flexible layout
-    const columns = [];
-    if (showOpeningMoves) columns.push('minmax(280px, 20%)');
-    if (showPositionAnalysis) columns.push('minmax(220px, 28%)');
-    if (showPerformanceGraph) columns.push('1fr');
-    
-    return {
-      gridTemplateColumns: columns.join(' ') || '1fr',
-      gridTemplateRows: '1fr',
-      forceComponents: visibleComponents
-    };
+  // Component visibility state for flexible layout
+  const componentVisibility = {
+    moves: showOpeningMoves,
+    analysis: showPositionAnalysis,
+    graph: showPerformanceGraph
   };
 
-  const responsiveLayout = getResponsiveGridLayout();
+  // Handle layout changes - memoized to prevent infinite re-renders
+  const handleLayoutChange = useCallback((layoutData) => {
+    setLayoutInfo(layoutData);
+  }, []);
 
-  // Mobile component selector when multiple components are selected
-  const [mobileActiveComponent, setMobileActiveComponent] = useState('graph');
-  
-  useEffect(() => {
-    // Auto-select active component on mobile based on what's visible
-    if (isMobile && responsiveLayout.forceComponents?.length === 1) {
-      setMobileActiveComponent(responsiveLayout.forceComponents[0]);
-    }
-  }, [isMobile, responsiveLayout.forceComponents]);
-
-  if (loading || isSyncing || pendingAutoSync) {
+  if (loading && !isSyncing && !pendingAutoSync) {
     return (
       <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
         <div className="text-center">
@@ -2086,47 +2003,16 @@ function PerformanceGraphContent() {
           </div>
           <div className="space-y-3">
             <h2 className="text-2xl font-bold text-slate-200">
-              {(isSyncing || pendingAutoSync) ? 'Syncing Games' : 'Loading Performance Graph'}
+              Loading Performance Graph
             </h2>
             <p className="text-slate-400 text-base max-w-md mx-auto">
-              {(isSyncing || pendingAutoSync) ? 
-                'Updating your chess database with latest games. This may take a moment...' : 
-                'Preparing your chess analysis and opening performance data'
-              }
+              Preparing your chess analysis and opening performance data
             </p>
             <div className="flex items-center justify-center gap-2 mt-6">
               <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
               <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
               <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
             </div>
-            {(isSyncing || pendingAutoSync) && (
-              <div className="mt-6 space-y-4">
-                <div className="w-96 max-w-lg mx-auto space-y-3">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-300 font-medium flex-1 mr-4">
-                      {syncProgress >= 100 ? 'Finalizing...' : syncStatus || 'Updating Analysis...'}
-                    </span>
-                    <span className="text-slate-400 flex-shrink-0">
-                      {Math.round(syncProgress || 0)}%
-                    </span>
-                  </div>
-                  
-                  <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full origin-left"
-                      style={{ 
-                        transform: `scaleX(${Math.min(syncProgress || 0, 100) / 100})`,
-                        transition: 'transform 0.3s ease-out',
-                        willChange: 'transform'
-                      }}
-                    />
-                  </div>
-                </div>
-                <p className="text-slate-500 text-sm">
-                  This runs in the background - feel free to switch tabs
-                </p>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -2151,12 +2037,30 @@ function PerformanceGraphContent() {
         return (
     <div className="h-full w-full bg-slate-900 flex flex-col">
       
-      {/* Header Controls - Fixed Height and Better Responsive */}
-      <header className="bg-slate-800/90 border-b border-slate-700/50 backdrop-blur-lg px-2 sm:px-4 py-2 flex-shrink-0 min-h-[4rem] max-h-[4rem]">
-        <div className="flex items-center justify-between gap-2 sm:gap-4 h-full max-w-full">
-          
-          {/* Left: Player Controls */}
-          <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+      {/* Header using AppBar */}
+      <AppBar
+        title="Performance Graph"
+        icon={Target}
+        rightControls={
+          <>
+            <ComponentToggleButton
+              isActive={showOpeningMoves}
+              onClick={toggleOpeningMoves}
+              icon={Menu}
+              label="Moves"
+            />
+            <ComponentToggleButton
+              isActive={showPositionAnalysis}
+              onClick={togglePositionAnalysis}
+              icon={Grid3x3}
+              label="Board"
+            />
+            <ComponentToggleButton
+              isActive={showPerformanceGraph}
+              onClick={togglePerformanceGraph}
+              icon={Network}
+              label="Graph"
+            />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white">
@@ -2172,7 +2076,7 @@ function PerformanceGraphContent() {
                   </div>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="bg-slate-800 border-slate-700">
+              <DropdownMenuContent align="end" className="bg-slate-800 border-slate-700">
                 <DropdownMenuItem 
                   onClick={() => setSelectedPlayer('white')}
                   className="text-slate-200 hover:text-white hover:bg-slate-700"
@@ -2189,141 +2093,36 @@ function PerformanceGraphContent() {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
-
-          {/* Center placeholder removed */}
-
-          {/* Right: View Toggle Buttons */}
-          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-            <Button
-              variant={showOpeningMoves ? "default" : "outline"}
-              size="sm"
-              onClick={toggleOpeningMoves}
-              className={`${showOpeningMoves ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}`}
-            >
-              <Menu className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Moves</span>
-            </Button>
-
-            <Button
-              variant={showPositionAnalysis ? "default" : "outline"}
-              size="sm"
-              onClick={togglePositionAnalysis}
-              className={`${showPositionAnalysis ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}`}
-            >
-              <Grid3x3 className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Board</span>
-            </Button>
-
-            <Button
-              variant={showPerformanceGraph ? "default" : "outline"}
-              size="sm"
-              onClick={togglePerformanceGraph}
-              className={`${showPerformanceGraph ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}`}
-            >
-              <Network className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Graph</span>
-            </Button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
       
-      {/* Main Content - Flexible Grid */}
-      <main className="flex-1 min-h-0 overflow-hidden">
-                  <div 
-            className="h-full transition-all duration-300 ease-in-out overflow-hidden"
-            style={{
-              display: 'grid',
-              gridTemplateColumns: (() => {
-                // Calculate optimal grid layout based on visible components
-                const visibleComponents = [
-                  showOpeningMoves,
-                  showPositionAnalysis,
-                  showPerformanceGraph
-                ];
-                
-                // All three components visible - original layout
-                if (showOpeningMoves && showPositionAnalysis && showPerformanceGraph) {
-                  return 'minmax(280px, 20%) minmax(220px, 28%) 1fr';
-                }
-                
-                // Performance graph hidden - rebalance moves (25%) and chessboard (75%)
-                if (showOpeningMoves && showPositionAnalysis && !showPerformanceGraph) {
-                  return 'minmax(280px, 25%) 1fr';
-                }
-                
-                // Only moves and graph visible
-                if (showOpeningMoves && !showPositionAnalysis && showPerformanceGraph) {
-                  return 'minmax(280px, 20%) 1fr';
-                }
-                
-                // Only chessboard and graph visible
-                if (!showOpeningMoves && showPositionAnalysis && showPerformanceGraph) {
-                  return 'minmax(220px, 28%) 1fr';
-                }
-                
-                // Single component layouts
-                if (showOpeningMoves && !showPositionAnalysis && !showPerformanceGraph) {
-                  return '1fr';
-                }
-                if (!showOpeningMoves && showPositionAnalysis && !showPerformanceGraph) {
-                  return '1fr';
-                }
-                if (!showOpeningMoves && !showPositionAnalysis && showPerformanceGraph) {
-                  return '1fr';
-                }
-                
-                // Fallback
-                return '1fr';
-              })(),
-              gridTemplateRows: '1fr'
-            }}
-          >
-          {/* Global Loading Overlay */}
-          {isGenerating && (
-            <div className="col-span-full row-span-full bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-50">
-              <div className="text-center">
-                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500 mx-auto mb-6"></div>
-                <p className="text-slate-200 text-lg font-medium">Generating Performance Graph</p>
-                <p className="text-slate-400 text-sm mt-2">Processing your opening analysis...</p>
-              </div>
-            </div>
-          )}
-          
-          {/* Empty State when all components hidden */}
-          {!showOpeningMoves && !showPositionAnalysis && !showPerformanceGraph && (
-            <div className="col-span-full row-span-full flex items-center justify-center bg-slate-900">
-              <div className="text-center">
-                <Eye className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-slate-300 mb-2">All Components Hidden</h3>
-                <p className="text-slate-400 mb-4">Use the view controls above to show components.</p>
-              </div>
-            </div>
-          )}
-        
-        {/* Opening Moves */}
-        {showOpeningMoves && (
-          <section className="h-full border-r border-slate-700/50 bg-slate-800/50 backdrop-blur-xl flex items-center justify-center overflow-hidden">
-            <div className="flex flex-col h-full w-full min-w-0">
-                              {/* Moves Header removed for cleaner look */}
-
-                              {/* Moves Navigation */}
-                <div className="p-3 border-b border-slate-700/50 bg-slate-700/30 flex-shrink-0">
-                  <div className="max-w-sm mx-auto">
-                    <NavigationButtons
-                      currentIndex={movesCurrentPath.length}
-                      totalCount={movesCurrentPath.length}
-                      onPrevious={handleMovesPrevious}
-                      onNext={handleMovesNext}
-                      onReset={handleMovesReset}
-                      onFlip={handleMovesFlip}
+      {/* Main Content using FlexibleLayout */}
+      <FlexibleLayout
+        components={componentVisibility}
+        componentConfig={ComponentConfigs.performanceGraph}
+        onLayoutChange={handleLayoutChange}
+      >
+        {{
+          moves: (
+            <LayoutSection
+              key="moves"
+              headerControls={
+                <div className="max-w-sm">
+                  <NavigationButtons
+                    currentIndex={movesCurrentPath.length}
+                    totalCount={movesCurrentPath.length}
+                    onPrevious={handleMovesPrevious}
+                    onNext={handleMovesNext}
+                    onReset={handleMovesReset}
+                    onFlip={handleMovesFlip}
                     features={NavigationPresets.chessboard.features}
                     labels={{
                       ...NavigationPresets.chessboard.labels,
-                                              previous: "Back one move",
-                        next: "Forward one move", 
-                        reset: "Reset to root position",
-                        flip: "Flip moves view"
+                      previous: "Back one move",
+                      next: "Forward one move", 
+                      reset: "Reset to root position",
+                      flip: "Flip moves view"
                     }}
                     disabled={!openingGraph}
                     styling={{
@@ -2332,49 +2131,43 @@ function PerformanceGraphContent() {
                     }}
                   />
                 </div>
-              </div>
-              
-                              {/* Moves Content */}
-                <div className="flex-1 min-h-0 overflow-hidden p-2">
-                  {openingGraph ? (
-                    <div className="h-full w-full">
-                      <ChunkVisualization
-                        openingGraph={openingGraph}
-                        isWhiteTree={selectedPlayer === 'white'}
-                        onCurrentMovesChange={handleMovesCurrentMovesChange}
-                        externalMoves={chessboardSync.currentMoves}
-                        onMoveHover={handleMovesMoveHover}
-                        onMoveHoverEnd={handleMovesMoveHoverEnd}
-                        onDirectScroll={handleMovesDirectScroll}
-                        initialPath={movesCurrentPath}
-                      maxDepth={maxDepth}
-                      minGameCount={minGameCount}
-                      winRateFilter={winRateFilter}
-                    />
+              }
+            >
+              {openingGraph ? (
+                <div className="h-full w-full">
+                  <ChunkVisualization
+                    openingGraph={openingGraph}
+                    isWhiteTree={selectedPlayer === 'white'}
+                    onCurrentMovesChange={handleMovesCurrentMovesChange}
+                    externalMoves={chessboardSync.currentMoves}
+                    onMoveHover={handleMovesMoveHover}
+                    onMoveHoverEnd={handleMovesMoveHoverEnd}
+                    onDirectScroll={handleMovesDirectScroll}
+                    initialPath={movesCurrentPath}
+                    maxDepth={maxDepth}
+                    minGameCount={minGameCount}
+                    winRateFilter={winRateFilter}
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center p-4">
+                    <Menu className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                    <p className="text-slate-400 text-xs">No data</p>
+                    <p className="text-slate-500 text-xs">Import games</p>
                   </div>
-                ) : (
-                  <div className="flex items-center justify-center h-full">
-                    <div className="text-center p-4">
-                      <Menu className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                      <p className="text-slate-400 text-xs">No data</p>
-                      <p className="text-slate-500 text-xs">Import games</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          </section>
-        )}
-        
-        {/* Position Analysis */}
-        {showPositionAnalysis && (
-          <section className="h-full border-r border-slate-700/50 bg-slate-800/70 backdrop-blur-xl flex items-center justify-center overflow-hidden">
-            <div className="flex flex-col h-full w-full min-w-0">
-              {/* Analysis Header removed for cleaner look */}
-
-              {/* Chessboard Content */}
-              <div className="flex-1 min-h-0 overflow-hidden flex items-center justify-center p-2">
-                              <div className="w-full h-full flex items-center justify-center">
+                </div>
+              )}
+            </LayoutSection>
+          ),
+          
+          analysis: (
+            <LayoutSection
+              key="analysis"
+              noPadding={true}
+              className="bg-slate-800/70"
+            >
+              <div className="h-full flex items-center justify-center p-2">
                 <InteractiveChessboard
                   key={`chessboard-${showOpeningMoves}-${showPerformanceGraph}`}
                   currentMoves={chessboardSync.currentMoves}
@@ -2388,86 +2181,99 @@ function PerformanceGraphContent() {
                   className="w-full max-w-none"
                 />
               </div>
-              </div>
-            </div>
-          </section>
-        )}
+            </LayoutSection>
+          ),
+          
+          graph: (
+            <LayoutSection
+              key="graph"
+              noPadding={true}
+              className="bg-slate-900 border-r-0"
+            >
+              <div className="relative h-full w-full">
+                {/* Zoom Debounce Overlay */}
+                {showZoomDebounceOverlay && (
+                  <div className="absolute inset-0 bg-blue-500/20 backdrop-blur-sm flex items-center justify-center z-40 pointer-events-none">
+                    <div className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg border border-blue-500">
+                      <div className="flex items-center gap-3">
+                        <div className="w-3 h-3 bg-blue-300 rounded-full animate-pulse"></div>
+                        <span className="font-medium">Auto-zoom scheduled</span>
+                      </div>
+                      <p className="text-blue-200 text-sm mt-1">Will zoom to position in 1.2s (waiting for clicks to stop)</p>
+                    </div>
+                  </div>
+                )}
+                
+                <CanvasPerformanceGraph
+                  graphData={graphData}
+                  onNodeClick={onNodeClick}
+                  onNodeHover={onNodeMouseEnter}
+                  onNodeHoverEnd={onNodeMouseLeave}
+                  currentNodeId={currentNodeId}
+                  hoveredNextMoveNodeId={hoveredNextMoveNodeId}
+                  openingClusters={openingClusters}
+                  positionClusters={positionClusters}
+                  showOpeningClusters={openingClusteringEnabled}
+                  showPositionClusters={showPositionClusters}
+                  onToggleOpeningClusters={toggleOpeningClustering}
+                  onTogglePositionClusters={togglePositionClusters}
+                  onClusterHover={handleClusterHover}
+                  onClusterHoverEnd={handleClusterHoverEnd}
+                  hoveredOpeningName={hoveredOpeningName}
+                  hoveredClusterColor={hoveredClusterColor}
+                  onFitView={setCanvasFitView}
+                  onZoomToClusters={setCanvasZoomToClusters}
+                  onResizeStateChange={setIsCanvasResizing}
+                  maxDepth={maxDepth}
+                  minGameCount={minGameCount}
+                  winRateFilter={winRateFilter}
+                  tempWinRateFilter={tempWinRateFilter}
+                  onMaxDepthChange={handleMaxDepthChange}
+                  onMinGameCountChange={handleMinGameCountChange}
+                  onWinRateFilterChange={handleWinRateFilterChange}
+                  onTempWinRateFilterChange={handleTempWinRateFilterChange}
+                  onApplyWinRateFilter={applyWinRateFilter}
+                  selectedPlayer={selectedPlayer}
+                  onPlayerChange={setSelectedPlayer}
+                  isGenerating={isGenerating}
+                  showPerformanceLegend={showPerformanceLegend}
+                  showPerformanceControls={showPerformanceControls}
+                  onShowPerformanceLegend={setShowPerformanceLegend}
+                  onShowPerformanceControls={setShowPerformanceControls}
+                  isClusteringLoading={false}
+                  className="w-full h-full"
+                />
 
-        {/* Performance Graph */}
-        {showPerformanceGraph && (
-          <section className="h-full bg-slate-900 relative overflow-hidden">
-            {/* Zoom Debounce Overlay */}
-            {showZoomDebounceOverlay && (
-              <div className="absolute inset-0 bg-blue-500/20 backdrop-blur-sm flex items-center justify-center z-40 pointer-events-none">
-                <div className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg border border-blue-500">
-                  <div className="flex items-center gap-3">
-                    <div className="w-3 h-3 bg-blue-300 rounded-full animate-pulse"></div>
-                    <span className="font-medium">Auto-zoom scheduled</span>
+                {/* Graph Loading Overlay */}
+                {loading && (
+                  <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-10">
+                    <div className="text-center">
+                      <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-400 mb-4 mx-auto"></div>
+                      <div className="text-slate-200 text-lg font-medium mb-2">
+                        {(isSyncing || pendingAutoSync) ? 'Syncing Games' : 'Preparing Graph'}
+                      </div>
+                      <div className="text-slate-400 text-sm">
+                        {(isSyncing || pendingAutoSync) ? (syncStatus || 'Updating analysis...') : 'Building performance analysis...'}
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-blue-200 text-sm mt-1">Will zoom to position in 1.2s (waiting for clicks to stop)</p>
-                </div>
+                )}
               </div>
-            )}
-            
-            <CanvasPerformanceGraph
-              graphData={graphData}
-              onNodeClick={onNodeClick}
-              onNodeHover={onNodeMouseEnter}
-              onNodeHoverEnd={onNodeMouseLeave}
-              currentNodeId={currentNodeId}
-              hoveredNextMoveNodeId={hoveredNextMoveNodeId}
-              openingClusters={openingClusters}
-              positionClusters={positionClusters}
-              showOpeningClusters={openingClusteringEnabled}
-              showPositionClusters={showPositionClusters}
-              onToggleOpeningClusters={toggleOpeningClustering}
-              onTogglePositionClusters={togglePositionClusters}
-              onClusterHover={handleClusterHover}
-              onClusterHoverEnd={handleClusterHoverEnd}
-              hoveredOpeningName={hoveredOpeningName}
-              hoveredClusterColor={hoveredClusterColor}
-              onFitView={setCanvasFitView}
-              onZoomToClusters={setCanvasZoomToClusters}
-              onResizeStateChange={setIsCanvasResizing}
-              maxDepth={maxDepth}
-              minGameCount={minGameCount}
-              winRateFilter={winRateFilter}
-              tempWinRateFilter={tempWinRateFilter}
-              onMaxDepthChange={handleMaxDepthChange}
-              onMinGameCountChange={handleMinGameCountChange}
-              onWinRateFilterChange={handleWinRateFilterChange}
-              onTempWinRateFilterChange={handleTempWinRateFilterChange}
-              onApplyWinRateFilter={applyWinRateFilter}
-              selectedPlayer={selectedPlayer}
-              onPlayerChange={setSelectedPlayer}
-              isGenerating={isGenerating}
-              showPerformanceLegend={showPerformanceLegend}
-              showPerformanceControls={showPerformanceControls}
-              onShowPerformanceLegend={setShowPerformanceLegend}
-              onShowPerformanceControls={setShowPerformanceControls}
-              isClusteringLoading={false}
-              className="w-full h-full"
-            />
-
-            {/* Graph Loading Overlay */}
-            {loading && (
-              <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-10">
-                <div className="text-center">
-                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-400 mb-4 mx-auto"></div>
-                  <div className="text-slate-200 text-lg font-medium mb-2">
-                    {(isSyncing || pendingAutoSync) ? 'Syncing Games' : 'Preparing Graph'}
-                  </div>
-                  <div className="text-slate-400 text-sm">
-                    {(isSyncing || pendingAutoSync) ? (syncStatus || 'Updating analysis...') : 'Building performance analysis...'}
-                  </div>
-                </div>
-              </div>
-            )}
-          </section>
-        )}
-        
+            </LayoutSection>
+          )
+        }}
+      </FlexibleLayout>
+      
+      {/* Global Loading Overlay */}
+      {isGenerating && (
+        <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500 mx-auto mb-6"></div>
+            <p className="text-slate-200 text-lg font-medium">Generating Performance Graph</p>
+            <p className="text-slate-400 text-sm mt-2">Processing your opening analysis...</p>
+          </div>
         </div>
-      </main>
+      )}
     </div>
   );
 }

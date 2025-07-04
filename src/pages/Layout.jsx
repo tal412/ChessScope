@@ -18,6 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SettingsLoading } from "@/components/ui/settings-loading";
+import SyncingOverlay from "@/components/ui/syncing-overlay";
 
 function createPageUrl(name) {
   return `/${name}`;
@@ -68,7 +69,7 @@ const formatLastOnline = (timestamp) => {
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, syncUserData, updateImportSettings, isSyncing, isImporting, importProgress, importStatus } = useAuth();
+  const { user, logout, syncUserData, updateImportSettings, isSyncing, isImporting, importProgress, importStatus, syncProgress, syncStatus, pendingAutoSync } = useAuth();
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     const savedState = localStorage.getItem('sidebar-collapsed');
     return savedState ? JSON.parse(savedState) : false;
@@ -546,8 +547,18 @@ export default function Layout() {
           </div>
 
           {/* Main Content */}
-          <div className="flex-1 h-full overflow-hidden">
+          <div className="flex-1 h-full overflow-hidden relative">
             <Outlet />
+            
+            {/* Global Syncing Overlay */}
+            <SyncingOverlay
+              isVisible={isSyncing || pendingAutoSync}
+              syncProgress={syncProgress}
+              syncStatus={syncStatus}
+              title="Syncing Games"
+              subtitle="Updating your chess database with latest games. This may take a moment..."
+              showProgress={true}
+            />
           </div>
         </div>
 
