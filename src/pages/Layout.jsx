@@ -47,6 +47,16 @@ export default function Layout() {
     const isCollapsed = savedState ? JSON.parse(savedState) : false;
     return !isCollapsed; // Show pawn in position if sidebar is expanded
   });
+  const [showGithubInPosition, setShowGithubInPosition] = useState(() => {
+    const savedState = localStorage.getItem('sidebar-collapsed');
+    const isCollapsed = savedState ? JSON.parse(savedState) : false;
+    return !isCollapsed; // Show github in position if sidebar is expanded
+  });
+  const [showLinkedinInPosition, setShowLinkedinInPosition] = useState(() => {
+    const savedState = localStorage.getItem('sidebar-collapsed');
+    const isCollapsed = savedState ? JSON.parse(savedState) : false;
+    return !isCollapsed; // Show linkedin in position if sidebar is expanded
+  });
 
   const navigationItems = [
     { name: "Performance Graph", url: createPageUrl("PerformanceGraph"), icon: Network },
@@ -145,12 +155,16 @@ export default function Layout() {
       const timer = setTimeout(() => {
         setShowUserContent(true);
         setShowPawnInPosition(true);
+        setShowGithubInPosition(true);
+        setShowLinkedinInPosition(true);
       }, 350);
       return () => clearTimeout(timer);
     } else {
       // Collapsing - hide immediately
       setShowUserContent(false);
       setShowPawnInPosition(false);
+      setShowGithubInPosition(false);
+      setShowLinkedinInPosition(false);
     }
   }, [isSidebarCollapsed, hasInitialized]);
 
@@ -364,104 +378,70 @@ export default function Layout() {
               
               {/* Community Note */}
               <div className="pt-3 border-t border-slate-700/30">
-                <div className="min-h-[104px] flex items-center justify-center">
-                  {isSidebarCollapsed ? (
-                    <div className="flex flex-col items-center gap-2">
-                      <Tooltip delayDuration={0}>
-                        <TooltipTrigger asChild>
-                          <a
-                            href="https://github.com/tal412/ChessScope"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors group"
-                          >
-                            <Github className="w-4 h-4 text-slate-300 group-hover:text-white transition-colors" />
-                          </a>
-                        </TooltipTrigger>
-                        <TooltipContent 
-                          side="right" 
-                          className="bg-slate-800 border-slate-700 text-white"
-                          sideOffset={10}
-                        >
-                          <p>ChessScope on GitHub</p>
-                        </TooltipContent>
-                      </Tooltip>
-                      
-                      <Tooltip delayDuration={0}>
-                        <TooltipTrigger asChild>
-                          <a
-                            href="https://www.linkedin.com/in/tal-barda412/"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors group"
-                          >
-                            <Linkedin className="w-4 h-4 text-slate-300 group-hover:text-blue-400 transition-colors" />
-                          </a>
-                        </TooltipTrigger>
-                        <TooltipContent 
-                          side="right" 
-                          className="bg-slate-800 border-slate-700 text-white"
-                          sideOffset={10}
-                        >
-                          <p>Tal Barda on LinkedIn</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </div>
-                  ) : (
-                    <div className="text-center space-y-2">
-                      <div className="min-h-[40px]">
-                        {showUserContent && (
-                          <div className="animate-in fade-in-0 duration-300">
-                            <p className="text-xs text-slate-400">
-                              Made for the community by
-                            </p>
-                            <p className="text-sm font-medium text-slate-300">
-                              Tal Barda
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-center gap-3">
-                        <Tooltip delayDuration={0}>
-                          <TooltipTrigger asChild>
-                            <a
-                              href="https://github.com/tal412/ChessScope"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors group"
-                            >
-                              <Github className="w-4 h-4 text-slate-300 group-hover:text-white transition-colors" />
-                            </a>
-                          </TooltipTrigger>
-                          <TooltipContent 
-                            side="top" 
-                            className="bg-slate-800 border-slate-700 text-white"
-                          >
-                            <p>View on GitHub</p>
-                          </TooltipContent>
-                        </Tooltip>
-                        
-                        <Tooltip delayDuration={0}>
-                          <TooltipTrigger asChild>
-                            <a
-                              href="https://www.linkedin.com/in/tal-barda412/"
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors group"
-                            >
-                              <Linkedin className="w-4 h-4 text-slate-300 group-hover:text-blue-400 transition-colors" />
-                            </a>
-                          </TooltipTrigger>
-                          <TooltipContent 
-                            side="top" 
-                            className="bg-slate-800 border-slate-700 text-white"
-                          >
-                            <p>Connect on LinkedIn</p>
-                          </TooltipContent>
-                        </Tooltip>
+                <div className="min-h-[104px] relative">
+                  {/* GitHub Icon with Animation */}
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <a
+                        href="https://github.com/tal412/ChessScope"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`absolute w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-all duration-300 ease-in-out flex items-center justify-center group ${
+                          showGithubInPosition 
+                            ? 'left-1/2 bottom-3 -translate-x-[calc(100%+6px)]' 
+                            : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-[22px]'
+                        }`}
+                      >
+                        <Github className="w-4 h-4 text-slate-300 group-hover:text-white transition-colors" />
+                      </a>
+                    </TooltipTrigger>
+                    <TooltipContent 
+                      side="right" 
+                      className="bg-slate-800 border-slate-700 text-white"
+                      sideOffset={10}
+                    >
+                      <p>ChessScope on GitHub</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  {/* LinkedIn Icon with Animation */}
+                  <Tooltip delayDuration={0}>
+                    <TooltipTrigger asChild>
+                      <a
+                        href="https://www.linkedin.com/in/tal-barda412/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`absolute w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-all duration-300 ease-in-out flex items-center justify-center group ${
+                          showLinkedinInPosition 
+                            ? 'left-1/2 bottom-3 translate-x-[6px]' 
+                            : 'left-1/2 top-1/2 -translate-x-1/2 translate-y-[22px]'
+                        }`}
+                      >
+                        <Linkedin className="w-4 h-4 text-slate-300 group-hover:text-blue-400 transition-colors" />
+                      </a>
+                    </TooltipTrigger>
+                    <TooltipContent 
+                      side="right" 
+                      className="bg-slate-800 border-slate-700 text-white"
+                      sideOffset={10}
+                    >
+                      <p>Tal Barda on LinkedIn</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  {/* Text Content */}
+                  <div className={`text-center space-y-2 p-3 transition-all duration-300 ${showUserContent ? 'opacity-100' : 'opacity-0'}`}>
+                    <div className="min-h-[40px] flex items-center justify-center">
+                      <div>
+                        <p className="text-xs text-slate-400">
+                          Made for the community by
+                        </p>
+                        <p className="text-sm font-medium text-slate-300">
+                          Tal Barda
+                        </p>
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
               </div>
               
