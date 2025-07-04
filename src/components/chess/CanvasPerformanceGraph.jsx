@@ -412,7 +412,7 @@ const CanvasPerformanceGraph = ({
         clearTimeout(resizeTimeoutRef.current);
       }
     };
-  }, [positionedNodes.length, hasAutoFitted]); // Dependencies for auto-fit decision
+  }, [hasAutoFitted]); // Removed positionedNodes.length from dependencies - it was causing infinite loops
 
   // Auto-fit is handled directly in the graph processing effect below
 
@@ -492,8 +492,9 @@ const CanvasPerformanceGraph = ({
     }
 
     // Check if this is a significant graph change (different nodes)
-    const currentNodeCount = graphData.nodes.filter(n => n.type !== 'clusterBackground').length;
-    const isSignificantChange = currentNodeCount === 0 || !isInitialPositioningComplete;
+    const prevNodeCount = positionedNodes.length;
+    const newNodeCount = graphData.nodes.filter(n => n.type !== 'clusterBackground').length;
+    const isSignificantChange = prevNodeCount === 0 || Math.abs(prevNodeCount - newNodeCount) > 5;
     
     // Reset positioning state on significant changes
     if (isSignificantChange && isInitialPositioningComplete) {
@@ -543,7 +544,7 @@ const CanvasPerformanceGraph = ({
         setIsInitialPositioningComplete(true);
       }, 100);
     }
-  }, [graphData, calculateOptimalTransform, dimensions, isInitialPositioningComplete]); // Removed positionedNodes.length
+  }, [graphData, calculateOptimalTransform, dimensions, isInitialPositioningComplete]); // Removed positionedNodes.length - it was causing infinite loops
 
   // Fallback timeout to prevent initialization from getting stuck
   useEffect(() => {
