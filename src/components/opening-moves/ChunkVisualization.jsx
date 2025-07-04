@@ -291,20 +291,46 @@ export default function ChunkVisualization({
              winRate <= winRateFilter[1];
     });
     
-    // Fallback logic for game count only (respect win rate filter)
+    // Fallback logic - but only when appropriate
     if (validMoves.length === 0 && moves.length > 0) {
-      const winRateFilteredMoves = moves.filter(move => {
-        const winRate = move.details?.winRate || move.winRate || 0;
-        return winRate >= winRateFilter[0] && winRate <= winRateFilter[1];
-      });
+      // Calculate total games in the dataset to determine if fallback should apply
+      const totalGames = moves.reduce((sum, move) => sum + (move.gameCount || 0), 0);
+      const maxGamesInAnyMove = Math.max(...moves.map(m => m.gameCount || 0));
       
-      if (winRateFilteredMoves.length === 0) {
-        // No moves meet win rate criteria - respect the filter
-        validMoves = [];
+      // Apply different logic based on filter level:
+      // - Low filters (1-5 games): Always show moves that meet win rate criteria
+      // - High filters (10+ games): Only show if dataset is reasonable
+      let shouldApplyFallback = false;
+      
+      if (minGameCount <= 5) {
+        // Low filter - always apply fallback for game count (user wants to see data)
+        shouldApplyFallback = true;
+      } else if (minGameCount <= 20) {
+        // Medium filter - apply fallback if there's reasonable data
+        shouldApplyFallback = totalGames >= 30 || maxGamesInAnyMove >= 8;
       } else {
-        // Some moves meet win rate but not game count - apply fallback for game count only
-        const sortedMoves = [...winRateFilteredMoves].sort((a, b) => (b.gameCount || 0) - (a.gameCount || 0));
-        validMoves = sortedMoves.slice(0, Math.min(5, winRateFilteredMoves.length));
+        // High filter - only apply fallback if there's substantial data
+        shouldApplyFallback = totalGames >= 100 || maxGamesInAnyMove >= 20;
+      }
+      
+      if (shouldApplyFallback) {
+        const winRateFilteredMoves = moves.filter(move => {
+          const winRate = move.details?.winRate || move.winRate || 0;
+          return winRate >= winRateFilter[0] && winRate <= winRateFilter[1];
+        });
+        
+        if (winRateFilteredMoves.length === 0) {
+          // No moves meet win rate criteria - respect the filter
+          validMoves = [];
+        } else {
+          // Some moves meet win rate but not game count - apply fallback for game count only
+          const sortedMoves = [...winRateFilteredMoves].sort((a, b) => (b.gameCount || 0) - (a.gameCount || 0));
+          validMoves = sortedMoves.slice(0, Math.min(5, winRateFilteredMoves.length));
+        }
+      } else {
+        // High filter on small dataset - respect the user's explicit filter choice
+        console.log(`🔍 Small dataset (${totalGames} total games, max ${maxGamesInAnyMove} per move) - respecting ${minGameCount}+ games filter`);
+        validMoves = [];
       }
     }
     

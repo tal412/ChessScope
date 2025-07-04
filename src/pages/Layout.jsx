@@ -23,6 +23,48 @@ function createPageUrl(name) {
   return `/${name}`;
 }
 
+// Helper function to format last online time
+const formatLastOnline = (timestamp) => {
+  if (!timestamp) return 'Unknown';
+  
+  let date;
+  
+  // Handle different timestamp formats
+  if (typeof timestamp === 'string') {
+    // ISO string format (from Lichess)
+    date = new Date(timestamp);
+  } else if (typeof timestamp === 'number') {
+    // Unix timestamp
+    if (timestamp < 10000000000) {
+      // If it's in seconds (less than year 2286 in seconds)
+      date = new Date(timestamp * 1000);
+    } else {
+      // Already in milliseconds
+      date = new Date(timestamp);
+    }
+  } else {
+    return 'Unknown';
+  }
+  
+  // Check if date is valid
+  if (isNaN(date.getTime())) {
+    return 'Unknown';
+  }
+  
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} min${diffMins !== 1 ? 's' : ''} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours !== 1 ? 's' : ''} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays !== 1 ? 's' : ''} ago`;
+  
+  return date.toLocaleDateString();
+};
+
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -34,6 +76,7 @@ export default function Layout() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [tempSettings, setTempSettings] = useState({});
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isLoggingOutTransition, setIsLoggingOutTransition] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [settingsSaveStarted, setSettingsSaveStarted] = useState(false);
   const [showUserContent, setShowUserContent] = useState(() => {
@@ -125,13 +168,26 @@ export default function Layout() {
     if (isLoggingOut) return;
     setIsLoggingOut(true);
     setShowLogoutDialog(false); // Close dialog first
+    
     try {
-      await logout();
-      // Force navigation to main page with full page reload
-      window.location.href = "/";
+      // Start smooth exit transition
+      setIsLoggingOutTransition(true);
+      
+      // Navigate immediately for smooth transition
+      navigate('/', { 
+        state: { 
+          fromLogout: true,
+          returning: true 
+        } 
+      });
+      
+      // Clear auth state after navigation completes (delay for smooth transition)
+      await logout(300); // 300ms delay to allow for smooth navigation
+      
     } catch (error) {
       console.error('Logout failed:', error);
       setIsLoggingOut(false);
+      setIsLoggingOutTransition(false);
     }
   };
 
@@ -170,7 +226,9 @@ export default function Layout() {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className="app-layout bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      <div className={`app-layout bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 transition-all duration-300 ${
+        isLoggingOutTransition ? 'opacity-0 transform -translate-x-8' : 'opacity-100 transform translate-x-0'
+      }`}>
         <div className="flex h-full">
           {/* Sidebar */}
           <div className={`bg-slate-800/50 backdrop-blur-xl border-r border-slate-700/50 h-full flex flex-col justify-between transition-all duration-300 relative z-20 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`} id="app-sidebar">
@@ -247,18 +305,15 @@ export default function Layout() {
                             }`} 
                           />
                         )}
-                        <div className={`text-sm transition-all duration-300 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'} pl-8 pt-3`}>
-                          <div className="mb-1">
-                            <span className={`text-white font-medium transition-all duration-300 ${showUserContent ? 'opacity-100' : 'opacity-0'}`}>
+                        <div className={`text-sm transition-all duration-300 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'} pl-11`}>
+                          <div className={`transition-all duration-300 ${showUserContent ? 'opacity-100' : 'opacity-0'}`}>
+                            <span className="text-white font-medium">
                               {user.username || user.chessComUsername}
                             </span>
                           </div>
                           <div className={`transition-all duration-300 ${showUserContent ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
                             <p className="text-slate-400 text-xs leading-tight">
-                              {(user.platformUser || user.chessComUser)?.rating ? 
-                                `${(user.platformUser || user.chessComUser).rating} (${(user.platformUser || user.chessComUser).gameType})` : 
-                                'Loading...'
-                              }
+                              Last game: {formatLastOnline(user.lastGameTime || (user.platformUser || user.chessComUser)?.lastOnline)}
                             </p>
                             <p className="text-slate-400 text-xs leading-tight">
                               Games: {user.gameCount || 0}
@@ -281,10 +336,7 @@ export default function Layout() {
                     <div className="text-sm">
                       <p className="font-medium">{user.username || user.chessComUsername}</p>
                       <p className="text-slate-400 text-xs">
-                        {(user.platformUser || user.chessComUser)?.rating ? 
-                          `${(user.platformUser || user.chessComUser).rating} (${(user.platformUser || user.chessComUser).gameType})` : 
-                          'Loading...'
-                        }
+                        Last game: {formatLastOnline(user.lastGameTime || (user.platformUser || user.chessComUser)?.lastOnline)}
                       </p>
                       <p className="text-slate-400 text-xs">Games: {user.gameCount || 0}</p>
                     </div>

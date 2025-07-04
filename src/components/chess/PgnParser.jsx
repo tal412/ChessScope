@@ -180,10 +180,10 @@ export function extractGameDataGeneric(gameData, username, platform = 'chess.com
       // Chess.com format
       gameId = gameData.url ? gameData.url.split('/').pop() : `${Date.now()}_${Math.random()}`;
       url = gameData.url;
-      timeControl = gameData.time_control;
-      endTime = gameData.end_time;
+      timeControl = gameData.time_control || gameData.timeControl;
+      endTime = gameData.end_time || gameData.endTime;
       rated = gameData.rated;
-      timeClass = gameData.time_class;
+      timeClass = gameData.time_class || gameData.timeClass;
       rules = gameData.rules || "chess";
       whiteRating = gameData.white?.rating;
       blackRating = gameData.black?.rating;
