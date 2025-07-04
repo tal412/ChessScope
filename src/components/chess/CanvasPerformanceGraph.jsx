@@ -492,9 +492,8 @@ const CanvasPerformanceGraph = ({
     }
 
     // Check if this is a significant graph change (different nodes)
-    const prevNodeCount = positionedNodes.length;
-    const newNodeCount = graphData.nodes.filter(n => n.type !== 'clusterBackground').length;
-    const isSignificantChange = prevNodeCount === 0 || Math.abs(prevNodeCount - newNodeCount) > 5;
+    const currentNodeCount = graphData.nodes.filter(n => n.type !== 'clusterBackground').length;
+    const isSignificantChange = currentNodeCount === 0 || !isInitialPositioningComplete;
     
     // Reset positioning state on significant changes
     if (isSignificantChange && isInitialPositioningComplete) {
@@ -544,7 +543,7 @@ const CanvasPerformanceGraph = ({
         setIsInitialPositioningComplete(true);
       }, 100);
     }
-  }, [graphData, calculateOptimalTransform, dimensions, isInitialPositioningComplete, positionedNodes.length]);
+  }, [graphData, calculateOptimalTransform, dimensions, isInitialPositioningComplete]); // Removed positionedNodes.length
 
   // Fallback timeout to prevent initialization from getting stuck
   useEffect(() => {
