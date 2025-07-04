@@ -739,17 +739,30 @@ export default function Layout() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
-                  <div className="flex items-center justify-between">
+                  <div className="space-y-4">
                     <div>
-                      <Label className="text-slate-200 font-medium">Auto-Sync</Label>
-                      <p className="text-slate-400 text-xs">Automatically import new games when you visit the app</p>
+                      <Label className="text-slate-200 font-medium">Auto-Sync Frequency</Label>
+                      <p className="text-slate-400 text-xs">How often to check for and import new games</p>
                     </div>
-                    <Checkbox
-                      checked={tempSettings.autoSync || false}
-                      onCheckedChange={(checked) => setTempSettings(prev => ({...prev, autoSync: checked}))}
+                    <Select 
+                      value={tempSettings.autoSyncFrequency || '5min'} 
+                      onValueChange={(value) => setTempSettings(prev => ({...prev, autoSyncFrequency: value}))}
                       disabled={isImporting}
-                      className="border-slate-500 data-[state=checked]:bg-blue-600 data-[state=checked]:border-blue-600 disabled:opacity-50"
-                    />
+                    >
+                      <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-800 border-slate-700">
+                        <SelectItem value="never">Never (Manual only)</SelectItem>
+                        <SelectItem value="visit">Every visit</SelectItem>
+                        <SelectItem value="5min">Every 5 minutes</SelectItem>
+                        <SelectItem value="30min">Every 30 minutes</SelectItem>
+                        <SelectItem value="1hour">Every hour</SelectItem>
+                        <SelectItem value="3hours">Every 3 hours</SelectItem>
+                        <SelectItem value="1day">Daily</SelectItem>
+                        <SelectItem value="1week">Weekly</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="bg-slate-600/30 p-4 rounded-lg">
@@ -765,6 +778,22 @@ export default function Layout() {
                         </p>
                         <p className="text-slate-400 text-xs">
                           Date range: {tempSettings.selectedDateRange === 'custom' ? 'Custom' : `${tempSettings.selectedDateRange || '3'} months`}
+                        </p>
+                        <p className="text-slate-400 text-xs">
+                          Auto-sync: {(() => {
+                            const freq = tempSettings.autoSyncFrequency || '5min';
+                            const freqLabels = {
+                              'never': 'Disabled',
+                              'visit': 'Every visit',
+                              '5min': 'Every 5 minutes',
+                              '30min': 'Every 30 minutes', 
+                              '1hour': 'Every hour',
+                              '3hours': 'Every 3 hours',
+                              '1day': 'Daily',
+                              '1week': 'Weekly'
+                            };
+                            return freqLabels[freq] || freq;
+                          })()}
                         </p>
                       </div>
                     </div>

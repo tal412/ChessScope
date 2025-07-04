@@ -12,6 +12,39 @@ import { OpeningGraph } from '@/api/openingGraph';
 
 const AuthContext = createContext();
 
+// Helper function to check if auto-sync should happen based on frequency setting
+const shouldAutoSync = (user) => {
+  if (!user || !user.importSettings) return false;
+  
+  const frequency = user.importSettings.autoSyncFrequency || '5min';
+  
+  // Never sync
+  if (frequency === 'never') return false;
+  
+  // Always sync on visit
+  if (frequency === 'visit') return true;
+  
+  // Check time-based frequencies
+  const lastSync = user.lastSync;
+  if (!lastSync) return true; // First time, always sync
+  
+  const lastSyncTime = new Date(lastSync);
+  const now = new Date();
+  const timeDiff = now - lastSyncTime;
+  
+  const frequencies = {
+    '5min': 5 * 60 * 1000,        // 5 minutes
+    '30min': 30 * 60 * 1000,      // 30 minutes
+    '1hour': 60 * 60 * 1000,      // 1 hour
+    '3hours': 3 * 60 * 60 * 1000, // 3 hours
+    '1day': 24 * 60 * 60 * 1000,  // 1 day
+    '1week': 7 * 24 * 60 * 60 * 1000 // 1 week
+  };
+  
+  const interval = frequencies[frequency];
+  return interval && timeDiff >= interval;
+};
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -24,6 +57,8 @@ export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+  const [syncStatus, setSyncStatus] = useState('');
   const [isImporting, setIsImporting] = useState(false);
   const [importProgress, setImportProgress] = useState(0);
   const [importStatus, setImportStatus] = useState('');
@@ -38,8 +73,8 @@ export const AuthProvider = ({ children }) => {
         const authData = JSON.parse(savedAuth);
         setUser(authData.user);
         setIsAuthenticated(true);
-        // Mark that we need to auto-sync, but don't do it yet
-        if (authData.user?.importSettings?.autoSync) {
+        // Mark that we need to auto-sync based on frequency, but don't do it yet
+        if (shouldAutoSync(authData.user)) {
           setPendingAutoSync(authData.user);
         }
       } catch (error) {
@@ -62,14 +97,14 @@ export const AuthProvider = ({ children }) => {
           
           const syncUserData = {
             ...pendingAutoSync,
-            importSettings: pendingAutoSync.importSettings || {
-              selectedTimeControls: pendingAutoSync.platform === 'lichess' ? 
-                ['rapid', 'blitz', 'bullet', 'classical'] : 
-                ['rapid', 'blitz', 'bullet'],
-              selectedDateRange: '3',
-              customDateRange: { from: null, to: null },
-              autoSync: true
-            }
+                    importSettings: pendingAutoSync.importSettings || {
+          selectedTimeControls: pendingAutoSync.platform === 'lichess' ? 
+            ['rapid', 'blitz', 'bullet', 'classical'] : 
+            ['rapid', 'blitz', 'bullet'],
+          selectedDateRange: '3',
+          customDateRange: { from: null, to: null },
+          autoSyncFrequency: '5min'
+        }
           };
           
           // Use a silent version that doesn't update UI progress
@@ -94,7 +129,7 @@ export const AuthProvider = ({ children }) => {
           setIsSyncing(false);
           setPendingAutoSync(null);
         }
-      }, 1000); // 1 second delay to let UI settle
+      }, 50); // Very short delay to allow UI to settle while starting sync quickly
 
       return () => clearTimeout(syncTimer);
     }
@@ -133,7 +168,7 @@ export const AuthProvider = ({ children }) => {
             ['rapid', 'blitz', 'bullet'],
           selectedDateRange: '3',
           customDateRange: { from: null, to: null },
-          autoSync: true
+          autoSyncFrequency: '5min'
         },
         loginTime: new Date().toISOString(),
         lastSync: null
@@ -288,6 +323,8 @@ export const AuthProvider = ({ children }) => {
     if (isSyncing) return;
     
     setIsSyncing(true);
+    setSyncProgress(0);
+    setSyncStatus('Starting sync...');
     try {
       console.log('Starting sync for user:', userData.username, 'on platform:', userData.platform);
       
@@ -303,7 +340,7 @@ export const AuthProvider = ({ children }) => {
             ['rapid', 'blitz', 'bullet'],
           selectedDateRange: '3',
           customDateRange: { from: null, to: null },
-          autoSync: true
+          autoSyncFrequency: '5min'
         }
       };
       
@@ -330,6 +367,8 @@ export const AuthProvider = ({ children }) => {
       throw error;
     } finally {
       setIsSyncing(false);
+      setSyncProgress(0);
+      setSyncStatus('');
     }
   };
 
@@ -570,8 +609,23 @@ export const AuthProvider = ({ children }) => {
           }
         }
         
-        // Background-friendly yielding that works even when tab is not visible
-        await new Promise(resolve => setTimeout(resolve, 1)); // setTimeout works in background (every game)
+        // Better yielding for UI responsiveness
+        if (i % 10 === 0) { // Every 10 games
+          // Use requestIdleCallback for better scheduling if available
+          if (typeof requestIdleCallback !== 'undefined') {
+            await new Promise(resolve => {
+              requestIdleCallback(() => resolve(), { timeout: 50 });
+            });
+          } else {
+            // Fallback with longer delay
+            await new Promise(resolve => setTimeout(resolve, 10));
+          }
+        }
+        
+        // Extra yield every 50 games
+        if (i % 50 === 0 && i > 0) {
+          await new Promise(resolve => setTimeout(resolve, 30));
+        }
       }
 
       setImportProgress(95);
@@ -642,6 +696,9 @@ export const AuthProvider = ({ children }) => {
     } = importSettings;
 
     try {
+      setSyncStatus('Connecting to server...');
+      setSyncProgress(5);
+      
       console.log('🔄 Silent import: Fetching games...');
 
       let recentTargetedGames = [];
@@ -650,23 +707,42 @@ export const AuthProvider = ({ children }) => {
       // Allow UI to update before starting heavy work
       await new Promise(resolve => setTimeout(resolve, 10));
       
+      // Progress callback for fetch operations
+      const handleFetchProgress = (progressData) => {
+        const { phase, progress, status } = progressData;
+        
+        // During fetch phase, progress goes from 5% to 45%
+        if (phase === 'download' || phase === 'parsing') {
+          const adjustedProgress = 5 + (progress / 45) * 40; // Map 0-45% to 5-45%
+          setSyncProgress(adjustedProgress);
+          setSyncStatus(status);
+        }
+      };
+      
       if (platform === 'lichess') {
-        // Lichess direct API approach (no progress callback)
-        const games = await fetchLichessGames(username, importSettings);
+        // Lichess direct API approach with progress tracking
+        const games = await fetchLichessGames(username, importSettings, handleFetchProgress);
         recentTargetedGames = games.slice(0, TARGET_GAMES);
         
+        setSyncProgress(45);
+        setSyncStatus(`Found ${recentTargetedGames.length} games from Lichess...`);
         console.log(`🔄 Silent import: Found ${recentTargetedGames.length} games from Lichess`);
         
       } else {
-        // Chess.com archive-based approach (no progress callback)
-        const games = await fetchChessComGames(username, importSettings);
+        // Chess.com archive-based approach with progress tracking
+        const games = await fetchChessComGames(username, importSettings, handleFetchProgress);
         recentTargetedGames = games.slice(0, TARGET_GAMES);
         
+        setSyncProgress(45);
+        setSyncStatus(`Found ${recentTargetedGames.length} games from Chess.com...`);
         console.log(`🔄 Silent import: Found ${recentTargetedGames.length} games from Chess.com`);
       }
       
-      // Yield to UI thread after fetching
-      await new Promise(resolve => setTimeout(resolve, 10));
+      // Small pause to show the found games status
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setSyncProgress(50);
+      setSyncStatus('Clearing previous data and creating new opening graph...');
       
       console.log('🔄 Silent import: Creating new opening graph...');
 
@@ -683,51 +759,83 @@ export const AuthProvider = ({ children }) => {
       // Create a completely new OpeningGraph
       const openingGraph = new OpeningGraph(identifier);
       
+      setSyncStatus(`Processing ${recentTargetedGames.length} games into new opening graph...`);
       console.log(`🔄 Silent import: Processing ${recentTargetedGames.length} games...`);
 
       const totalGames = recentTargetedGames.length;
-      const BATCH_SIZE = 50; // Process games in smaller batches
       
-      // Process games in batches to avoid blocking UI
-      for (let batchStart = 0; batchStart < totalGames; batchStart += BATCH_SIZE) {
-        const batchEnd = Math.min(batchStart + BATCH_SIZE, totalGames);
-        const batch = recentTargetedGames.slice(batchStart, batchEnd);
+      // Process games one at a time with maximum UI responsiveness
+      for (let i = 0; i < totalGames; i++) {
+        const game = recentTargetedGames[i];
+        let gameData;
         
-        // Process batch
-        for (const game of batch) {
-          let gameData;
+        // For Lichess, the games are already processed by fetchLichessGames
+        if (platform === 'lichess') {
+          gameData = game;
+        } else {
+          // Use the generic function for Chess.com
+          gameData = extractGameDataGeneric(game, username, platform);
+        }
+        
+        if (gameData && gameData.moves && gameData.moves.length > 0) {
+          // Add opening information
+          const opening = await identifyOpening(gameData.moves);
+          gameData.opening = opening;
           
-          // For Lichess, the games are already processed by fetchLichessGames
-          if (platform === 'lichess') {
-            gameData = game;
-          } else {
-            // Use the generic function for Chess.com
-            gameData = extractGameDataGeneric(game, username, platform);
-          }
+          // Add game to the graph
+          await openingGraph.addGame(gameData);
+        }
+        
+        // Update progress much more frequently for better UX
+        if ((i + 1) % 10 === 0 || i === totalGames - 1 || i === 0) {
+          // Progress goes from 50% to 95% during game processing
+          const gameProgress = ((i + 1) / totalGames) * 45; // 0-45% for games
+          const totalProgress = Math.round(50 + gameProgress); // Add to base 50%
+          setSyncProgress(totalProgress);
           
-          if (gameData && gameData.moves && gameData.moves.length > 0) {
-            // Add opening information
-            const opening = await identifyOpening(gameData.moves);
-            gameData.opening = opening;
-            
-            // Add game to the graph
-            await openingGraph.addGame(gameData);
+          // Update status every 50 games or at completion
+          if ((i + 1) % 50 === 0 || i === totalGames - 1) {
+            setSyncStatus(`Processing games: ${i + 1}/${totalGames} complete...`);
           }
         }
         
         // Log progress every 100 games
-        if (batchEnd % 100 === 0 || batchEnd === totalGames) {
-          console.log(`🔄 Silent import: Processed ${batchEnd}/${totalGames} games`);
+        if ((i + 1) % 100 === 0 || i === totalGames - 1) {
+          console.log(`🔄 Silent import: Processed ${i + 1}/${totalGames} games`);
         }
         
-        // Yield to UI thread between batches
-        await new Promise(resolve => setTimeout(resolve, 5));
+        // Yield to UI thread after every single game for maximum responsiveness
+        await new Promise(resolve => {
+          if (typeof requestIdleCallback !== 'undefined') {
+            // Use requestIdleCallback for optimal scheduling
+            requestIdleCallback(() => resolve(), { timeout: 32 });
+          } else {
+            // Short timeout for immediate yielding
+            setTimeout(resolve, 5);
+          }
+        });
+        
+        // Extra yield every 25 games for heavy processing
+        if ((i + 1) % 25 === 0) {
+          await new Promise(resolve => {
+            if (typeof requestIdleCallback !== 'undefined') {
+              requestIdleCallback(() => resolve(), { timeout: 100 });
+            } else {
+              setTimeout(resolve, 50);
+            }
+          });
+        }
       }
 
+      setSyncProgress(95);
+      setSyncStatus('Finalizing sync and saving opening graph...');
       console.log('🔄 Silent import: Saving opening graph...');
 
       // Save the complete graph
       await saveOpeningGraph(openingGraph);
+      
+      setSyncProgress(100);
+      setSyncStatus('Sync completed successfully!');
       
       // Store the platform-specific username in localStorage
       localStorage.setItem('chesscope_username', identifier);
@@ -763,10 +871,13 @@ export const AuthProvider = ({ children }) => {
     isAuthenticated,
     isLoading,
     isSyncing,
+    syncProgress,
+    syncStatus,
     isImporting,
     importProgress,
     importStatus,
     user,
+    pendingAutoSync,
     login,
     logout,
     syncUserData,
@@ -1025,8 +1136,8 @@ const fetchChessComGames = async (username, importSettings = {}, onProgress = nu
           }
         }
         
-        // Small delay to prevent API rate limiting
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Delay to prevent API rate limiting and yield to UI
+        await new Promise(resolve => setTimeout(resolve, 150));
         
       } catch (archiveError) {
         console.warn(`Failed to fetch archive ${archiveUrl}:`, archiveError);
