@@ -13,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Network, User, Settings, Shield, RefreshCw, Loader2, Calendar as CalendarIcon, Globe, CheckCircle, AlertCircle, LogOut, ChevronLeft, ChevronRight } from "lucide-react";
+import { Network, User, Settings, Shield, RefreshCw, Loader2, Calendar as CalendarIcon, Globe, CheckCircle, AlertCircle, LogOut, ChevronLeft, ChevronRight, Github, Linkedin } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
@@ -27,12 +27,26 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, syncUserData, updateImportSettings, isSyncing, isImporting, importProgress, importStatus } = useAuth();
-  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
+    const savedState = localStorage.getItem('sidebar-collapsed');
+    return savedState ? JSON.parse(savedState) : false;
+  });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [tempSettings, setTempSettings] = useState({});
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [settingsSaveStarted, setSettingsSaveStarted] = useState(false);
+  const [showUserContent, setShowUserContent] = useState(() => {
+    const savedState = localStorage.getItem('sidebar-collapsed');
+    const isCollapsed = savedState ? JSON.parse(savedState) : false;
+    return !isCollapsed; // Show content if sidebar is expanded
+  });
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const [showPawnInPosition, setShowPawnInPosition] = useState(() => {
+    const savedState = localStorage.getItem('sidebar-collapsed');
+    const isCollapsed = savedState ? JSON.parse(savedState) : false;
+    return !isCollapsed; // Show pawn in position if sidebar is expanded
+  });
 
   const navigationItems = [
     { name: "Performance Graph", url: createPageUrl("PerformanceGraph"), icon: Network },
@@ -112,8 +126,33 @@ export default function Layout() {
   };
 
   const toggleSidebar = () => {
-    setIsSidebarCollapsed(!isSidebarCollapsed);
+    const newState = !isSidebarCollapsed;
+    setIsSidebarCollapsed(newState);
+    localStorage.setItem('sidebar-collapsed', JSON.stringify(newState));
   };
+
+  // Initialize on mount
+  useEffect(() => {
+    setHasInitialized(true);
+  }, []);
+
+  // Handle content visibility
+  useEffect(() => {
+    if (!hasInitialized) return; // Wait for initialization
+    
+    if (!isSidebarCollapsed) {
+      // Expanding - wait for sidebar animation
+      const timer = setTimeout(() => {
+        setShowUserContent(true);
+        setShowPawnInPosition(true);
+      }, 350);
+      return () => clearTimeout(timer);
+    } else {
+      // Collapsing - hide immediately
+      setShowUserContent(false);
+      setShowPawnInPosition(false);
+    }
+  }, [isSidebarCollapsed, hasInitialized]);
 
   return (
     <TooltipProvider delayDuration={0}>
@@ -123,44 +162,16 @@ export default function Layout() {
           <div className={`bg-slate-800/50 backdrop-blur-xl border-r border-slate-700/50 h-full flex flex-col justify-between transition-all duration-300 relative z-20 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`} id="app-sidebar">
             <div>
               <div className={`p-4 border-b border-slate-700/50 ${isSidebarCollapsed ? 'h-[89px] flex items-center justify-center' : 'p-6'}`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-r from-amber-400 to-orange-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                      <Shield className="w-6 h-6 text-slate-900" />
-                    </div>
-                    {!isSidebarCollapsed && (
-                      <div>
-                        <h1 className="text-xl font-bold text-white">ChessScope</h1>
-                        <p className="text-xs text-slate-400">Opening Analysis</p>
-                      </div>
-                    )}
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-gradient-to-r from-amber-400 to-orange-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Shield className="w-6 h-6 text-slate-900" />
                   </div>
-                  
-                  {/* Toggle Button */}
-                  <Tooltip delayDuration={0}>
-                    <TooltipTrigger asChild>
-                                             <Button
-                         onClick={toggleSidebar}
-                         variant="ghost"
-                         size="sm"
-                         className="text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all duration-200 p-2"
-                         title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-                       >
-                         {isSidebarCollapsed ? (
-                           <ChevronRight className="w-4 h-4" />
-                         ) : (
-                           <ChevronLeft className="w-4 h-4" />
-                         )}
-                       </Button>
-                    </TooltipTrigger>
-                    <TooltipContent 
-                      side="right" 
-                      className="bg-slate-800 border-slate-700 text-white"
-                      sideOffset={10}
-                    >
-                      <p>{isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}</p>
-                    </TooltipContent>
-                  </Tooltip>
+                  {!isSidebarCollapsed && (
+                    <div>
+                      <h1 className="text-xl font-bold text-white">ChessScope</h1>
+                      <p className="text-xs text-slate-400">Opening Analysis</p>
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -196,29 +207,68 @@ export default function Layout() {
             
             <div className="p-4 border-t border-slate-700/50 space-y-3">
               {/* User Info */}
-              {!isSidebarCollapsed && user && (
-                <div className="bg-slate-700/30 rounded-lg p-3">
-                  <div className="text-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                      <img src="/chesscom_logo_pawn.svg" alt="Pawn icon" className="w-6 h-6" />
-                      <span className="text-white font-medium">{user.chessComUsername}</span>
+              {user && (
+                <Tooltip delayDuration={0} open={isSidebarCollapsed ? undefined : false}>
+                  <TooltipTrigger asChild>
+                    <div className={`bg-slate-700/30 rounded-lg overflow-hidden transition-all duration-300 ${isSidebarCollapsed ? 'cursor-pointer' : ''}`}>
+                      <div className="p-3 h-[88px] relative">
+                        <img 
+                          src="/chesscom_logo_pawn.svg" 
+                          alt="Chess.com" 
+                          className={`w-6 h-6 absolute transition-all duration-300 ease-in-out ${
+                            showPawnInPosition 
+                              ? 'left-3 top-3' 
+                              : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
+                          }`} 
+                        />
+                        <div className={`text-sm transition-all duration-300 ${isSidebarCollapsed ? 'opacity-0' : 'opacity-100'} pl-8 pt-3`}>
+                          <div className="mb-1">
+                            <span className={`text-white font-medium transition-all duration-300 ${showUserContent ? 'opacity-100' : 'opacity-0'}`}>
+                              {user.chessComUsername}
+                            </span>
+                          </div>
+                          <div className={`transition-all duration-300 ${showUserContent ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
+                            <p className="text-slate-400 text-xs leading-tight">
+                              {user.chessComUser?.rating ? 
+                                `${user.chessComUser.rating} (${user.chessComUser.gameType})` : 
+                                'Loading...'
+                              }
+                            </p>
+                            <p className="text-slate-400 text-xs leading-tight">
+                              Games: {user.gameCount || 0}
+                            </p>
+                            {user.lastSync && (
+                              <p className="text-slate-400 text-xs leading-tight">
+                                Last sync: {new Date(user.lastSync).toLocaleTimeString()}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-slate-400 text-xs mb-1">
-                      {user.chessComUser?.rating ? 
-                        `${user.chessComUser.rating} (${user.chessComUser.gameType})` : 
-                        'Loading...'
-                      }
-                    </p>
-                    <p className="text-slate-400 text-xs">
-                      Games: {user.gameCount || 0}
-                    </p>
-                    {user.lastSync && (
+                  </TooltipTrigger>
+                  <TooltipContent 
+                    side="right" 
+                    className="bg-slate-800 border-slate-700 text-white"
+                    sideOffset={10}
+                  >
+                    <div className="text-sm">
+                      <p className="font-medium">{user.chessComUsername}</p>
                       <p className="text-slate-400 text-xs">
-                        Last sync: {new Date(user.lastSync).toLocaleTimeString()}
+                        {user.chessComUser?.rating ? 
+                          `${user.chessComUser.rating} (${user.chessComUser.gameType})` : 
+                          'Loading...'
+                        }
                       </p>
-                    )}
-                  </div>
-                </div>
+                      <p className="text-slate-400 text-xs">Games: {user.gameCount || 0}</p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+              
+              {/* Separator Line */}
+              {user && (
+                <div className="border-t border-slate-700/30 my-1"></div>
               )}
               
               {/* Action Buttons */}
@@ -307,6 +357,142 @@ export default function Layout() {
                       sideOffset={10}
                     >
                       <p>{isLoggingOut ? 'Logging out...' : 'Logout'}</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </div>
+              
+              {/* Community Note */}
+              <div className="pt-3 border-t border-slate-700/30">
+                <div className="min-h-[104px] flex items-center justify-center">
+                  {isSidebarCollapsed ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <Tooltip delayDuration={0}>
+                        <TooltipTrigger asChild>
+                          <a
+                            href="https://github.com/tal412/ChessScope"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors group"
+                          >
+                            <Github className="w-4 h-4 text-slate-300 group-hover:text-white transition-colors" />
+                          </a>
+                        </TooltipTrigger>
+                        <TooltipContent 
+                          side="right" 
+                          className="bg-slate-800 border-slate-700 text-white"
+                          sideOffset={10}
+                        >
+                          <p>ChessScope on GitHub</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      
+                      <Tooltip delayDuration={0}>
+                        <TooltipTrigger asChild>
+                          <a
+                            href="https://www.linkedin.com/in/tal-barda412/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors group"
+                          >
+                            <Linkedin className="w-4 h-4 text-slate-300 group-hover:text-blue-400 transition-colors" />
+                          </a>
+                        </TooltipTrigger>
+                        <TooltipContent 
+                          side="right" 
+                          className="bg-slate-800 border-slate-700 text-white"
+                          sideOffset={10}
+                        >
+                          <p>Tal Barda on LinkedIn</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  ) : (
+                    <div className="text-center space-y-2">
+                      <div className="min-h-[40px]">
+                        {showUserContent && (
+                          <div className="animate-in fade-in-0 duration-300">
+                            <p className="text-xs text-slate-400">
+                              Made for the community by
+                            </p>
+                            <p className="text-sm font-medium text-slate-300">
+                              Tal Barda
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center justify-center gap-3">
+                        <Tooltip delayDuration={0}>
+                          <TooltipTrigger asChild>
+                            <a
+                              href="https://github.com/tal412/ChessScope"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors group"
+                            >
+                              <Github className="w-4 h-4 text-slate-300 group-hover:text-white transition-colors" />
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent 
+                            side="top" 
+                            className="bg-slate-800 border-slate-700 text-white"
+                          >
+                            <p>View on GitHub</p>
+                          </TooltipContent>
+                        </Tooltip>
+                        
+                        <Tooltip delayDuration={0}>
+                          <TooltipTrigger asChild>
+                            <a
+                              href="https://www.linkedin.com/in/tal-barda412/"
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-center w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-colors group"
+                            >
+                              <Linkedin className="w-4 h-4 text-slate-300 group-hover:text-blue-400 transition-colors" />
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent 
+                            side="top" 
+                            className="bg-slate-800 border-slate-700 text-white"
+                          >
+                            <p>Connect on LinkedIn</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Toggle Button at Bottom */}
+              <div className="pt-3 border-t border-slate-700/30">
+                <Tooltip delayDuration={0}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={toggleSidebar}
+                      variant="ghost"
+                      size="sm"
+                      className={`w-full text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all duration-200 ${isSidebarCollapsed ? 'px-3' : 'justify-center'}`}
+                      title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+                    >
+                      {isSidebarCollapsed ? (
+                        <ChevronRight className="w-4 h-4" />
+                      ) : (
+                        <>
+                          <ChevronLeft className="w-4 h-4 mr-2" />
+                          <span>Collapse</span>
+                        </>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  {isSidebarCollapsed && (
+                    <TooltipContent 
+                      side="right" 
+                      className="bg-slate-800 border-slate-700 text-white"
+                      sideOffset={10}
+                    >
+                      <p>Expand sidebar</p>
                     </TooltipContent>
                   )}
                 </Tooltip>
