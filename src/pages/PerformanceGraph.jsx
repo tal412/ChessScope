@@ -2249,6 +2249,8 @@ function PerformanceGraphContent() {
               onTogglePositionClusters={togglePositionClusters}
               onClusterHover={handleClusterHover}
               onClusterHoverEnd={handleClusterHoverEnd}
+              hoveredOpeningName={hoveredOpeningName}
+              hoveredClusterColor={hoveredClusterColor}
               onFitView={setCanvasFitView}
               onZoomToClusters={setCanvasZoomToClusters}
               onResizeStateChange={setIsCanvasResizing}

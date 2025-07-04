@@ -66,10 +66,12 @@ const createConvexHull = (points) => {
 const createSmoothPath = (ctx, hull, padding = 50) => {
   if (hull.length < 3) {
     // Fallback to rounded rectangle for small clusters
-    const minX = Math.min(...hull.map(p => p.x)) - padding;
-    const maxX = Math.max(...hull.map(p => p.x)) + padding;
-    const minY = Math.min(...hull.map(p => p.y)) - padding;
-    const maxY = Math.max(...hull.map(p => p.y)) + padding;
+    // For single nodes, use extra generous padding (150% more)
+    const singleNodePadding = hull.length === 1 ? padding * 1.5 : padding;
+    const minX = Math.min(...hull.map(p => p.x)) - singleNodePadding;
+    const maxX = Math.max(...hull.map(p => p.x)) + singleNodePadding;
+    const minY = Math.min(...hull.map(p => p.y)) - singleNodePadding;
+    const maxY = Math.max(...hull.map(p => p.y)) + singleNodePadding;
     
     ctx.beginPath();
     ctx.roundRect(minX, minY, maxX - minX, maxY - minY, 20);
@@ -159,6 +161,8 @@ const CanvasPerformanceGraph = ({
   onTogglePositionClusters, // Callback for position cluster toggle
   onClusterHover, // Callback for cluster hover
   onClusterHoverEnd, // Callback for cluster hover end
+  hoveredOpeningName = null, // Current hovered opening name
+  hoveredClusterColor = null, // Current hovered cluster color
   onResizeStateChange, // Callback to notify parent of resize state
   // Control props to match ReactFlow version
   maxDepth = 20,
@@ -561,12 +565,13 @@ const CanvasPerformanceGraph = ({
       if (nodePoints.length === 1) {
         // Single node cluster - create a square around the node for hit testing
         const node = nodePoints[0];
-        const padding = 100; // Generous padding for single nodes
+        const basePadding = 100; // Base padding for single nodes
+        const extraPadding = basePadding * 1.5; // Match the visual padding (150% more)
         hitTestPath = [
-          { x: node.x - padding, y: node.y - padding },
-          { x: node.x + padding, y: node.y - padding },
-          { x: node.x + padding, y: node.y + padding },
-          { x: node.x - padding, y: node.y + padding }
+          { x: node.x - extraPadding, y: node.y - extraPadding },
+          { x: node.x + extraPadding, y: node.y - extraPadding },
+          { x: node.x + extraPadding, y: node.y + extraPadding },
+          { x: node.x - extraPadding, y: node.y + extraPadding }
         ];
       } else if (nodePoints.length === 2) {
         // Two node cluster - create a rectangle encompassing both nodes
@@ -1513,7 +1518,7 @@ const CanvasPerformanceGraph = ({
             <span className="mx-1">or</span>
             <span className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 text-xs">Middle&nbsp;Mouse&nbsp;Button</span>
             <span className="mx-1">–</span>
-            fit-view
+            Fit
           </span>
         </div>
       </div>
@@ -1539,7 +1544,23 @@ const CanvasPerformanceGraph = ({
         </div>
       </div>
 
-      {/* Opening Name Tooltip is handled by parent component */}
+      {/* Opening Cluster Name Tooltip - Bottom Center */}
+      {hoveredOpeningName && hoveredClusterColor && (
+        <div className="absolute bottom-16 left-1/2 transform -translate-x-1/2 pointer-events-none z-30">
+          <div 
+            className="px-4 py-2 rounded-lg shadow-lg border backdrop-blur-sm max-w-md text-center"
+            style={{
+              backgroundColor: `${hoveredClusterColor.bg}20`,
+              borderColor: hoveredClusterColor.border,
+              color: hoveredClusterColor.text
+            }}
+          >
+            <div className="font-medium text-sm">
+              {hoveredOpeningName}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Initialization Loading Overlay - Covers initial positioning flash */}
       {isInitializing && (
