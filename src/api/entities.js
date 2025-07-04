@@ -84,9 +84,104 @@ class OpeningNodeModel extends BaseModel {
   }
 }
 
+// UserOpening model
+class UserOpeningModel extends BaseModel {
+  constructor() {
+    super('user_openings', [
+      'username', 'name', 'color', 'initial_fen', 'initial_moves', 
+      'description', 'tags'
+    ]);
+  }
+  
+  async create(data) {
+    // Transform arrays to JSON strings
+    const transformedData = {
+      ...data,
+      initial_moves: JSON.stringify(data.initial_moves || []),
+      tags: JSON.stringify(data.tags || [])
+    };
+    return super.create(transformedData);
+  }
+  
+  async update(id, data) {
+    // Transform arrays to JSON strings
+    const transformedData = {
+      ...data,
+      initial_moves: JSON.stringify(data.initial_moves || []),
+      tags: JSON.stringify(data.tags || [])
+    };
+    return super.update(id, transformedData);
+  }
+  
+  transformRow(row) {
+    // Transform JSON strings back to arrays
+    return {
+      ...row,
+      initial_moves: typeof row.initial_moves === 'string' ? JSON.parse(row.initial_moves) : row.initial_moves,
+      tags: typeof row.tags === 'string' ? JSON.parse(row.tags) : row.tags
+    };
+  }
+}
+
+// UserOpeningMove model
+class UserOpeningMoveModel extends BaseModel {
+  constructor() {
+    super('user_opening_moves', [
+      'opening_id', 'fen', 'san', 'uci', 'move_number', 'parent_fen',
+      'is_main_line', 'evaluation', 'comment', 'arrows', 'highlights'
+    ]);
+  }
+  
+  async getByOpeningId(openingId) {
+    return this.filter({ opening_id: openingId });
+  }
+  
+  async create(data) {
+    // Transform arrays to JSON strings
+    const transformedData = {
+      ...data,
+      arrows: JSON.stringify(data.arrows || []),
+      highlights: JSON.stringify(data.highlights || [])
+    };
+    return super.create(transformedData);
+  }
+  
+  transformRow(row) {
+    // Transform JSON strings back to arrays
+    return {
+      ...row,
+      arrows: typeof row.arrows === 'string' ? JSON.parse(row.arrows) : row.arrows,
+      highlights: typeof row.highlights === 'string' ? JSON.parse(row.highlights) : row.highlights
+    };
+  }
+}
+
+// MoveAnnotation model
+class MoveAnnotationModel extends BaseModel {
+  constructor() {
+    super('move_annotations', [
+      'move_id', 'type', 'content', 'url'
+    ]);
+  }
+  
+  async getByMoveId(moveId) {
+    return this.filter({ move_id: moveId });
+  }
+  
+  async deleteByMoveId(moveId) {
+    const annotations = await this.getByMoveId(moveId);
+    for (const annotation of annotations) {
+      await this.delete(annotation.id);
+    }
+  }
+}
+
 // Export instances
 export const ChessGame = new ChessGameModel();
 export const OpeningNode = new OpeningNodeModel();
+export const UserOpening = new UserOpeningModel();
+export const UserOpeningMove = new UserOpeningMoveModel();
+export const MoveAnnotation = new MoveAnnotationModel();
 
 // Simple auth mock (since we're now local-only)
 export const User = {

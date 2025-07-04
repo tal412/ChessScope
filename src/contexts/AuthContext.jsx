@@ -28,6 +28,7 @@ export const AuthProvider = ({ children }) => {
   const [importProgress, setImportProgress] = useState(0);
   const [importStatus, setImportStatus] = useState('');
   const [user, setUser] = useState(null);
+  const [pendingAutoSync, setPendingAutoSync] = useState(null);
 
   useEffect(() => {
     // Check for existing authentication on app start
@@ -37,16 +38,9 @@ export const AuthProvider = ({ children }) => {
         const authData = JSON.parse(savedAuth);
         setUser(authData.user);
         setIsAuthenticated(true);
-        // If user has auto-sync enabled, trigger a background sync immediately
+        // Mark that we need to auto-sync, but don't do it yet
         if (authData.user?.importSettings?.autoSync) {
-          // Fire and forget – we don't await to avoid blocking UI
-          (async () => {
-            try {
-              await syncUserData(authData.user);
-            } catch (e) {
-              console.warn('Auto-sync on startup failed:', e);
-            }
-          })();
+          setPendingAutoSync(authData.user);
         }
       } catch (error) {
         console.error('Error parsing saved auth:', error);
@@ -55,6 +49,56 @@ export const AuthProvider = ({ children }) => {
     }
     setIsLoading(false);
   }, []);
+
+  // Handle auto-sync in a separate effect after component is fully initialized
+  useEffect(() => {
+    if (pendingAutoSync && !isLoading && !isSyncing) {
+      // Delay auto-sync to ensure UI is responsive
+      const syncTimer = setTimeout(async () => {
+        console.log('🔄 Starting delayed auto-sync...');
+        try {
+          // Use callback pattern to ensure we have current state
+          setIsSyncing(true);
+          
+          const syncUserData = {
+            ...pendingAutoSync,
+            importSettings: pendingAutoSync.importSettings || {
+              selectedTimeControls: pendingAutoSync.platform === 'lichess' ? 
+                ['rapid', 'blitz', 'bullet', 'classical'] : 
+                ['rapid', 'blitz', 'bullet'],
+              selectedDateRange: '3',
+              customDateRange: { from: null, to: null },
+              autoSync: true
+            }
+          };
+          
+          // Use a silent version that doesn't update UI progress
+          const result = await importGamesSilently(syncUserData);
+          
+          // Update user's last sync time, game count, and last game time
+          const updatedUser = {
+            ...pendingAutoSync,
+            lastSync: new Date().toISOString(),
+            gameCount: result.gameCount,
+            lastGameTime: result.lastGameTime
+          };
+          
+          setUser(updatedUser);
+          localStorage.setItem('chessScope_auth', JSON.stringify({ user: updatedUser }));
+          
+          console.log('✅ Auto-sync completed successfully - opening graph rebuilt');
+          console.log(`🎮 Updated last game time: ${updatedUser.lastGameTime ? new Date(updatedUser.lastGameTime).toLocaleString() : 'Unknown'}`);
+        } catch (e) {
+          console.error('Auto-sync on startup failed:', e);
+        } finally {
+          setIsSyncing(false);
+          setPendingAutoSync(null);
+        }
+      }, 1000); // 1 second delay to let UI settle
+
+      return () => clearTimeout(syncTimer);
+    }
+  }, [pendingAutoSync, isLoading, isSyncing]);
 
   const login = async (username, platform = 'chess.com', importSettings = null, googleAccount = null) => {
     try {
@@ -603,6 +647,9 @@ export const AuthProvider = ({ children }) => {
       let recentTargetedGames = [];
       const TARGET_GAMES = 1500; // Hard limit
       
+      // Allow UI to update before starting heavy work
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
       if (platform === 'lichess') {
         // Lichess direct API approach (no progress callback)
         const games = await fetchLichessGames(username, importSettings);
@@ -617,6 +664,9 @@ export const AuthProvider = ({ children }) => {
         
         console.log(`🔄 Silent import: Found ${recentTargetedGames.length} games from Chess.com`);
       }
+      
+      // Yield to UI thread after fetching
+      await new Promise(resolve => setTimeout(resolve, 10));
       
       console.log('🔄 Silent import: Creating new opening graph...');
 
@@ -636,34 +686,42 @@ export const AuthProvider = ({ children }) => {
       console.log(`🔄 Silent import: Processing ${recentTargetedGames.length} games...`);
 
       const totalGames = recentTargetedGames.length;
+      const BATCH_SIZE = 50; // Process games in smaller batches
       
-      // Process games one at a time
-      for (let i = 0; i < totalGames; i++) {
-        const game = recentTargetedGames[i];
-        let gameData;
+      // Process games in batches to avoid blocking UI
+      for (let batchStart = 0; batchStart < totalGames; batchStart += BATCH_SIZE) {
+        const batchEnd = Math.min(batchStart + BATCH_SIZE, totalGames);
+        const batch = recentTargetedGames.slice(batchStart, batchEnd);
         
-        // For Lichess, the games are already processed by fetchLichessGames
-        if (platform === 'lichess') {
-          // Lichess games are already in the correct format from fetchLichessGames
-          gameData = game;
-        } else {
-          // Use the generic function for Chess.com
-          gameData = extractGameDataGeneric(game, username, platform);
-        }
-        
-        if (gameData && gameData.moves && gameData.moves.length > 0) {
-          // Add opening information
-          const opening = await identifyOpening(gameData.moves);
-          gameData.opening = opening;
+        // Process batch
+        for (const game of batch) {
+          let gameData;
           
-          // Add game to the graph
-          await openingGraph.addGame(gameData);
+          // For Lichess, the games are already processed by fetchLichessGames
+          if (platform === 'lichess') {
+            gameData = game;
+          } else {
+            // Use the generic function for Chess.com
+            gameData = extractGameDataGeneric(game, username, platform);
+          }
+          
+          if (gameData && gameData.moves && gameData.moves.length > 0) {
+            // Add opening information
+            const opening = await identifyOpening(gameData.moves);
+            gameData.opening = opening;
+            
+            // Add game to the graph
+            await openingGraph.addGame(gameData);
+          }
         }
         
         // Log progress every 100 games
-        if ((i + 1) % 100 === 0) {
-          console.log(`🔄 Silent import: Processed ${i + 1}/${totalGames} games`);
+        if (batchEnd % 100 === 0 || batchEnd === totalGames) {
+          console.log(`🔄 Silent import: Processed ${batchEnd}/${totalGames} games`);
         }
+        
+        // Yield to UI thread between batches
+        await new Promise(resolve => setTimeout(resolve, 5));
       }
 
       console.log('🔄 Silent import: Saving opening graph...');

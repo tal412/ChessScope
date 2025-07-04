@@ -8,7 +8,10 @@ import {
   Layers,
   EyeOff,
   Crown,
-  Shield
+  Shield,
+  MessageSquare,
+  Link as LinkIcon,
+  BookOpen
 } from 'lucide-react';
 
 // Performance color constants
@@ -20,12 +23,29 @@ const PERFORMANCE_COLORS = {
   difficult: { bg: '#dc2626', border: '#b91c1c', text: '#ffffff' },
 };
 
+// Opening tree node colors
+const OPENING_NODE_COLORS = {
+  mainLine: { bg: '#f59e0b', border: '#d97706', text: '#000000' }, // Amber for main line
+  variation: { bg: '#64748b', border: '#475569', text: '#ffffff' }, // Slate for variations
+  selected: { bg: '#3b82f6', border: '#2563eb', text: '#ffffff' }, // Blue for selected
+  withComment: { bg: '#06b6d4', border: '#0891b2', text: '#ffffff' }, // Cyan for annotated
+  withLinks: { bg: '#10b981', border: '#059669', text: '#ffffff' }, // Green for links
+};
+
 const getPerformanceData = (winRate, gameCount) => {
   if (winRate >= 70) return PERFORMANCE_COLORS.excellent;
   if (winRate >= 60) return PERFORMANCE_COLORS.good;
   if (winRate >= 50) return PERFORMANCE_COLORS.solid;
   if (winRate >= 40) return PERFORMANCE_COLORS.challenging;
   return PERFORMANCE_COLORS.difficult;
+};
+
+const getOpeningNodeColor = (node, isSelected) => {
+  if (isSelected) return OPENING_NODE_COLORS.selected;
+  if (node.data.hasLinks && node.data.hasLinks > 0) return OPENING_NODE_COLORS.withLinks;
+  if (node.data.hasComment) return OPENING_NODE_COLORS.withComment;
+  if (node.data.isMainLine) return OPENING_NODE_COLORS.mainLine;
+  return OPENING_NODE_COLORS.variation;
 };
 
 // Function to create convex hull for organic cluster shapes
@@ -181,7 +201,8 @@ const CanvasPerformanceGraph = ({
   showPerformanceControls = false,
   onShowPerformanceControls,
   isClusteringLoading = false,
-  className = ""
+  className = "",
+  mode = 'performance' // Added mode prop
 }) => {
   const canvasRef = useRef();
   const containerRef = useRef();
@@ -763,20 +784,40 @@ const CanvasPerformanceGraph = ({
         
         if (!source || !target) return;
 
-        const perfData = getPerformanceData(edge.data?.winRate || 0, edge.data?.gameCount || 0);
-        const thickness = Math.max(4, Math.min(12, 4 + ((edge.data?.gameCount || 0) / 25)));
+        if (mode === 'opening') {
+          // Opening mode edge rendering - simpler style
+          const isMainLine = source.data.isMainLine && target.data.isMainLine;
+          
+          ctx.strokeStyle = isMainLine ? '#f59e0b' : '#64748b';
+          ctx.lineWidth = isMainLine ? 3 : 2;
+          ctx.lineCap = 'round';
+          ctx.globalAlpha = isMainLine ? 1 : 0.7;
+          ctx.setLineDash(isMainLine ? [] : [5, 5]); // Dashed for variations
+          
+          ctx.beginPath();
+          ctx.moveTo(source.x, source.y + source.height/2);
+          ctx.lineTo(target.x, target.y - target.height/2);
+          ctx.stroke();
+          
+          ctx.setLineDash([]); // Reset
+          ctx.globalAlpha = 1;
+        } else {
+          // Performance mode edge rendering (existing)
+          const perfData = getPerformanceData(edge.data?.winRate || 0, edge.data?.gameCount || 0);
+          const thickness = Math.max(4, Math.min(12, 4 + ((edge.data?.gameCount || 0) / 25)));
 
-        ctx.strokeStyle = perfData.border;
-        ctx.lineWidth = thickness;
-        ctx.lineCap = 'round';
-        ctx.globalAlpha = 0.8;
-        
-        ctx.beginPath();
-        ctx.moveTo(source.x, source.y + source.height/2);
-        ctx.lineTo(target.x, target.y - target.height/2);
-        ctx.stroke();
-        
-        ctx.globalAlpha = 1;
+          ctx.strokeStyle = perfData.border;
+          ctx.lineWidth = thickness;
+          ctx.lineCap = 'round';
+          ctx.globalAlpha = 0.8;
+          
+          ctx.beginPath();
+          ctx.moveTo(source.x, source.y + source.height/2);
+          ctx.lineTo(target.x, target.y - target.height/2);
+          ctx.stroke();
+          
+          ctx.globalAlpha = 1;
+        }
       });
     }
 
@@ -797,110 +838,215 @@ const CanvasPerformanceGraph = ({
 
       let renderedNodeCount = 0;
       positionedNodes.forEach(node => {
-      const perfData = getPerformanceData(node.data.winRate || 0, node.data.gameCount || 0);
-      const isCurrentNode = node.id === currentNodeId;
-      const isHoveredNextMove = node.id === hoveredNextMoveNodeId;
-      const isHovered = hoveredNode?.id === node.id;
-      
-      const x = node.x - node.width/2;
-      const y = node.y - node.height/2;
-      
-      // Check if node is potentially visible before expensive rendering
-      const screenX = (node.x * transform.scale) + transform.x;
-      const screenY = (node.y * transform.scale) + transform.y;
-      const nodeSize = 140 * transform.scale;
-      
-      // Skip rendering nodes that are completely off-screen for performance
-      if (screenX < -nodeSize*2 || screenX > width + nodeSize*2 ||
-          screenY < -nodeSize*2 || screenY > height + nodeSize*2) {
-        return; // Skip this node
-      }
-      
-      renderedNodeCount++;
+      // Mode-specific rendering
+      if (mode === 'opening') {
+        // Opening tree mode rendering
+        const isCurrentNode = node.id === currentNodeId;
+        const isHoveredNextMove = node.id === hoveredNextMoveNodeId;
+        const isHovered = hoveredNode?.id === node.id;
+        const nodeColor = getOpeningNodeColor(node, isCurrentNode);
+        
+        const x = node.x - node.width/2;
+        const y = node.y - node.height/2;
+        
+        // Check if node is potentially visible before expensive rendering
+        const screenX = (node.x * transform.scale) + transform.x;
+        const screenY = (node.y * transform.scale) + transform.y;
+        const nodeSize = 140 * transform.scale;
+        
+        // Skip rendering nodes that are completely off-screen for performance
+        if (screenX < -nodeSize*2 || screenX > width + nodeSize*2 ||
+            screenY < -nodeSize*2 || screenY > height + nodeSize*2) {
+          return; // Skip this node
+        }
+        
+        renderedNodeCount++;
 
-      // Use proper performance-based colors
-      const isDebugNode = false; // Disable debug coloring
-      const nodeColor = perfData.bg;
-      const nodeBorder = perfData.border;
-      
-      // Glow effect for special states
-      if (isCurrentNode || isHoveredNextMove) {
-        const glowColor = isCurrentNode ? '#22c55e' : '#fb923c';
-        ctx.shadowColor = glowColor;
-        ctx.shadowBlur = isCurrentNode ? 20 : 15;
-        ctx.shadowOffsetX = 0;
-        ctx.shadowOffsetY = 0;
-      } else {
+        // Glow effect for special states
+        if (isCurrentNode || isHoveredNextMove) {
+          const glowColor = isCurrentNode ? '#3b82f6' : '#8b5cf6';
+          ctx.shadowColor = glowColor;
+          ctx.shadowBlur = isCurrentNode ? 20 : 15;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+        } else {
+          ctx.shadowBlur = 0;
+        }
+
+        // Node background with proper styling
+        ctx.fillStyle = nodeColor.bg;
+        ctx.strokeStyle = nodeColor.border;
+        ctx.lineWidth = isCurrentNode || isHoveredNextMove ? 8 : (isHovered ? 6 : 4);
+        
+        ctx.beginPath();
+        ctx.roundRect(x, y, node.width, node.height, 12);
+        ctx.fill();
+        ctx.stroke();
+
+        // Reset shadow
         ctx.shadowBlur = 0;
-      }
+        
+        // Text rendering for opening mode
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const textColor = nodeColor.text;
+        
+        // Add text stroke for better readability
+        const isBlackText = textColor === '#000000' || textColor === '#000';
+        ctx.strokeStyle = isBlackText ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+        ctx.lineWidth = isBlackText ? 2 : 3;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
 
-      // Node background with proper styling
-      ctx.fillStyle = nodeColor;
-      ctx.strokeStyle = nodeBorder;
-      ctx.lineWidth = isCurrentNode || isHoveredNextMove ? 8 : (isHovered ? 6 : 4);
-      
-      ctx.beginPath();
-      ctx.roundRect(x, y, node.width, node.height, 12);
-      ctx.fill();
-      ctx.stroke();
-
-      // Reset shadow
-      ctx.shadowBlur = 0;
-      
-      // Clean rendering without debug clutter
-
-      // HIGH-QUALITY TEXT RENDERING with proper positioning
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.shadowBlur = 0;
-      
-      // Text color with better contrast
-      const textColor = isDebugNode ? '#ffffff' : perfData.text;
-      
-      // Add text stroke for better readability - conditional based on text color
-      const isBlackText = textColor === '#000000' || textColor === '#000';
-      ctx.strokeStyle = isBlackText ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
-      ctx.lineWidth = isBlackText ? 2 : 3; // Thinner stroke for white on black text
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-
-      if (node.data.isRoot) {
-        // ROOT NODE: Centered text layout
         const centerX = node.x;
         const centerY = node.y;
         
-        // Main label - EXTRA LARGE (more space in 180px node)
-        ctx.font = `bold 40px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-        ctx.fillStyle = textColor;
-        ctx.strokeText('START', centerX, centerY - 30);
-        ctx.fillText('START', centerX, centerY - 30);
-        
-        // Game count - MUCH LARGER (better spacing)
-        ctx.font = `600 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-        ctx.strokeText(`${node.data.gameCount} games`, centerX, centerY + 25);
-        ctx.fillText(`${node.data.gameCount} games`, centerX, centerY + 25);
-        
+        if (node.data.isRoot) {
+          // Root node for opening tree
+          ctx.font = `bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          ctx.fillStyle = textColor;
+          ctx.strokeText('START', centerX, centerY);
+          ctx.fillText('START', centerX, centerY);
+        } else {
+          // Move node
+          ctx.font = `bold 40px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          ctx.fillStyle = textColor;
+          ctx.strokeText(node.data.label || node.data.san || '?', centerX, centerY - 10);
+          ctx.fillText(node.data.label || node.data.san || '?', centerX, centerY - 10);
+          
+          // Show annotation indicators
+          const iconSize = 20;
+          const iconSpacing = 25;
+          let iconX = centerX - ((node.data.hasComment && node.data.hasLinks) ? iconSpacing/2 : 0);
+          
+          if (node.data.hasComment) {
+            ctx.fillStyle = '#3b82f6';
+            ctx.font = `${iconSize}px -apple-system`;
+            ctx.fillText('💬', iconX, centerY + 30);
+            iconX += iconSpacing;
+          }
+          
+          if (node.data.hasLinks && node.data.linkCount > 0) {
+            ctx.fillStyle = '#10b981';
+            ctx.font = `${iconSize}px -apple-system`;
+            ctx.fillText('🔗', iconX, centerY + 30);
+          }
+          
+          // Show variation indicator
+          if (!node.data.isMainLine) {
+            ctx.font = `500 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+            ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
+            ctx.strokeStyle = 'transparent';
+            ctx.fillText('variation', centerX, centerY + 55);
+          }
+        }
       } else {
-        // MOVE NODE: Three-line layout with proper spacing - ALL LARGER
-        const centerX = node.x;
-        const centerY = node.y;
+        // Performance mode rendering (existing code)
+        const perfData = getPerformanceData(node.data.winRate || 0, node.data.gameCount || 0);
+        const isCurrentNode = node.id === currentNodeId;
+        const isHoveredNextMove = node.id === hoveredNextMoveNodeId;
+        const isHovered = hoveredNode?.id === node.id;
         
-        // Move notation (top line) - EXTRA LARGE (more space in 180px node)
-        ctx.font = `bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-        ctx.fillStyle = textColor;
-        ctx.strokeText(node.data.san || '?', centerX, centerY - 35);
-        ctx.fillText(node.data.san || '?', centerX, centerY - 35);
+        const x = node.x - node.width/2;
+        const y = node.y - node.height/2;
         
-        // Win rate (middle line) - MUCH LARGER (centered)
-        const winRate = Math.round(node.data.winRate || 0);
-        ctx.font = `600 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-        ctx.strokeText(`${winRate}%`, centerX, centerY);
-        ctx.fillText(`${winRate}%`, centerX, centerY);
+        // Check if node is potentially visible before expensive rendering
+        const screenX = (node.x * transform.scale) + transform.x;
+        const screenY = (node.y * transform.scale) + transform.y;
+        const nodeSize = 140 * transform.scale;
         
-        // Game count (bottom line) - MUCH LARGER (better spacing)
-        ctx.font = `500 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-        ctx.strokeText(`${node.data.gameCount || 0}g`, centerX, centerY + 35);
-        ctx.fillText(`${node.data.gameCount || 0}g`, centerX, centerY + 35);
+        // Skip rendering nodes that are completely off-screen for performance
+        if (screenX < -nodeSize*2 || screenX > width + nodeSize*2 ||
+            screenY < -nodeSize*2 || screenY > height + nodeSize*2) {
+          return; // Skip this node
+        }
+        
+        renderedNodeCount++;
+
+        // Use proper performance-based colors
+        const isDebugNode = false; // Disable debug coloring
+        const nodeColor = perfData.bg;
+        const nodeBorder = perfData.border;
+        
+        // Glow effect for special states
+        if (isCurrentNode || isHoveredNextMove) {
+          const glowColor = isCurrentNode ? '#22c55e' : '#fb923c';
+          ctx.shadowColor = glowColor;
+          ctx.shadowBlur = isCurrentNode ? 20 : 15;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+        } else {
+          ctx.shadowBlur = 0;
+        }
+
+        // Node background with proper styling
+        ctx.fillStyle = nodeColor;
+        ctx.strokeStyle = nodeBorder;
+        ctx.lineWidth = isCurrentNode || isHoveredNextMove ? 8 : (isHovered ? 6 : 4);
+        
+        ctx.beginPath();
+        ctx.roundRect(x, y, node.width, node.height, 12);
+        ctx.fill();
+        ctx.stroke();
+
+        // Reset shadow
+        ctx.shadowBlur = 0;
+        
+        // Clean rendering without debug clutter
+
+        // HIGH-QUALITY TEXT RENDERING with proper positioning
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.shadowBlur = 0;
+        
+        // Text color with better contrast
+        const textColor = isDebugNode ? '#ffffff' : perfData.text;
+        
+        // Add text stroke for better readability - conditional based on text color
+        const isBlackText = textColor === '#000000' || textColor === '#000';
+        ctx.strokeStyle = isBlackText ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+        ctx.lineWidth = isBlackText ? 2 : 3; // Thinner stroke for white on black text
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        if (node.data.isRoot) {
+          // ROOT NODE: Centered text layout
+          const centerX = node.x;
+          const centerY = node.y;
+          
+          // Main label - EXTRA LARGE (more space in 180px node)
+          ctx.font = `bold 40px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          ctx.fillStyle = textColor;
+          ctx.strokeText('START', centerX, centerY - 30);
+          ctx.fillText('START', centerX, centerY - 30);
+          
+          // Game count - MUCH LARGER (better spacing)
+          ctx.font = `600 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          ctx.strokeText(`${node.data.gameCount} games`, centerX, centerY + 25);
+          ctx.fillText(`${node.data.gameCount} games`, centerX, centerY + 25);
+          
+        } else {
+          // MOVE NODE: Three-line layout with proper spacing - ALL LARGER
+          const centerX = node.x;
+          const centerY = node.y;
+          
+          // Move notation (top line) - EXTRA LARGE (more space in 180px node)
+          ctx.font = `bold 36px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          ctx.fillStyle = textColor;
+          ctx.strokeText(node.data.san || '?', centerX, centerY - 35);
+          ctx.fillText(node.data.san || '?', centerX, centerY - 35);
+          
+          // Win rate (middle line) - MUCH LARGER (centered)
+          const winRate = Math.round(node.data.winRate || 0);
+          ctx.font = `600 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          ctx.strokeText(`${winRate}%`, centerX, centerY);
+          ctx.fillText(`${winRate}%`, centerX, centerY);
+          
+          // Game count (bottom line) - MUCH LARGER (better spacing)
+          ctx.font = `500 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+          ctx.strokeText(`${node.data.gameCount || 0}g`, centerX, centerY + 35);
+          ctx.fillText(`${node.data.gameCount || 0}g`, centerX, centerY + 35);
+        }
       }
       
       // Text rendering complete
@@ -910,7 +1056,7 @@ const CanvasPerformanceGraph = ({
     } // End of nodes rendering if statement
 
     ctx.restore();
-     }, [positionedNodes, dimensions, transform, currentNodeId, hoveredNextMoveNodeId, hoveredNode, hoveredCluster, graphData.edges, openingClusters, positionClusters, showOpeningClusters, showPositionClusters]);
+     }, [positionedNodes, dimensions, transform, currentNodeId, hoveredNextMoveNodeId, hoveredNode, hoveredCluster, graphData.edges, openingClusters, positionClusters, showOpeningClusters, showPositionClusters, mode]);
 
   // Animation loop
   useEffect(() => {
@@ -1359,70 +1505,75 @@ const CanvasPerformanceGraph = ({
             </svg>
           </Button>
 
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleToggleOpeningClusters}
-            className={`${showOpeningClusters ? 'bg-purple-600 border-purple-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
-            title="Toggle Opening Clusters"
-          >
-            <Layers className="w-4 h-4 mr-0 group-hover:mr-2 2xl:mr-2 transition-all duration-100" />
-            <span className="hidden group-hover:inline 2xl:inline transition-opacity duration-100">Opening Clusters</span>
-          </Button>
+          {mode === 'performance' && (
+            <>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleToggleOpeningClusters}
+                className={`${showOpeningClusters ? 'bg-purple-600 border-purple-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
+                title="Toggle Opening Clusters"
+              >
+                <Layers className="w-4 h-4 mr-0 group-hover:mr-2 2xl:mr-2 transition-all duration-100" />
+                <span className="hidden group-hover:inline 2xl:inline transition-opacity duration-100">Opening Clusters</span>
+              </Button>
 
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleTogglePositionClusters}
-            className={`${showPositionClusters ? 'bg-orange-600 border-orange-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
-            title="Toggle Position Clusters (Current Move)"
-          >
-            <Target className="w-4 h-4 mr-0 group-hover:mr-2 2xl:mr-2 transition-all duration-100" />
-            <span className="hidden group-hover:inline 2xl:inline transition-opacity duration-100">Position Clusters</span>
-          </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleTogglePositionClusters}
+                className={`${showPositionClusters ? 'bg-orange-600 border-orange-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
+                title="Toggle Position Clusters (Current Move)"
+              >
+                <Target className="w-4 h-4 mr-0 group-hover:mr-2 2xl:mr-2 transition-all duration-100" />
+                <span className="hidden group-hover:inline 2xl:inline transition-opacity duration-100">Position Clusters</span>
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
       {/* Controls Show Button - Right Side */}
-      <div className="absolute top-4 right-4 space-y-4 max-w-sm pointer-events-auto">
-        {/* Show Button for Controls only */}
-        <div className="flex gap-2 flex-wrap justify-end">
-          {!showPerformanceControls && onShowPerformanceControls && (
-            <Button
-              onClick={() => onShowPerformanceControls(true)}
-              className="bg-slate-800/95 border border-slate-700 text-slate-200 hover:bg-slate-700/95"
-              size="sm"
-            >
-              <Target className="w-4 h-4 mr-2" />
-              Controls ({maxDepth} moves, {minGameCount}+ games)
-            </Button>
-          )}
-        </div>
-
-        {/* Controls Card - EXACT match with ReactFlow version */}
-        {showPerformanceControls && onShowPerformanceControls && (
-        <Card className="bg-slate-800/95 border-slate-700 backdrop-blur-lg shadow-xl">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-slate-200 text-lg flex items-center gap-2">
-              <Target className="w-5 h-5" />
-              Controls
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => onShowPerformanceControls(false)}
-                className="ml-auto text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 p-1"
-                title="Hide controls"
+      {mode === 'performance' && (
+        <div className="absolute top-4 right-4 space-y-4 max-w-sm pointer-events-auto">
+          {/* Show Button for Controls only */}
+          <div className="flex gap-2 flex-wrap justify-end">
+            {!showPerformanceControls && onShowPerformanceControls && (
+              <Button
+                onClick={() => onShowPerformanceControls(true)}
+                className="bg-slate-800/95 border border-slate-700 text-slate-200 hover:bg-slate-700/95"
+                size="sm"
               >
-                <EyeOff className="w-4 h-4" />
+                <Target className="w-4 h-4 mr-2" />
+                Controls ({maxDepth} moves, {minGameCount}+ games)
               </Button>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Controls Row 1 */}
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div>
-                <label className="text-slate-400 text-xs block mb-1">Max Depth</label>
-                                  <select 
+            )}
+          </div>
+
+          {/* Controls Card - EXACT match with ReactFlow version */}
+          {showPerformanceControls && onShowPerformanceControls && (
+          <Card className="bg-slate-800/95 border-slate-700 backdrop-blur-lg shadow-xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-slate-200 text-lg flex items-center gap-2">
+                <Target className="w-5 h-5" />
+                Controls
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => onShowPerformanceControls(false)}
+                  className="ml-auto text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 p-1"
+                  title="Hide controls"
+                >
+                  <EyeOff className="w-4 h-4" />
+                </Button>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Controls Row 1 */}
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <label className="text-slate-400 text-xs block mb-1">Max Depth</label>
+                  <select 
                     value={maxDepth} 
                     onChange={(e) => handleMaxDepthChangeAsync(Number(e.target.value))}
                     className={`w-full px-2 py-1 rounded ${(isGenerating || isInitializing) ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-slate-200'}`}
@@ -1432,10 +1583,10 @@ const CanvasPerformanceGraph = ({
                     <option key={d} value={d}>{d} moves</option>
                   ))}
                 </select>
-              </div>
-              <div>
-                <label className="text-slate-400 text-xs block mb-1">Min Games</label>
-                                  <select 
+                </div>
+                <div>
+                  <label className="text-slate-400 text-xs block mb-1">Min Games</label>
+                  <select 
                     value={minGameCount} 
                     onChange={(e) => handleMinGameCountChangeAsync(Number(e.target.value))}
                     className={`w-full px-2 py-1 rounded ${(isGenerating || isInitializing) ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-slate-200'}`}
@@ -1445,51 +1596,51 @@ const CanvasPerformanceGraph = ({
                     <option key={g} value={g}>{g}+ games</option>
                   ))}
                 </select>
+                </div>
               </div>
-            </div>
 
-            {/* Controls Row 2 - Win Rate Range Filter */}
-            <div className="space-y-3 bg-slate-700/30 p-3 rounded-lg border border-slate-600/50">
-              <div className="flex justify-between items-center">
-                <label className="text-slate-200 text-xs font-medium">
-                  Win Rate Range Filter
-                </label>
-                <span className="text-blue-300 text-xs font-mono bg-slate-600/50 px-2 py-1 rounded">
-                  {tempWinRateFilter[0]}% - {tempWinRateFilter[1]}%
-                </span>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="relative">
-                <Slider
-                  value={tempWinRateFilter}
-                  onValueChange={onTempWinRateFilterChange}
-                  min={0}
-                  max={100}
-                  step={5}
-                  className="w-full [&_[role=slider]]:bg-blue-500 [&_[role=slider]]:border-blue-400 [&_[role=slider]]:shadow-lg [&_.bg-primary]:bg-gradient-to-r [&_.bg-primary]:from-blue-500 [&_.bg-primary]:to-blue-600 [&_.bg-slate-200]:bg-slate-600/80"
-                  disabled={isGenerating || isInitializing || !onTempWinRateFilterChange}
-                />
-                  {/* Performance zone indicators on the slider track */}
-                  <div className="absolute top-2 left-0 right-0 flex justify-between pointer-events-none">
-                    <div className="w-px h-2 bg-red-400/60"></div>
-                    <div className="w-px h-2 bg-orange-400/60"></div>
-                    <div className="w-px h-2 bg-amber-400/60"></div>
-                    <div className="w-px h-2 bg-cyan-400/60"></div>
-                    <div className="w-px h-2 bg-green-400/60"></div>
+              {/* Controls Row 2 - Win Rate Range Filter */}
+              <div className="space-y-3 bg-slate-700/30 p-3 rounded-lg border border-slate-600/50">
+                <div className="flex justify-between items-center">
+                  <label className="text-slate-200 text-xs font-medium">
+                    Win Rate Range Filter
+                  </label>
+                  <span className="text-blue-300 text-xs font-mono bg-slate-600/50 px-2 py-1 rounded">
+                    {tempWinRateFilter[0]}% - {tempWinRateFilter[1]}%
+                  </span>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="relative">
+                  <Slider
+                    value={tempWinRateFilter}
+                    onValueChange={onTempWinRateFilterChange}
+                    min={0}
+                    max={100}
+                    step={5}
+                    className="w-full [&_[role=slider]]:bg-blue-500 [&_[role=slider]]:border-blue-400 [&_[role=slider]]:shadow-lg [&_.bg-primary]:bg-gradient-to-r [&_.bg-primary]:from-blue-500 [&_.bg-primary]:to-blue-600 [&_.bg-slate-200]:bg-slate-600/80"
+                    disabled={isGenerating || isInitializing || !onTempWinRateFilterChange}
+                  />
+                    {/* Performance zone indicators on the slider track */}
+                    <div className="absolute top-2 left-0 right-0 flex justify-between pointer-events-none">
+                      <div className="w-px h-2 bg-red-400/60"></div>
+                      <div className="w-px h-2 bg-orange-400/60"></div>
+                      <div className="w-px h-2 bg-amber-400/60"></div>
+                      <div className="w-px h-2 bg-cyan-400/60"></div>
+                      <div className="w-px h-2 bg-green-400/60"></div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between text-xs">
+                    <span className="text-red-300 font-medium">0%</span>
+                    <span className="text-orange-300 font-medium">25%</span>
+                    <span className="text-amber-300 font-medium">50%</span>
+                    <span className="text-cyan-300 font-medium">75%</span>
+                    <span className="text-green-300 font-medium">100%</span>
                   </div>
                 </div>
                 
-                <div className="flex justify-between text-xs">
-                  <span className="text-red-300 font-medium">0%</span>
-                  <span className="text-orange-300 font-medium">25%</span>
-                  <span className="text-amber-300 font-medium">50%</span>
-                  <span className="text-cyan-300 font-medium">75%</span>
-                  <span className="text-green-300 font-medium">100%</span>
-                </div>
-              </div>
-              
-                            <Button 
+                <Button 
                   size="sm" 
                   onClick={handleApplyWinRateFilterAsync}
                   disabled={isGenerating || isInitializing || !onApplyWinRateFilter || (tempWinRateFilter[0] === winRateFilter[0] && tempWinRateFilter[1] === winRateFilter[1])}
@@ -1507,7 +1658,8 @@ const CanvasPerformanceGraph = ({
           </CardContent>
         </Card>
         )}
-      </div>
+        </div>
+      )}
 
       {/* Zoom indicator with keyboard shortcut */}
       <div className="absolute bottom-4 left-4 bg-slate-800/90 border border-slate-700 text-slate-200 px-3 py-2 rounded text-xs pointer-events-none backdrop-blur-sm shadow-lg">
@@ -1524,25 +1676,27 @@ const CanvasPerformanceGraph = ({
       </div>
 
       {/* Permanent Performance Legend - Bottom Right */}
-      <div className="absolute bottom-4 right-4 bg-slate-800/90 border border-slate-700 px-3 py-2 rounded text-xs pointer-events-none backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          {[
-            { threshold: '70%', color: PERFORMANCE_COLORS.excellent },
-            { threshold: '60%', color: PERFORMANCE_COLORS.good },
-            { threshold: '50%', color: PERFORMANCE_COLORS.solid },
-            { threshold: '40%', color: PERFORMANCE_COLORS.challenging },
-            { threshold: '0%', color: PERFORMANCE_COLORS.difficult },
-          ].map(({ threshold, color }) => (
-            <div key={threshold} className="flex items-center gap-1">
-              <div 
-                className="w-3 h-3 rounded-sm border shadow-sm"
-                style={{ backgroundColor: color.bg, borderColor: color.border }}
-              />
-              <span className="text-slate-200 font-mono text-xs">{threshold}</span>
-            </div>
-          ))}
+      {mode === 'performance' && (
+        <div className="absolute bottom-4 right-4 bg-slate-800/90 border border-slate-700 px-3 py-2 rounded text-xs pointer-events-none backdrop-blur-sm">
+          <div className="flex items-center gap-3">
+            {[
+              { threshold: '70%', color: PERFORMANCE_COLORS.excellent },
+              { threshold: '60%', color: PERFORMANCE_COLORS.good },
+              { threshold: '50%', color: PERFORMANCE_COLORS.solid },
+              { threshold: '40%', color: PERFORMANCE_COLORS.challenging },
+              { threshold: '0%', color: PERFORMANCE_COLORS.difficult },
+            ].map(({ threshold, color }) => (
+              <div key={threshold} className="flex items-center gap-1">
+                <div 
+                  className="w-3 h-3 rounded-sm border shadow-sm"
+                  style={{ backgroundColor: color.bg, borderColor: color.border }}
+                />
+                <span className="text-slate-200 font-mono text-xs">{threshold}</span>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Opening Cluster Name Tooltip - Bottom Center */}
       {hoveredOpeningName && hoveredClusterColor && (

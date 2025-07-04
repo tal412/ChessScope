@@ -35,6 +35,7 @@ import {
 import { useChessboardSync } from '../hooks/useChessboardSync';
 import { loadOpeningGraph } from '../api/graphStorage';
 import { checkPositionInOpenings } from '../api/openingEntities';
+import { useAuth } from '../contexts/AuthContext';
 
 
 
@@ -578,6 +579,9 @@ const createOpeningClusters = (nodes) => {
 
 // Main Performance Graph Component
 function PerformanceGraphContent() {
+  // Get auth context for syncing state
+  const { isSyncing } = useAuth();
+  
   // Component lifecycle logging
   useEffect(() => {
     console.log('🎬 PerformanceGraph component MOUNTED at', new Date().toISOString());
@@ -702,6 +706,13 @@ function PerformanceGraphContent() {
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Don't load if syncing is in progress
+        if (isSyncing) {
+          console.log('🔄 Skipping graph load - sync in progress');
+          setLoading(true); // Keep loading state during sync
+          return;
+        }
+        
         setLoading(true);
         
         // Get username from localStorage
@@ -746,17 +757,18 @@ function PerformanceGraphContent() {
         setOpeningGraph(graph);
         setMovesStats(overallStats);
         
-
-        
       } catch (error) {
         console.error('Error loading opening graph:', error);
       } finally {
-        setLoading(false);
+        // Only set loading false if not syncing
+        if (!isSyncing) {
+          setLoading(false);
+        }
       }
     };
     
     loadData();
-  }, [refreshTrigger]); // Include refreshTrigger as dependency
+  }, [refreshTrigger, isSyncing]); // Include isSyncing as dependency
 
   // Listen for custom refresh event from settings
   useEffect(() => {
@@ -2073,15 +2085,25 @@ function PerformanceGraphContent() {
             <div className="absolute inset-0 rounded-full bg-purple-500/10 blur-lg"></div>
           </div>
           <div className="space-y-3">
-            <h2 className="text-2xl font-bold text-slate-200">Loading Performance Graph</h2>
+            <h2 className="text-2xl font-bold text-slate-200">
+              {isSyncing ? 'Syncing Games' : 'Loading Performance Graph'}
+            </h2>
             <p className="text-slate-400 text-base max-w-md mx-auto">
-              Preparing your chess analysis and opening performance data
+              {isSyncing ? 
+                'Updating your chess database with latest games. This may take a moment...' : 
+                'Preparing your chess analysis and opening performance data'
+              }
             </p>
             <div className="flex items-center justify-center gap-2 mt-6">
               <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
               <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
               <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
             </div>
+            {isSyncing && (
+              <p className="text-slate-500 text-sm mt-4">
+                This runs in the background - feel free to switch tabs
+              </p>
+            )}
           </div>
         </div>
       </div>
