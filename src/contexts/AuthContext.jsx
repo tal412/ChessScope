@@ -353,91 +353,43 @@ export const AuthProvider = ({ children }) => {
     } = importSettings;
 
     try {
-      setImportProgress(15);
-      setImportStatus('Fetching games...');
+      setImportProgress(5);
+      setImportStatus('Connecting to server...');
 
       let recentTargetedGames = [];
       const TARGET_GAMES = 1500; // Hard limit
       
+      // Progress callback for fetch operations
+      const handleFetchProgress = (progressData) => {
+        const { phase, progress, status } = progressData;
+        
+        // During fetch phase, progress goes from 5% to 45%
+        if (phase === 'download' || phase === 'parsing') {
+          const adjustedProgress = 5 + (progress / 45) * 40; // Map 0-45% to 5-45%
+          setImportProgress(adjustedProgress);
+          setImportStatus(status);
+        }
+      };
+      
       if (platform === 'lichess') {
-        // Lichess direct API approach
-        const games = await fetchLichessGames(username, importSettings);
+        // Lichess direct API approach with progress tracking
+        const games = await fetchLichessGames(username, importSettings, handleFetchProgress);
         recentTargetedGames = games.slice(0, TARGET_GAMES);
         
         setImportProgress(45);
         setImportStatus(`Found ${recentTargetedGames.length} games from Lichess...`);
         
       } else {
-        // Chess.com archive-based approach
-        const response = await fetch(`https://api.chess.com/pub/player/${username}/games/archives`);
-        if (!response.ok) {
-          throw new Error("Username not found or API error");
-        }
-
-        const archivesData = await response.json();
-        const allArchives = archivesData.archives;
+        // Chess.com archive-based approach with progress tracking
+        const games = await fetchChessComGames(username, importSettings, handleFetchProgress);
+        recentTargetedGames = games.slice(0, TARGET_GAMES);
         
-        let recentArchives = [];
-        
-        if (selectedDateRange === "custom") {
-          // Filter archives based on custom date range
-          const fromDate = new Date(customDateRange.from);
-          const toDate = new Date(customDateRange.to);
-          
-          recentArchives = allArchives.filter(archiveUrl => {
-            const urlParts = archiveUrl.split('/');
-            const year = parseInt(urlParts[urlParts.length - 2]);
-            const month = parseInt(urlParts[urlParts.length - 1]);
-            const archiveDate = new Date(year, month - 1, 1);
-            
-            return archiveDate >= fromDate && archiveDate <= toDate;
-          });
-        } else {
-          const monthsToFetch = parseInt(selectedDateRange);
-          recentArchives = allArchives.slice(-monthsToFetch);
-        }
-        
-        setImportProgress(25);
-        setImportStatus('Fetching games by time control...');
-
-        let targetedGames = [];
-        let archivesProcessed = 0;
-        
-        // Process archives from most recent to oldest until we have enough games
-        for (let i = recentArchives.length - 1; i >= 0 && targetedGames.length < TARGET_GAMES; i--) {
-          try {
-            setImportStatus(`Checking archive ${archivesProcessed + 1}/${recentArchives.length} for ${selectedTimeControls.join('/')} games...`);
-            
-            const archiveResponse = await fetch(recentArchives[i]);
-            const archiveData = await archiveResponse.json();
-            
-            // Filter games by selected time controls as we fetch
-            const filteredGames = archiveData.games
-              .filter(game => game.rules === "chess")
-              .filter(game => selectedTimeControls.includes(game.time_class));
-            
-            targetedGames = [...targetedGames, ...filteredGames];
-            
-            archivesProcessed++;
-            
-            // Update progress: 25% to 45% for fetching
-            setImportProgress(25 + (archivesProcessed / recentArchives.length) * 20);
-            
-            setImportStatus(`Found ${targetedGames.length} ${selectedTimeControls.join('/')} games so far...`);
-            
-            // Small delay to prevent API rate limiting
-            await new Promise(resolve => setTimeout(resolve, 100));
-            
-          } catch (archiveError) {
-            console.warn(`Failed to fetch archive ${recentArchives[i]}:`, archiveError);
-          }
-        }
-
-        // Take the most recent games up to our target
-        recentTargetedGames = targetedGames
-          .slice(-TARGET_GAMES)
-          .reverse(); // Process newest first
+        setImportProgress(45);
+        setImportStatus(`Found ${recentTargetedGames.length} games from Chess.com...`);
       }
+      
+      // Small pause to show the found games status
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       setImportProgress(50);
       setImportStatus('Clearing previous data and creating new opening graph...');
@@ -720,7 +672,7 @@ const verifyLichessAccount = async (username) => {
 };
 
 // Function to fetch recent Chess.com games
-const fetchChessComGames = async (username, importSettings = {}) => {
+const fetchChessComGames = async (username, importSettings = {}, onProgress = null) => {
   try {
     const {
       selectedTimeControls = ['rapid', 'blitz', 'bullet'],
@@ -730,6 +682,11 @@ const fetchChessComGames = async (username, importSettings = {}) => {
 
     let games = [];
     const currentDate = new Date();
+    
+    // Report initial fetch start
+    if (onProgress) {
+      onProgress({ phase: 'download', progress: 0, status: 'Fetching archive list from Chess.com...' });
+    }
     
     // Calculate how many months back to fetch based on selectedDateRange
     let monthsToFetch = 3; // default
@@ -743,50 +700,131 @@ const fetchChessComGames = async (username, importSettings = {}) => {
       monthsToFetch = parseInt(selectedDateRange);
     }
     
+    // First, get the archives list
+    const archivesResponse = await fetch(`https://api.chess.com/pub/player/${username}/games/archives`);
+    if (!archivesResponse.ok) {
+      throw new Error("Username not found or API error");
+    }
+    
+    const archivesData = await archivesResponse.json();
+    const allArchives = archivesData.archives || [];
+    
+    // Get the most recent archives based on months to fetch
+    const recentArchives = allArchives.slice(-monthsToFetch);
+    
+    if (onProgress) {
+      onProgress({ 
+        phase: 'download', 
+        progress: 5, 
+        status: `Found ${recentArchives.length} archives to check...` 
+      });
+    }
+    
     // Fetch games from multiple months
-    for (let i = 0; i < monthsToFetch && games.length < 1500; i++) { // 1500 games limit
-      const targetDate = new Date(currentDate);
-      targetDate.setMonth(targetDate.getMonth() - i);
+    let archivesProcessed = 0;
+    for (let i = 0; i < recentArchives.length && games.length < 1500; i++) {
+      const archiveUrl = recentArchives[recentArchives.length - 1 - i]; // Start from most recent
       
-      const year = targetDate.getFullYear();
-      const month = String(targetDate.getMonth() + 1).padStart(2, '0');
-      
-      const gamesResponse = await fetch(`https://api.chess.com/pub/player/${username}/games/${year}/${month}`);
-      
-      if (gamesResponse.ok) {
-        const gamesData = await gamesResponse.json();
-        const monthGames = gamesData.games || [];
-        games = [...games, ...monthGames];
-        
-        // Break early if we have enough games
-        if (games.length >= 1500) {
-          break;
+      try {
+        if (onProgress) {
+          const archiveProgress = 5 + (archivesProcessed / recentArchives.length) * 35; // 5% to 40%
+          onProgress({ 
+            phase: 'download', 
+            progress: archiveProgress,
+            status: `Downloading archive ${archivesProcessed + 1}/${recentArchives.length}...`
+          });
         }
+        
+        const gamesResponse = await fetch(archiveUrl);
+        
+        if (gamesResponse.ok) {
+          const gamesData = await gamesResponse.json();
+          const monthGames = gamesData.games || [];
+          
+          // Filter games by selected time controls as we fetch
+          const filteredMonthGames = monthGames
+            .filter(game => game.rules === "chess")
+            .filter(game => {
+              const timeControl = game.time_control;
+              const gameType = getGameType(timeControl);
+              return selectedTimeControls.includes(gameType);
+            });
+          
+          games = [...games, ...filteredMonthGames];
+          
+          archivesProcessed++;
+          
+          if (onProgress) {
+            onProgress({ 
+              phase: 'download', 
+              progress: 5 + (archivesProcessed / recentArchives.length) * 35,
+              status: `Found ${games.length} ${selectedTimeControls.join('/')} games so far...`
+            });
+          }
+          
+          // Break early if we have enough games
+          if (games.length >= 1500) {
+            break;
+          }
+        }
+        
+        // Small delay to prevent API rate limiting
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (archiveError) {
+        console.warn(`Failed to fetch archive ${archiveUrl}:`, archiveError);
+        archivesProcessed++;
       }
     }
     
-    // Filter games by type and limit
-    const filteredGames = games
-      .filter(game => {
-        const timeControl = game.time_control;
-        const gameType = getGameType(timeControl);
-        return selectedTimeControls.includes(gameType);
-      })
-      .slice(0, 1500) // Hard limit of 1500 games
+    // Report parsing phase
+    if (onProgress) {
+      onProgress({ 
+        phase: 'parsing', 
+        progress: 40, 
+        status: `Processing ${games.length} games...` 
+      });
+    }
+    
+    // Sort and limit games
+    const finalGames = games
+      .slice(-1500) // Hard limit of 1500 games
       .sort((a, b) => b.end_time - a.end_time); // Most recent first
     
     // Process and return the games
-    return filteredGames.map((game, index) => ({
-      id: game.uuid || index,
-      white: game.white?.username || 'Unknown',
-      black: game.black?.username || 'Unknown',
-      result: game.white?.result || 'unknown',
-      date: new Date(game.end_time * 1000).toISOString(),
-      timeControl: game.time_control,
-      gameType: getGameType(game.time_control),
-      url: game.url,
-      pgn: game.pgn
-    }));
+    const processedGames = finalGames.map((game, index) => {
+      // Report parsing progress periodically
+      if (onProgress && index % 50 === 0) {
+        const parseProgress = 40 + (index / finalGames.length) * 5; // 40% to 45%
+        onProgress({ 
+          phase: 'parsing', 
+          progress: parseProgress,
+          status: `Processing game ${index}/${finalGames.length}...`
+        });
+      }
+      
+      return {
+        id: game.uuid || index,
+        white: game.white?.username || 'Unknown',
+        black: game.black?.username || 'Unknown',
+        result: game.white?.result || 'unknown',
+        date: new Date(game.end_time * 1000).toISOString(),
+        timeControl: game.time_control,
+        gameType: getGameType(game.time_control),
+        url: game.url,
+        pgn: game.pgn
+      };
+    });
+    
+    if (onProgress) {
+      onProgress({ 
+        phase: 'complete', 
+        progress: 45, 
+        status: `Downloaded ${processedGames.length} games from Chess.com` 
+      });
+    }
+    
+    return processedGames;
   } catch (error) {
     console.error('Failed to fetch Chess.com games:', error);
     // Return empty array on error rather than throwing
@@ -795,7 +833,7 @@ const fetchChessComGames = async (username, importSettings = {}) => {
 };
 
 // Function to fetch recent Lichess games
-const fetchLichessGames = async (username, importSettings = {}) => {
+const fetchLichessGames = async (username, importSettings = {}, onProgress = null) => {
   try {
     // Validate inputs
     if (!username || username.trim().length === 0) {
@@ -882,6 +920,11 @@ const fetchLichessGames = async (username, importSettings = {}) => {
     
     console.log('Fetching Lichess games from:', apiUrl);
     
+    // Report initial download start
+    if (onProgress) {
+      onProgress({ phase: 'download', progress: 0, status: 'Connecting to Lichess...' });
+    }
+    
     const response = await fetch(apiUrl, {
       headers: {
         'Accept': 'application/x-ndjson'
@@ -903,11 +946,68 @@ const fetchLichessGames = async (username, importSettings = {}) => {
       throw new Error(`Unable to fetch games from Lichess (Error ${response.status})`);
     }
     
+    // Get content length if available for progress tracking
+    const contentLength = response.headers.get('content-length');
+    let receivedLength = 0;
+    
+    // Report download started
+    if (onProgress) {
+      onProgress({ phase: 'download', progress: 5, status: 'Downloading games from Lichess...' });
+    }
+    
+    // Read the response as a stream for progress tracking
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let chunks = [];
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      
+      if (done) break;
+      
+      chunks.push(value);
+      receivedLength += value.length;
+      
+      // Calculate and report download progress
+      if (onProgress) {
+        if (contentLength) {
+          // If we know the total size, show accurate progress
+          const downloadPercent = Math.min((receivedLength / contentLength) * 100, 95);
+          onProgress({ 
+            phase: 'download', 
+            progress: 5 + downloadPercent * 0.35, // 5% to 40% of total
+            status: `Downloading games: ${Math.round(receivedLength / 1024)}KB...`
+          });
+        } else {
+          // If no content length, show data received
+          onProgress({ 
+            phase: 'download', 
+            progress: Math.min(5 + (receivedLength / (1024 * 100)) * 30, 35), // Estimate based on typical size
+            status: `Downloading games: ${Math.round(receivedLength / 1024)}KB received...`
+          });
+        }
+      }
+    }
+    
+    // Combine chunks and decode
+    const chunksAll = new Uint8Array(receivedLength);
+    let position = 0;
+    for (const chunk of chunks) {
+      chunksAll.set(chunk, position);
+      position += chunk.length;
+    }
+    
+    const text = decoder.decode(chunksAll);
+    
     // Check if response is empty (no games)
-    const text = await response.text();
     if (!text || text.trim().length === 0) {
       console.info(`No games found for user ${username} in the specified date range`);
       return [];
+    }
+    
+    // Report parsing start
+    if (onProgress) {
+      onProgress({ phase: 'parsing', progress: 40, status: 'Parsing downloaded games...' });
     }
     
     // Parse NDJSON (newline-delimited JSON) - each line is a separate game JSON object
@@ -975,6 +1075,16 @@ const fetchLichessGames = async (username, importSettings = {}) => {
             const draws = processedGames.filter(g => g.result === 'draw').length;
             console.log(`📊 After ${processedGames.length} games: ${wins} wins (${((wins/processedGames.length)*100).toFixed(1)}%), ${losses} losses (${((losses/processedGames.length)*100).toFixed(1)}%), ${draws} draws (${((draws/processedGames.length)*100).toFixed(1)}%)`);
           }
+        }
+        
+        // Report parsing progress
+        if (onProgress && i % 20 === 0) {
+          const parsePercent = (i / jsonLines.length) * 100;
+          onProgress({ 
+            phase: 'parsing', 
+            progress: 40 + parsePercent * 0.05, // 40% to 45% of total
+            status: `Parsing games: ${i}/${jsonLines.length}...`
+          });
         }
       } catch (processError) {
         console.warn(`Error processing game ${i}:`, processError);
