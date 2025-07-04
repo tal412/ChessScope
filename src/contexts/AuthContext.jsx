@@ -99,18 +99,24 @@ export const AuthProvider = ({ children }) => {
       setImportProgress(100);
       setImportStatus('Login completed successfully!');
       
+      // Hold at 100% briefly so user can see it
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Wait for the Done animation (800ms) before cleanup
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
       setImportStatus(`Error: ${error.message}`);
       return { success: false, error: error.message };
     } finally {
-      // Keep import state for a moment to show completion
+      // Cleanup after animations complete
       setTimeout(() => {
         setIsImporting(false);
         setImportProgress(0);
         setImportStatus('');
-      }, 1500);
+      }, 1500); // Just for success message duration
     }
   };
 
@@ -299,18 +305,16 @@ export const AuthProvider = ({ children }) => {
       setImportStatus(`Error: ${error.message}`);
       return { success: false, error: error.message };
     } finally {
-      // Keep import state for a moment to show completion
-      setTimeout(() => {
-        setIsImporting(false);
-        setImportProgress(0);
-        setImportStatus('');
-        
-        // Call the completion callback if provided
-        if (onComplete) {
-          console.log('🎯 Calling settings completion callback');
-          onComplete();
-        }
-      }, 1500);
+      // Cleanup immediately and call completion callback
+      setIsImporting(false);
+      setImportProgress(0);
+      setImportStatus('');
+      
+      // Call the completion callback if provided
+      if (onComplete) {
+        console.log('🎯 Calling settings completion callback');
+        onComplete();
+      }
     }
   };
 
@@ -449,7 +453,18 @@ export const AuthProvider = ({ children }) => {
       const stats = openingGraph.getOverallStats();
       const totalPositions = stats.white.totalPositions + stats.black.totalPositions;
       
+      // Smooth transition to 100%
+      setImportProgress(98);
+      await new Promise(resolve => setTimeout(resolve, 150));
+      
+      setImportProgress(100);
       setImportStatus(`Graph built with ${totalPositions} unique positions!`);
+      
+      // Hold at 100% briefly so user can see it
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Wait for the Done animation (800ms) before cleanup
+      await new Promise(resolve => setTimeout(resolve, 800));
       
       return recentTargetedGames.length;
 

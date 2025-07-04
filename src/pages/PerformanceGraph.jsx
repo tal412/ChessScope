@@ -577,6 +577,15 @@ const createOpeningClusters = (nodes) => {
 
 // Main Performance Graph Component
 function PerformanceGraphContent() {
+  // Component lifecycle logging
+  useEffect(() => {
+    console.log('🎬 PerformanceGraph component MOUNTED at', new Date().toISOString());
+    
+    return () => {
+      console.log('💥 PerformanceGraph component UNMOUNTED at', new Date().toISOString());
+    };
+  }, []);
+  
   // Graph state for Canvas rendering
   const [nodes, setNodes] = useState([]);
   const [edges, setEdges] = useState([]);
@@ -732,8 +741,14 @@ function PerformanceGraphContent() {
 
   // Listen for custom refresh event from settings
   useEffect(() => {
-    const handleRefresh = () => {
-      console.log('🔄 PerformanceGraph received refresh event from settings');
+    const handleRefresh = (event) => {
+      console.log('🔄 PerformanceGraph received refresh event from settings', {
+        detail: event?.detail,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Add a visual indicator that refresh is happening
+      console.log('🔄 Starting PerformanceGraph refresh...');
       
       // Clear all cached state
       openingGraphRef.current = null;
@@ -754,7 +769,7 @@ function PerformanceGraphContent() {
       setHoveredClusterColor(null);
       setSelectedNode(null);
       
-      // Reset chessboard state
+      // Reset chessboard state - using the ref directly if available
       if (chessboardSync?.resetToStartingPosition) {
         chessboardSync.resetToStartingPosition();
       }
@@ -766,20 +781,42 @@ function PerformanceGraphContent() {
       setMovesHoveredMove(null);
       setMovesCurrentPath([]);
       
-      // Trigger data reload
-      setRefreshTrigger(prev => prev + 1);
+      // Force loading state to show immediately
+      setLoading(true);
       
-      console.log('✅ PerformanceGraph state reset complete');
+      // Trigger data reload
+      setRefreshTrigger(prev => {
+        console.log('📈 Incrementing refresh trigger from', prev, 'to', prev + 1);
+        return prev + 1;
+      });
+      
+      console.log('✅ PerformanceGraph state reset complete, data reload triggered');
     };
 
-    console.log('🎧 PerformanceGraph setting up refresh event listener');
+    console.log('🎧 PerformanceGraph setting up refresh event listener at', new Date().toISOString());
     window.addEventListener('refreshPerformanceGraph', handleRefresh);
+    
+    // Test that the listener is working
+    console.log('🧪 Testing event listener setup - current listeners:', window._getEventListeners?.('refreshPerformanceGraph'));
+    
+    // Add test function to window for manual testing
+    window.testPerformanceGraphRefresh = () => {
+      console.log('🧪 Manual test: Dispatching refreshPerformanceGraph event');
+      const event = new CustomEvent('refreshPerformanceGraph', { 
+        detail: { source: 'manual-test', timestamp: Date.now() } 
+      });
+      const result = window.dispatchEvent(event);
+      console.log('🧪 Manual test dispatch result:', result);
+      return result;
+    };
+    console.log('💡 Test function added: Run window.testPerformanceGraphRefresh() in console to test refresh');
     
     return () => {
       console.log('🧹 PerformanceGraph cleaning up refresh event listener');
       window.removeEventListener('refreshPerformanceGraph', handleRefresh);
+      delete window.testPerformanceGraphRefresh;
     };
-  }, []);
+  }, []); // Empty dependency array - set up only once
 
   // State for graph data
   const [graphData, setGraphData] = useState({ nodes: [], edges: [], maxGameCount: 0 });
