@@ -41,7 +41,7 @@ export default function LoginPage() {
     to: null
   });
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
-  const [autoSync, setAutoSync] = useState(true);
+  const [autoSyncFrequency, setAutoSyncFrequency] = useState('5min');
 
   // Entrance animation effect
   useEffect(() => {
@@ -164,7 +164,7 @@ export default function LoginPage() {
         selectedTimeControls,
         selectedDateRange,
         customDateRange,
-        autoSync
+        autoSyncFrequency
       };
       
       const result = await login(username, selectedPlatform, importSettings);
@@ -569,20 +569,28 @@ export default function LoginPage() {
                   )}
 
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label className="text-slate-200 font-medium">Auto-Sync</Label>
-                        <p className="text-slate-400 text-xs">Automatically import new games when you visit the app</p>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Checkbox
-                          id="autoSync"
-                          checked={autoSync}
-                          onCheckedChange={setAutoSync}
-                          className="border-slate-500 data-[state=checked]:bg-green-600 data-[state=checked]:border-green-600"
-                          disabled={isImporting}
-                        />
-                      </div>
+                    <div className="space-y-2">
+                      <Label className="text-slate-200 font-medium">Auto-Sync Frequency</Label>
+                      <p className="text-slate-400 text-xs">How often to check for and import new games</p>
+                      <Select 
+                        value={autoSyncFrequency} 
+                        onValueChange={setAutoSyncFrequency}
+                        disabled={isImporting}
+                      >
+                        <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="bg-slate-800 border-slate-700">
+                          <SelectItem value="never">Never (Manual only)</SelectItem>
+                          <SelectItem value="visit">Every visit</SelectItem>
+                          <SelectItem value="5min">Every 5 minutes</SelectItem>
+                          <SelectItem value="30min">Every 30 minutes</SelectItem>
+                          <SelectItem value="1hour">Every hour</SelectItem>
+                          <SelectItem value="3hours">Every 3 hours</SelectItem>
+                          <SelectItem value="1day">Daily</SelectItem>
+                          <SelectItem value="1week">Weekly</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
                   </div>
                 </CardContent>

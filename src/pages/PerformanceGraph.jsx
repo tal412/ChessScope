@@ -580,7 +580,7 @@ const createOpeningClusters = (nodes) => {
 // Main Performance Graph Component
 function PerformanceGraphContent() {
   // Get auth context for syncing state
-  const { isSyncing } = useAuth();
+  const { isSyncing, syncProgress, syncStatus, pendingAutoSync } = useAuth();
   
   // Component lifecycle logging
   useEffect(() => {
@@ -706,9 +706,9 @@ function PerformanceGraphContent() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Don't load if syncing is in progress
-        if (isSyncing) {
-          console.log('🔄 Skipping graph load - sync in progress');
+        // Don't load if syncing is in progress OR if there's a pending auto-sync
+        if (isSyncing || pendingAutoSync) {
+          console.log('🔄 Skipping graph load - sync in progress or pending auto-sync');
           setLoading(true); // Keep loading state during sync
           return;
         }
@@ -768,7 +768,7 @@ function PerformanceGraphContent() {
     };
     
     loadData();
-  }, [refreshTrigger, isSyncing]); // Include isSyncing as dependency
+  }, [refreshTrigger, isSyncing, pendingAutoSync]); // Include isSyncing and pendingAutoSync as dependencies
 
   // Listen for custom refresh event from settings
   useEffect(() => {
@@ -2076,7 +2076,7 @@ function PerformanceGraphContent() {
     }
   }, [isMobile, responsiveLayout.forceComponents]);
 
-  if (loading) {
+  if (loading || isSyncing || pendingAutoSync) {
     return (
       <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
         <div className="text-center">
@@ -2086,10 +2086,10 @@ function PerformanceGraphContent() {
           </div>
           <div className="space-y-3">
             <h2 className="text-2xl font-bold text-slate-200">
-              {isSyncing ? 'Syncing Games' : 'Loading Performance Graph'}
+              {(isSyncing || pendingAutoSync) ? 'Syncing Games' : 'Loading Performance Graph'}
             </h2>
             <p className="text-slate-400 text-base max-w-md mx-auto">
-              {isSyncing ? 
+              {(isSyncing || pendingAutoSync) ? 
                 'Updating your chess database with latest games. This may take a moment...' : 
                 'Preparing your chess analysis and opening performance data'
               }
@@ -2099,10 +2099,33 @@ function PerformanceGraphContent() {
               <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
               <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
             </div>
-            {isSyncing && (
-              <p className="text-slate-500 text-sm mt-4">
-                This runs in the background - feel free to switch tabs
-              </p>
+            {(isSyncing || pendingAutoSync) && (
+              <div className="mt-6 space-y-4">
+                <div className="w-96 max-w-lg mx-auto space-y-3">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-slate-300 font-medium flex-1 mr-4">
+                      {syncProgress >= 100 ? 'Finalizing...' : syncStatus || 'Updating Analysis...'}
+                    </span>
+                    <span className="text-slate-400 flex-shrink-0">
+                      {Math.round(syncProgress || 0)}%
+                    </span>
+                  </div>
+                  
+                  <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full origin-left"
+                      style={{ 
+                        transform: `scaleX(${Math.min(syncProgress || 0, 100) / 100})`,
+                        transition: 'transform 0.3s ease-out',
+                        willChange: 'transform'
+                      }}
+                    />
+                  </div>
+                </div>
+                <p className="text-slate-500 text-sm">
+                  This runs in the background - feel free to switch tabs
+                </p>
+              </div>
             )}
           </div>
         </div>
@@ -2431,8 +2454,12 @@ function PerformanceGraphContent() {
               <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-10">
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-400 mb-4 mx-auto"></div>
-                  <div className="text-slate-200 text-lg font-medium mb-2">Preparing Graph</div>
-                  <div className="text-slate-400 text-sm">Building performance analysis...</div>
+                  <div className="text-slate-200 text-lg font-medium mb-2">
+                    {(isSyncing || pendingAutoSync) ? 'Syncing Games' : 'Preparing Graph'}
+                  </div>
+                  <div className="text-slate-400 text-sm">
+                    {(isSyncing || pendingAutoSync) ? (syncStatus || 'Updating analysis...') : 'Building performance analysis...'}
+                  </div>
                 </div>
               </div>
             )}
