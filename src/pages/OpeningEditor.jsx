@@ -17,28 +17,32 @@ import {
   Eye,
   Edit3,
   MessageSquare,
-  Link as LinkIcon,
+  LinkIcon,
   Info,
   Crown,
   Shield,
-  Loader2
+  Loader2,
+  BarChart3
 } from 'lucide-react';
 import InteractiveChessboard from '@/components/chess/InteractiveChessboard';
-import { userOpening, userOpeningMove, moveAnnotation } from '@/api/openingEntities';
+import { UserOpening, UserOpeningMove, MoveAnnotation } from '@/api/entities';
 import { Chess } from 'chess.js';
 import CanvasPerformanceGraph from '@/components/chess/CanvasPerformanceGraph';
+import { cn } from '@/lib/utils';
+import { loadOpeningGraph } from '@/api/graphStorage';
 
 // Move tree node structure
 class MoveNode {
   constructor(san, fen, parent = null) {
-    this.id = `${Date.now()}-${Math.random()}`;
+    this.id = `${san}-${Date.now()}-${Math.random()}`;
     this.san = san;
     this.fen = fen;
     this.parent = parent;
     this.children = [];
+    this.isMainLine = !parent || parent.children.length === 0;
     this.comment = '';
+    this.links = []; // Array of {title, url}
     this.arrows = [];
-    this.isMainLine = true;
   }
   
   addChild(san, fen) {
@@ -52,71 +56,18 @@ class MoveNode {
   }
   
   removeChild(childId) {
-    this.children = this.children.filter(c => c.id !== childId);
-    // Update main line status
+    this.children = this.children.filter(child => child.id !== childId);
+    // If we removed the main line, make the first remaining child the main line
     if (this.children.length > 0 && !this.children.some(c => c.isMainLine)) {
       this.children[0].isMainLine = true;
     }
   }
 }
 
-// Simple tree node component for the opening tree
-const OpeningTreeNode = ({ node, onSelect, selectedNodeId, onDelete, depth = 0 }) => {
-  const isSelected = node.id === selectedNodeId;
-  
-  return (
-    <div className="ml-4">
-      <div 
-        className={`px-3 py-2 rounded-lg cursor-pointer transition-all flex items-center justify-between ${
-          isSelected 
-            ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/30' 
-            : node.isMainLine 
-              ? 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-              : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-        }`}
-        onClick={() => onSelect(node)}
-      >
-        <div className="flex items-center gap-2">
-          {!node.isMainLine && <span className="text-xs text-slate-500">(var)</span>}
-          <span className="font-mono text-sm">{node.san}</span>
-          {node.comment && <MessageSquare className="w-3 h-3 text-amber-500" />}
-        </div>
-        {onDelete && depth > 0 && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete(node);
-            }}
-            className="h-6 w-6 p-0 hover:bg-red-500/20"
-          >
-            <Trash2 className="w-3 h-3" />
-          </Button>
-        )}
-      </div>
-      {node.children.length > 0 && (
-        <div className="mt-1">
-          {node.children.map(child => (
-            <OpeningTreeNode
-              key={child.id}
-              node={child}
-              onSelect={onSelect}
-              selectedNodeId={selectedNodeId}
-              onDelete={onDelete}
-              depth={depth + 1}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-};
-
 export default function OpeningEditor() {
-  const { openingId } = useParams();
   const navigate = useNavigate();
-  const isNewOpening = openingId === 'new';
+  const { openingId } = useParams();
+  const isNewOpening = !openingId;
   
   // Form state
   const [name, setName] = useState('');
@@ -125,127 +76,168 @@ export default function OpeningEditor() {
   const [tags, setTags] = useState([]);
   const [tagInput, setTagInput] = useState('');
   
-  // Chess state
-  const [moveTree, setMoveTree] = useState(() => {
-    const rootFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-    return new MoveNode('Start', rootFen);
-  });
-  const [currentNode, setCurrentNode] = useState(null);
-  const [selectedNode, setSelectedNode] = useState(null);
-  const [currentPath, setCurrentPath] = useState([]); // Path from root to current position
-  
-  // Annotations state (handled directly in nodes now)
+  // Move tree state
+  const [moveTree, setMoveTree] = useState(new MoveNode('Start', 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'));
+  const [currentNode, setCurrentNode] = useState(moveTree);
+  const [selectedNode, setSelectedNode] = useState(moveTree);
+  const [currentPath, setCurrentPath] = useState([]);
   
   // UI state
-  const [loading, setLoading] = useState(!isNewOpening);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('moves');
-
+  
+  // Canvas state
+  const [canvasMode, setCanvasMode] = useState('opening'); // 'opening' | 'performance'
+  const [openingGraph, setOpeningGraph] = useState(null); // For performance mode
+  const [performanceGraphData, setPerformanceGraphData] = useState({ nodes: [], edges: [], maxGameCount: 0 });
+  
   // Graph data for canvas view
   const [graphData, setGraphData] = useState({ nodes: [], edges: [] });
-
-  // Initialize current node
-  useEffect(() => {
-    setCurrentNode(moveTree);
-    setSelectedNode(moveTree);
-  }, []);
-
+  
   // Load existing opening
   useEffect(() => {
     if (!isNewOpening) {
       loadOpening();
     }
   }, [openingId]);
-
-  // Update graph data when moves change
+  
+  // Update graph data when tree changes or mode changes
   useEffect(() => {
-    updateGraphData();
-  }, [moveTree, currentNode]);
+    if (canvasMode === 'opening') {
+      updateGraphData();
+    } else if (canvasMode === 'performance' && openingGraph) {
+      generatePerformanceGraph();
+    }
+  }, [moveTree, selectedNode, canvasMode, openingGraph]);
+
+  // Load performance graph data
+  useEffect(() => {
+    const loadPerformanceData = async () => {
+      if (canvasMode === 'performance') {
+        const username = localStorage.getItem('chesscope_username');
+        if (username) {
+          const graph = await loadOpeningGraph(username);
+          setOpeningGraph(graph);
+        }
+      }
+    };
+    loadPerformanceData();
+  }, [canvasMode]);
 
   const loadOpening = async () => {
     try {
       setLoading(true);
-      const username = localStorage.getItem('chesscope_username');
       
-      const opening = await userOpening.filter({ id: parseInt(openingId) });
-      if (opening.length === 0) {
-        setError('Opening not found');
+      // Load opening
+      const openings = await UserOpening.filter({ id: parseInt(openingId) });
+      if (openings.length === 0) {
+        navigate('/openings-book');
         return;
       }
       
-      const openingData = opening[0];
-      setName(openingData.name);
-      setDescription(openingData.description || '');
-      setColor(openingData.color);
-      setTags(openingData.tags || []);
+      const opening = openings[0];
+      setName(opening.name);
+      setDescription(opening.description || '');
+      setColor(opening.color);
+      setTags(opening.tags || []);
       
-      // Load moves and reconstruct tree
-      const openingMoves = await userOpeningMove.getByOpeningId(parseInt(openingId));
+      // Load moves
+      const moves = await UserOpeningMove.getByOpeningId(parseInt(openingId));
       
-      // Build tree from saved moves
-      const newTree = new MoveNode('Start', openingData.initial_fen);
-      const nodeMap = new Map([[openingData.initial_fen, newTree]]);
+      // Create root node
+      const root = new MoveNode('Start', opening.initial_fen);
       
-      // Sort moves by move_number to ensure proper order
-      openingMoves.sort((a, b) => a.move_number - b.move_number);
+      // Build tree from moves
+      const nodeMap = new Map();
+      nodeMap.set(opening.initial_fen, root);
       
-      // Reconstruct tree
-      for (const move of openingMoves) {
+      // Sort moves by move number to ensure proper tree construction
+      moves.sort((a, b) => a.move_number - b.move_number);
+      
+      // First pass: create all nodes
+      for (const move of moves) {
         const parentNode = nodeMap.get(move.parent_fen);
         if (parentNode) {
           const childNode = parentNode.addChild(move.san, move.fen);
           childNode.isMainLine = move.is_main_line;
           childNode.comment = move.comment || '';
+          childNode.links = []; // Initialize empty, will load separately
           childNode.arrows = move.arrows || [];
           nodeMap.set(move.fen, childNode);
+          
+          // Store move ID for loading annotations
+          childNode.moveId = move.id;
         }
       }
       
-      setMoveTree(newTree);
-      setCurrentNode(newTree);
-      setSelectedNode(newTree);
+      // Second pass: load annotations (links) for each move
+      for (const [fen, node] of nodeMap) {
+        if (node.moveId) {
+          const annotations = await MoveAnnotation.getByMoveId(node.moveId);
+          node.links = annotations
+            .filter(ann => ann.type === 'link')
+            .map(ann => ({ title: ann.content, url: ann.url }));
+        }
+      }
+      
+      setMoveTree(root);
+      setCurrentNode(root);
+      setSelectedNode(root);
       
     } catch (error) {
       console.error('Error loading opening:', error);
-      setError('Failed to load opening');
+      navigate('/openings-book');
     } finally {
       setLoading(false);
     }
   };
 
   const updateGraphData = () => {
-    // Convert moves tree to nodes and edges for canvas
+    if (!moveTree) return;
+    
     const nodes = [];
     const edges = [];
-    let nodeIndex = 0;
     
-    // Tree layout constants
-    const LEVEL_HEIGHT = 250;
-    const NODE_SPACING = 200;
+    const nodeWidth = 180;
+    const nodeHeight = 180;
+    const horizontalSpacing = 250;
+    const verticalSpacing = 250;
     
-    // Helper to traverse tree and create nodes/edges
     const traverseTree = (node, depth = 0, parentId = null, xOffset = 0) => {
-      const nodeId = `node-${nodeIndex++}`;
+      const nodeId = node.id;
       
       // Calculate position
-      const y = depth * LEVEL_HEIGHT;
-      const x = xOffset * NODE_SPACING;
+      const x = xOffset * horizontalSpacing;
+      const y = depth * verticalSpacing;
       
+      // Add node with all necessary data
       nodes.push({
         id: nodeId,
-        type: 'chessPosition',
+        type: 'custom',
         position: { x, y },
         data: {
+          label: node.san,
+          san: node.san,
           fen: node.fen,
-          san: node.san === 'Start' ? null : node.san,
-          isRoot: node.san === 'Start',
-          openingName: node.san === 'Start' ? (name || 'New Opening') : node.san,
-          gameCount: 1, // Dummy count for display
-          isCurrentPosition: node === currentNode,
           isSelected: node === selectedNode,
           isMainLine: node.isMainLine,
-          hasComment: !!node.comment
+          hasComment: !!node.comment,
+          hasLinks: node.links && node.links.length > 0,
+          linkCount: node.links ? node.links.length : 0,
+          annotation: {
+            hasComment: !!node.comment,
+            hasLinks: node.links && node.links.length > 0,
+            commentCount: node.comment ? 1 : 0,
+            linkCount: node.links ? node.links.length : 0
+          },
+          isRoot: node.san === 'Start',
+          // For compatibility with performance mode
+          winRate: null,
+          totalGames: null,
+          gameCount: null,
+          performanceData: null
         }
       });
       
@@ -257,11 +249,10 @@ export default function OpeningEditor() {
           target: nodeId,
           sourceHandle: 'bottom',
           targetHandle: 'top',
-          type: 'chessMove',
+          type: 'smoothstep',
           animated: false,
-          style: {
-            stroke: node.isMainLine ? '#94a3b8' : '#64748b',
-            strokeWidth: node.isMainLine ? 2 : 1
+          data: {
+            isMainLine: node.isMainLine
           }
         });
       }
@@ -279,6 +270,92 @@ export default function OpeningEditor() {
     traverseTree(moveTree);
     
     setGraphData({ nodes, edges });
+  };
+
+  const generatePerformanceGraph = () => {
+    if (!openingGraph) return;
+    
+    // Get moves from the current opening tree path
+    const mainLineMoves = [];
+    let current = moveTree;
+    while (current.children.length > 0) {
+      const mainChild = current.children.find(c => c.isMainLine) || current.children[0];
+      mainLineMoves.push(mainChild.san);
+      current = mainChild;
+    }
+    
+    // Generate performance data based on the opening moves
+    const nodes = [];
+    const edges = [];
+    let maxGameCount = 0;
+    
+    // Tree layout configuration
+    const LEVEL_HEIGHT = 350;
+    const NODE_SPACING = 240;
+    
+    // Add root node
+    const rootFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    nodes.push({
+      id: rootFen,
+      type: 'chessPosition',
+      position: { x: 0, y: 0 },
+      data: {
+        fen: rootFen,
+        winRate: 50,
+        gameCount: 100, // Placeholder
+        san: null,
+        openingName: 'Starting Position',
+        isRoot: true,
+        depth: 0,
+        moveSequence: []
+      }
+    });
+    
+    // Add some sample performance nodes based on the opening
+    // In real implementation, this would pull from the opening graph
+    let parentId = rootFen;
+    let currentFen = rootFen;
+    
+    mainLineMoves.slice(0, 5).forEach((move, index) => {
+      const nodeId = `${currentFen}-${move}`;
+      const x = (index - 2) * NODE_SPACING;
+      const y = (index + 1) * LEVEL_HEIGHT;
+      
+      nodes.push({
+        id: nodeId,
+        type: 'chessPosition',
+        position: { x, y },
+        data: {
+          fen: nodeId, // Simplified for demo
+          winRate: 50 + Math.random() * 20,
+          gameCount: Math.floor(80 - index * 15),
+          san: move,
+          openingName: name,
+          isRoot: false,
+          depth: index + 1,
+          moveSequence: mainLineMoves.slice(0, index + 1)
+        }
+      });
+      
+      edges.push({
+        id: `${parentId}-${nodeId}`,
+        source: parentId,
+        target: nodeId,
+        sourceHandle: 'bottom',
+        targetHandle: 'top',
+        type: 'chessMove',
+        data: {
+          san: move,
+          winRate: 50 + Math.random() * 20,
+          gameCount: Math.floor(80 - index * 15)
+        }
+      });
+      
+      parentId = nodeId;
+      maxGameCount = Math.max(maxGameCount, Math.floor(80 - index * 15));
+    });
+    
+    setPerformanceGraphData({ nodes, edges, maxGameCount });
   };
 
   const handleSave = async () => {
@@ -316,15 +393,17 @@ export default function OpeningEditor() {
       
       let savedOpening;
       if (isNewOpening) {
-        savedOpening = await userOpening.create(openingData);
+        savedOpening = await UserOpening.create(openingData);
       } else {
         // Update existing opening
-        await userOpening.update(parseInt(openingId), openingData);
+        await UserOpening.update(parseInt(openingId), openingData);
         
-        // Delete all existing moves to re-insert fresh
-        const existingMoves = await userOpeningMove.getByOpeningId(parseInt(openingId));
+        // Delete all existing moves and annotations to re-insert fresh
+        const existingMoves = await UserOpeningMove.getByOpeningId(parseInt(openingId));
         for (const move of existingMoves) {
-          await userOpeningMove.delete(move.id);
+          // Delete annotations for this move
+          await MoveAnnotation.deleteByMoveId(move.id);
+          await UserOpeningMove.delete(move.id);
         }
         savedOpening = { id: parseInt(openingId) };
       }
@@ -345,7 +424,21 @@ export default function OpeningEditor() {
           arrows: node.arrows || []
         };
         
-        await userOpeningMove.create(moveData);
+        const savedMove = await UserOpeningMove.create(moveData);
+        
+        // Save links as annotations
+        if (node.links && node.links.length > 0) {
+          for (const link of node.links) {
+            if (link.title || link.url) {
+              await MoveAnnotation.create({
+                move_id: savedMove.id,
+                type: 'link',
+                content: link.title || 'Link',
+                url: link.url || ''
+              });
+            }
+          }
+        }
         
         // Save children
         for (const child of node.children) {
@@ -451,6 +544,16 @@ export default function OpeningEditor() {
 
   const handleRemoveTag = (tagToRemove) => {
     setTags(tags.filter(tag => tag !== tagToRemove));
+  };
+
+  // Helper function to find node by ID in tree
+  const findNodeById = (root, targetId) => {
+    if (root.id === targetId) return root;
+    for (const child of root.children) {
+      const found = findNodeById(child, targetId);
+      if (found) return found;
+    }
+    return null;
   };
 
   if (loading) {
@@ -636,7 +739,61 @@ export default function OpeningEditor() {
                   <div>
                     <Label className="text-slate-300">
                       <LinkIcon className="w-4 h-4 inline mr-1" />
-                      Make Main Line
+                      Links
+                    </Label>
+                    <div className="space-y-2 mt-2">
+                      {selectedNode.links?.map((link, index) => (
+                        <div key={index} className="flex gap-2">
+                          <Input
+                            value={link.title}
+                            onChange={(e) => {
+                              selectedNode.links[index].title = e.target.value;
+                              setMoveTree({ ...moveTree });
+                            }}
+                            placeholder="Link title"
+                            className="bg-slate-700 border-slate-600 text-slate-100 flex-1"
+                          />
+                          <Input
+                            value={link.url}
+                            onChange={(e) => {
+                              selectedNode.links[index].url = e.target.value;
+                              setMoveTree({ ...moveTree });
+                            }}
+                            placeholder="URL"
+                            className="bg-slate-700 border-slate-600 text-slate-100 flex-1"
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => {
+                              selectedNode.links.splice(index, 1);
+                              setMoveTree({ ...moveTree });
+                            }}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          if (!selectedNode.links) selectedNode.links = [];
+                          selectedNode.links.push({ title: '', url: '' });
+                          setMoveTree({ ...moveTree });
+                        }}
+                        className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
+                      >
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Link
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-slate-300">
+                      Main Line Status
                     </Label>
                     <Button
                       size="sm"
@@ -693,32 +850,38 @@ export default function OpeningEditor() {
                     </CardContent>
                   </Card>
 
-                  {/* Move List */}
+                  {/* Tree View for Navigation */}
                   <Card className="bg-slate-800 border-slate-700">
-                    <CardHeader>
-                      <CardTitle className="text-slate-100">Move List</CardTitle>
+                    <CardHeader className="flex flex-row items-center justify-between py-3">
+                      <CardTitle className="text-slate-100 text-lg">Opening Tree</CardTitle>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCanvasMode(canvasMode === 'opening' ? 'performance' : 'opening')}
+                        className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                      >
+                        <BarChart3 className="w-4 h-4 mr-2" />
+                        {canvasMode === 'opening' ? 'Performance' : 'Tree'}
+                      </Button>
                     </CardHeader>
-                    <CardContent className="max-h-[500px] overflow-y-auto">
-                      <div className="space-y-2">
-                        {moveTree.children.length === 0 ? (
-                          <p className="text-slate-400 text-center py-8">
-                            Make moves on the board to build your opening
-                          </p>
-                        ) : (
-                          <div>
-                            {moveTree.children.map(child => (
-                              <OpeningTreeNode
-                                key={child.id}
-                                node={child}
-                                onSelect={handleNodeSelect}
-                                selectedNodeId={selectedNode?.id}
-                                onDelete={handleNodeDelete}
-                                depth={1}
-                              />
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                    <CardContent className="p-4 h-[500px]">
+                      <CanvasPerformanceGraph
+                        graphData={canvasMode === 'opening' ? graphData : performanceGraphData}
+                        mode={canvasMode}
+                        onNodeClick={(e, node) => {
+                          if (canvasMode === 'opening' && node.data && !node.data.isRoot) {
+                            const treeNode = findNodeById(moveTree, node.id);
+                            if (treeNode) {
+                              handleNodeSelect(treeNode);
+                            }
+                          }
+                        }}
+                        currentNodeId={selectedNode?.id}
+                        isGenerating={false}
+                        showPerformanceLegend={false}
+                        showPerformanceControls={false}
+                        className="w-full h-full"
+                      />
                     </CardContent>
                   </Card>
                 </div>
@@ -726,12 +889,36 @@ export default function OpeningEditor() {
 
               <TabsContent value="tree" className="mt-4">
                 <Card className="bg-slate-800 border-slate-700">
-                  <CardContent className="p-4 h-[600px]">
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <CardTitle className="text-slate-100">
+                      {canvasMode === 'opening' ? 'Full Tree View' : 'Performance Analysis'} 
+                    </CardTitle>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCanvasMode(canvasMode === 'opening' ? 'performance' : 'opening')}
+                      className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                    >
+                      <BarChart3 className="w-4 h-4 mr-2" />
+                      {canvasMode === 'opening' ? 'Show Performance' : 'Show Tree'}
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="p-4 h-[700px]">
                     <CanvasPerformanceGraph
-                      graphData={graphData}
+                      graphData={canvasMode === 'opening' ? graphData : performanceGraphData}
+                      mode={canvasMode}
+                      onNodeClick={(e, node) => {
+                        if (canvasMode === 'opening' && node.data && !node.data.isRoot) {
+                          const treeNode = findNodeById(moveTree, node.id);
+                          if (treeNode) {
+                            handleNodeSelect(treeNode);
+                          }
+                        }
+                      }}
+                      currentNodeId={selectedNode?.id}
                       isGenerating={false}
                       showPerformanceLegend={false}
-                      showPerformanceControls={false}
+                      showPerformanceControls={canvasMode === 'performance'}
                       className="w-full h-full"
                     />
                   </CardContent>
