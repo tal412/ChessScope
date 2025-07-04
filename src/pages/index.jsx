@@ -36,20 +36,27 @@ function SimpleLoginPrompt() {
         if (location.state?.returning) {
             setIsReturning(true);
             setIsVisible(false);
-            // Trigger entrance animation
+            // For logout, start entrance animation immediately since navigation is now instant
+            const delay = location.state?.fromLogout ? 100 : 50;
             setTimeout(() => {
                 setIsVisible(true);
                 setIsReturning(false);
-            }, 50);
+            }, delay);
         }
     }, [location]);
     
-    const handleConnectClick = async () => {
+    const handleConnectClick = async (platform) => {
         setIsNavigating(true);
         
         // Near-instant navigation for overlapping transitions
         setTimeout(() => {
-            navigate('/login', { state: { fromHome: true } });
+            navigate('/login', { 
+                state: { 
+                    fromHome: true,
+                    selectedPlatform: platform,
+                    skipPlatformSelection: true
+                }
+            });
         }, 50);
     };
     
@@ -115,7 +122,7 @@ function SimpleLoginPrompt() {
                             <div className="flex flex-col sm:flex-row gap-4 justify-center w-full max-w-2xl">
                                 {/* Chess.com Button */}
                                 <Button 
-                                    onClick={handleConnectClick}
+                                    onClick={() => handleConnectClick('chess.com')}
                                     disabled={isNavigating}
                                     size="lg"
                                     className="bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 text-white px-6 py-6 rounded-xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 group transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed flex-1"
@@ -128,7 +135,7 @@ function SimpleLoginPrompt() {
                                             </>
                                         ) : (
                                             <>
-                                                <img src="/chesscom_logo_wordmark.svg" alt="Chess.com Logo" className="h-7 w-auto transition-all duration-300 group-hover:scale-105" />
+                                                <img src="/chesscom_logo_pawn.svg" alt="Chess.com" className="h-7 w-7 transition-all duration-300 group-hover:scale-105" />
                                                 <span>Connect Chess.com</span>
                                             </>
                                         )}
@@ -137,7 +144,7 @@ function SimpleLoginPrompt() {
 
                                 {/* Lichess Button */}
                                 <Button 
-                                    onClick={handleConnectClick}
+                                    onClick={() => handleConnectClick('lichess')}
                                     disabled={isNavigating}
                                     size="lg"
                                     className="bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 text-white px-6 py-6 rounded-xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 group transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed flex-1"
@@ -150,10 +157,7 @@ function SimpleLoginPrompt() {
                                             </>
                                         ) : (
                                             <>
-                                                <div className="flex items-center gap-2">
-                                                    <img src="/Lichess_Logo_2019.svg.png" alt="Lichess" className="h-7 w-7 transition-all duration-300 group-hover:scale-105" />
-                                                    <span className="text-lg font-semibold">Lichess</span>
-                                                </div>
+                                                <img src="/Lichess_Logo_2019.svg.png" alt="Lichess" className="h-7 w-7 transition-all duration-300 group-hover:scale-105" />
                                                 <span>Connect Lichess</span>
                                             </>
                                         )}

@@ -99,8 +99,9 @@ export const AuthProvider = ({ children }) => {
       await initGraphDB();
       
       // Import games and build graph with progress tracking
-      const gameCount = await importGamesWithProgress(userData);
-      userData.gameCount = gameCount;
+      const importResult = await importGamesWithProgress(userData);
+      userData.gameCount = importResult.gameCount;
+      userData.lastGameTime = importResult.lastGameTime;
       userData.lastSync = new Date().toISOString();
 
       // Save to localStorage for persistence
@@ -133,12 +134,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = async () => {
+  const logout = async (delay = 0) => {
     try {
       console.log('🔄 Starting comprehensive logout cleanup...');
       
       // Get platform-specific identifier before clearing auth data for IndexedDB cleanup
       const currentIdentifier = user?.platform ? `${user.platform}:${user.username}`.toLowerCase() : user?.chessComUsername?.toLowerCase();
+      
+      // If delay is specified, wait before clearing data (for smooth transitions)
+      if (delay > 0) {
+        console.log(`⏳ Waiting ${delay}ms for smooth transition...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
       
       // 1. Clear authentication data
       localStorage.removeItem('chessScope_auth');
@@ -240,30 +247,40 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('Starting sync for user:', userData.username, 'on platform:', userData.platform);
       
-      // Fetch latest games based on platform (lightweight sync)
-      let latestGames;
-      if (userData.platform === 'lichess') {
-        latestGames = await fetchLichessGames(userData.username, userData.importSettings);
-      } else {
-        latestGames = await fetchChessComGames(userData.username, userData.importSettings);
-      }
+      // Use a silent import process for sync (no UI progress updates)
+      console.log('🔄 Auto-sync: Rebuilding opening graph with latest games...');
       
-      // Update user's last sync time
+      // Create a temporary userData object for the import process
+      const syncUserData = {
+        ...userData,
+        importSettings: userData.importSettings || {
+          selectedTimeControls: userData.platform === 'lichess' ? 
+            ['rapid', 'blitz', 'bullet', 'classical'] : 
+            ['rapid', 'blitz', 'bullet'],
+          selectedDateRange: '3',
+          customDateRange: { from: null, to: null },
+          autoSync: true
+        }
+      };
+      
+      // Use a silent version that doesn't update UI progress
+      const result = await importGamesSilently(syncUserData);
+      
+      // Update user's last sync time, game count, and last game time
       const updatedUser = {
         ...userData,
         lastSync: new Date().toISOString(),
-        gameCount: latestGames.length
+        gameCount: result.gameCount,
+        lastGameTime: result.lastGameTime
       };
       
       setUser(updatedUser);
       localStorage.setItem('chessScope_auth', JSON.stringify({ user: updatedUser }));
       
-      // Backup to Google Drive if connected
-      if (userData.googleAccount) {
-        await backupToGoogleDrive(latestGames, userData.googleAccount);
-      }
+      console.log('✅ Auto-sync completed successfully - opening graph rebuilt');
+      console.log(`🎮 Updated last game time: ${updatedUser.lastGameTime ? new Date(updatedUser.lastGameTime).toLocaleString() : 'Unknown'}`);
       
-      return latestGames;
+      return result.gameCount;
     } catch (error) {
       console.error('Sync error:', error);
       throw error;
@@ -312,8 +329,9 @@ export const AuthProvider = ({ children }) => {
       };
       
       // Re-import games with new settings and rebuild graph
-      const gameCount = await importGamesWithProgress(updatedUser);
-      updatedUser.gameCount = gameCount;
+      const importResult = await importGamesWithProgress(updatedUser);
+      updatedUser.gameCount = importResult.gameCount;
+      updatedUser.lastGameTime = importResult.lastGameTime;
       updatedUser.lastSync = new Date().toISOString();
       
       setUser(updatedUser);
@@ -411,24 +429,39 @@ export const AuthProvider = ({ children }) => {
 
       const totalGames = recentTargetedGames.length;
       
+      // Reset debug tracking for this import session
+      window.gameResults = { wins: 0, losses: 0, draws: 0, total: 0 };
+      
+      // Track if we're running in background for logging
+      let wasInBackground = false;
+      
       // Process games one at a time with proper UI yielding
       for (let i = 0; i < totalGames; i++) {
         const game = recentTargetedGames[i];
         let gameData;
         
-        // DEBUG: Log the actual Lichess game structure
-        if (platform === 'lichess' && i === 0) {
-          console.log('🔍 DEBUG AuthContext - First Lichess game structure:', {
+        // Log background execution for user awareness
+        if (document.hidden && !wasInBackground) {
+          console.log('📱 Import continues in background - feel free to switch tabs!');
+          wasInBackground = true;
+        } else if (!document.hidden && wasInBackground) {
+          console.log('👁️ Welcome back! Import was running in background and is still processing...');
+          wasInBackground = false;
+        }
+        
+        // DEBUG: Log the actual Chess.com game structure
+        if (platform === 'chess.com' && i === 0) {
+          console.log('🔍 DEBUG AuthContext - First Chess.com game structure:', {
             game,
             keys: Object.keys(game),
-            hasWinner: !!game.winner,
-            hasPlayers: !!game.players,
-            hasStatus: !!game.status,
-            hasMoves: !!game.moves,
+            hasWhite: !!game.white,
+            hasBlack: !!game.black,
+            whiteResult: game.white?.result,
+            blackResult: game.black?.result,
             sample: JSON.stringify(game).substring(0, 200)
           });
           // Log the full game object to see its structure
-          console.log('📋 Full first game object:', game);
+          console.log('📋 Full first Chess.com game object:', game);
         }
         
         // For Lichess, the games are already processed by fetchLichessGames
@@ -449,6 +482,19 @@ export const AuthProvider = ({ children }) => {
         } else {
           // Use the generic function for Chess.com
           gameData = extractGameDataGeneric(game, username, platform);
+          
+          // DEBUG: Check Chess.com processing results
+          if (i === 0 || i === 50 || i === 100) {
+            console.log(`🎲 DEBUG Chess.com Game ${i} processing:`, {
+              player_color: gameData?.player_color,
+              white_username: gameData?.white_username,
+              black_username: gameData?.black_username,
+              input_username: username,
+              result: gameData?.result,
+              white_result: game.white?.result,
+              black_result: game.black?.result
+            });
+          }
         }
         
         if (gameData && gameData.moves && gameData.moves.length > 0) {
@@ -458,15 +504,30 @@ export const AuthProvider = ({ children }) => {
           
           // Add game to the graph
           await openingGraph.addGame(gameData);
+          
+          // Track results for debugging (simple counter approach)
+          if (!window.gameResults) window.gameResults = { wins: 0, losses: 0, draws: 0, total: 0 };
+          window.gameResults.total++;
+          if (gameData.result === 'win') window.gameResults.wins++;
+          else if (gameData.result === 'lose') window.gameResults.losses++;
+          else window.gameResults.draws++;
         }
         
-        // Update progress: 50% to 90% for processing
+        // Update progress: 50% to 90% for processing (smooth single-game updates)
         const progressPercent = 50 + ((i + 1) / totalGames) * 40;
         setImportProgress(progressPercent);
         setImportStatus(`Building graph: ${i + 1}/${totalGames} games processed`);
         
-        // Yield control to the UI thread
-        await new Promise(resolve => requestAnimationFrame(() => resolve()));
+        // Debug logging for result distribution tracking (every 50 games)
+        if ((i + 1) % 50 === 0 || i === totalGames - 1) {
+          if (window.gameResults) {
+            const { wins, losses, draws, total } = window.gameResults;
+            console.log(`📊 After ${total} ${platform} games: ${wins} wins (${((wins/total)*100).toFixed(1)}%), ${losses} losses (${((losses/total)*100).toFixed(1)}%), ${draws} draws (${((draws/total)*100).toFixed(1)}%)`);
+          }
+        }
+        
+        // Background-friendly yielding that works even when tab is not visible
+        await new Promise(resolve => setTimeout(resolve, 1)); // setTimeout works in background (every game)
       }
 
       setImportProgress(95);
@@ -481,23 +542,161 @@ export const AuthProvider = ({ children }) => {
       const stats = openingGraph.getOverallStats();
       const totalPositions = stats.white.totalPositions + stats.black.totalPositions;
       
-      // Smooth transition to 100%
+      // Smooth transition to 100% (background-friendly)
       setImportProgress(98);
-      await new Promise(resolve => setTimeout(resolve, 150));
       
-      setImportProgress(100);
-      setImportStatus(`Graph built with ${totalPositions} unique positions!`);
+      // Check if tab is visible for UI animations
+      const isTabVisible = !document.hidden;
       
-      // Hold at 100% briefly so user can see it
-      await new Promise(resolve => setTimeout(resolve, 200));
+      if (isTabVisible) {
+        await new Promise(resolve => setTimeout(resolve, 150));
+        setImportProgress(100);
+        setImportStatus(`Graph built with ${totalPositions} unique positions!`);
+        
+        // Hold at 100% briefly so user can see it
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        // Wait for the Done animation (800ms) before cleanup
+        await new Promise(resolve => setTimeout(resolve, 800));
+      } else {
+        // Background mode - skip UI animations, complete immediately
+        setImportProgress(100);
+        setImportStatus(`Graph built with ${totalPositions} unique positions!`);
+        console.log('🔄 Import completed in background mode - skipping UI animations');
+      }
       
-      // Wait for the Done animation (800ms) before cleanup
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Get the most recent game time (games are already sorted by date, most recent first)
+      let lastGameTime = null;
+      if (recentTargetedGames.length > 0) {
+        const firstGame = recentTargetedGames[0];
+        if (platform === 'lichess') {
+          // Lichess already has ISO string format
+          lastGameTime = firstGame.end_time;
+        } else {
+          // Chess.com has Unix timestamp in seconds
+          lastGameTime = firstGame.end_time * 1000; // Convert to milliseconds
+        }
+      }
       
-      return recentTargetedGames.length;
+      return { gameCount: recentTargetedGames.length, lastGameTime };
 
     } catch (error) {
       console.error('Import games error:', error);
+      throw error;
+    }
+  };
+
+  // Silent import function for background sync (no UI progress updates)
+  const importGamesSilently = async (userData) => {
+    const { platform, username, importSettings } = userData;
+    const {
+      selectedTimeControls = platform === 'lichess' ? 
+        ['rapid', 'blitz', 'bullet', 'classical'] : 
+        ['rapid', 'blitz', 'bullet'],
+      selectedDateRange = '3',
+      customDateRange = { from: null, to: null }
+    } = importSettings;
+
+    try {
+      console.log('🔄 Silent import: Fetching games...');
+
+      let recentTargetedGames = [];
+      const TARGET_GAMES = 1500; // Hard limit
+      
+      if (platform === 'lichess') {
+        // Lichess direct API approach (no progress callback)
+        const games = await fetchLichessGames(username, importSettings);
+        recentTargetedGames = games.slice(0, TARGET_GAMES);
+        
+        console.log(`🔄 Silent import: Found ${recentTargetedGames.length} games from Lichess`);
+        
+      } else {
+        // Chess.com archive-based approach (no progress callback)
+        const games = await fetchChessComGames(username, importSettings);
+        recentTargetedGames = games.slice(0, TARGET_GAMES);
+        
+        console.log(`🔄 Silent import: Found ${recentTargetedGames.length} games from Chess.com`);
+      }
+      
+      console.log('🔄 Silent import: Creating new opening graph...');
+
+      // Create platform-specific identifier
+      const identifier = `${platform}:${username}`.toLowerCase();
+      
+      // Clear any existing graph data first (fresh start)
+      try {
+        await deleteOpeningGraph(identifier);
+      } catch (error) {
+        // Ignore if no existing graph to delete
+      }
+
+      // Create a completely new OpeningGraph
+      const openingGraph = new OpeningGraph(identifier);
+      
+      console.log(`🔄 Silent import: Processing ${recentTargetedGames.length} games...`);
+
+      const totalGames = recentTargetedGames.length;
+      
+      // Process games one at a time
+      for (let i = 0; i < totalGames; i++) {
+        const game = recentTargetedGames[i];
+        let gameData;
+        
+        // For Lichess, the games are already processed by fetchLichessGames
+        if (platform === 'lichess') {
+          // Lichess games are already in the correct format from fetchLichessGames
+          gameData = game;
+        } else {
+          // Use the generic function for Chess.com
+          gameData = extractGameDataGeneric(game, username, platform);
+        }
+        
+        if (gameData && gameData.moves && gameData.moves.length > 0) {
+          // Add opening information
+          const opening = await identifyOpening(gameData.moves);
+          gameData.opening = opening;
+          
+          // Add game to the graph
+          await openingGraph.addGame(gameData);
+        }
+        
+        // Log progress every 100 games
+        if ((i + 1) % 100 === 0) {
+          console.log(`🔄 Silent import: Processed ${i + 1}/${totalGames} games`);
+        }
+      }
+
+      console.log('🔄 Silent import: Saving opening graph...');
+
+      // Save the complete graph
+      await saveOpeningGraph(openingGraph);
+      
+      // Store the platform-specific username in localStorage
+      localStorage.setItem('chesscope_username', identifier);
+
+      const stats = openingGraph.getOverallStats();
+      const totalPositions = stats.white.totalPositions + stats.black.totalPositions;
+      
+      // Get the most recent game time (games are already sorted by date, most recent first)
+      let lastGameTime = null;
+      if (recentTargetedGames.length > 0) {
+        const firstGame = recentTargetedGames[0];
+        if (platform === 'lichess') {
+          // Lichess already has ISO string format
+          lastGameTime = firstGame.end_time;
+        } else {
+          // Chess.com has Unix timestamp in seconds
+          lastGameTime = firstGame.end_time * 1000; // Convert to milliseconds
+        }
+      }
+      
+      console.log(`✅ Silent import completed: ${totalPositions} unique positions built`);
+      console.log(`🎮 Last game time: ${lastGameTime ? new Date(lastGameTime).toLocaleString() : 'Unknown'}`);
+      
+      return { gameCount: recentTargetedGames.length, lastGameTime };
+
+    } catch (error) {
+      console.error('Silent import error:', error);
       throw error;
     }
   };
@@ -805,14 +1004,18 @@ const fetchChessComGames = async (username, importSettings = {}, onProgress = nu
       
       return {
         id: game.uuid || index,
-        white: game.white?.username || 'Unknown',
-        black: game.black?.username || 'Unknown',
-        result: game.white?.result || 'unknown',
+        white: game.white, // Keep full white object with result property
+        black: game.black, // Keep full black object with result property
         date: new Date(game.end_time * 1000).toISOString(),
         timeControl: game.time_control,
         gameType: getGameType(game.time_control),
         url: game.url,
-        pgn: game.pgn
+        pgn: game.pgn,
+        time_control: game.time_control,
+        end_time: game.end_time,
+        rated: game.rated,
+        time_class: game.time_class,
+        rules: game.rules || "chess"
       };
     });
     

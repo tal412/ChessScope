@@ -24,6 +24,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const [isVisible, setIsVisible] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
+  const [isFromHome, setIsFromHome] = useState(false);
   
   const [selectedPlatform, setSelectedPlatform] = useState('');
   const [username, setUsername] = useState('');
@@ -44,9 +45,30 @@ export default function LoginPage() {
 
   // Entrance animation effect
   useEffect(() => {
-    // Start animations immediately
-    setIsVisible(true);
-  }, []);
+    // Track if coming from home for proper transition direction
+    if (location.state?.fromHome) {
+      setIsFromHome(true);
+    }
+    
+    // Check if we should skip platform selection
+    if (location.state?.skipPlatformSelection && location.state?.selectedPlatform) {
+      // Pre-select platform and go directly to step 1
+      setSelectedPlatform(location.state.selectedPlatform);
+      setStep(1);
+      
+      // Update default time controls based on platform
+      if (location.state.selectedPlatform === 'lichess') {
+        setSelectedTimeControls(['rapid']);
+      } else {
+        setSelectedTimeControls(['rapid']);
+      }
+    }
+    
+    // Start animations with slight delay for smooth transition from main page
+    setTimeout(() => {
+      setIsVisible(true);
+    }, 50);
+  }, [location.state]);
 
   // Handle back navigation
   const handleBack = () => {
@@ -56,20 +78,29 @@ export default function LoginPage() {
       setTimeout(() => {
         setStep(1);
         setIsVisible(true);
-      }, 100);
+      }, 150);
     } else if (step === 1) {
-      // Go back to step 0
-      setIsVisible(false);
-      setTimeout(() => {
-        setStep(0);
-        setIsVisible(true);
-      }, 100);
+      // Check if we came directly from main page with pre-selected platform
+      if (location.state?.skipPlatformSelection) {
+        // Go back to home directly with smooth transition
+        setIsLeaving(true);
+        setTimeout(() => {
+          navigate('/', { state: { returning: true } });
+        }, 300);
+      } else {
+        // Go back to step 0 (platform selection)
+        setIsVisible(false);
+        setTimeout(() => {
+          setStep(0);
+          setIsVisible(true);
+        }, 150);
+      }
     } else {
-      // Go back to home
+      // Go back to home with smooth transition
       setIsLeaving(true);
       setTimeout(() => {
         navigate('/', { state: { returning: true } });
-      }, 50);
+      }, 300);
     }
   };
 
@@ -98,7 +129,7 @@ export default function LoginPage() {
     setTimeout(() => {
       setStep(1);
       setIsVisible(true);
-    }, 100);
+    }, 150);
   };
 
   const handleAccountSubmit = async (e) => {
@@ -180,7 +211,7 @@ export default function LoginPage() {
       setStep(2);
       // Start animations immediately on step 2
       setIsVisible(true);
-    }, 100);
+    }, 150);
   };
 
   // Step 0: Platform Selection
@@ -191,7 +222,7 @@ export default function LoginPage() {
         <Button
           onClick={handleBack}
           variant="ghost"
-          className={`absolute top-6 left-6 text-slate-400 hover:text-white transition-all duration-500 ${
+          className={`absolute top-6 left-6 text-slate-400 hover:text-white transition-all duration-300 ${
             isVisible && !isLeaving ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform -translate-x-4'
           }`}
         >
@@ -199,15 +230,15 @@ export default function LoginPage() {
           Back
         </Button>
 
-        <div className={`w-full max-w-4xl transition-all duration-500 ${
-          isLeaving ? 'transform -translate-x-8 opacity-0' :
-          isVisible ? 'transform translate-x-0 opacity-100' : 
-          'transform translate-x-8 opacity-0'
+        <div className={`w-full max-w-4xl transition-all duration-300 ${
+          isLeaving ? 'opacity-0 transform -translate-x-8' :
+          isVisible ? 'opacity-100 transform translate-x-0' : 
+          'opacity-0 transform translate-x-8'
         }`}>
-          <div className={`text-center mb-12 transition-all duration-500 delay-75 ${
-            isLeaving ? 'opacity-0 transform -translate-x-4' :
+          <div className={`text-center mb-12 transition-all duration-300 delay-75 ${
+            isLeaving ? 'opacity-0 transform -translate-x-6' :
             isVisible ? 'opacity-100 transform translate-x-0' : 
-            'opacity-0 transform translate-x-4'
+            'opacity-0 transform translate-x-6'
           }`}>
             <div className="flex items-center justify-center mb-6">
               <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center">
@@ -220,10 +251,10 @@ export default function LoginPage() {
             </p>
           </div>
 
-          <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto transition-all duration-500 delay-100 ${
-            isLeaving ? 'opacity-0 transform -translate-x-6' :
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto transition-all duration-300 delay-100 ${
+            isLeaving ? 'opacity-0 transform -translate-x-4' :
             isVisible ? 'opacity-100 transform translate-x-0' : 
-            'opacity-0 transform translate-x-6'
+            'opacity-0 transform translate-x-4'
           }`}>
             {/* Chess.com Platform */}
             <Card 
@@ -300,7 +331,7 @@ export default function LoginPage() {
         <Button
           onClick={handleBack}
           variant="ghost"
-          className={`absolute top-6 left-6 text-slate-400 hover:text-white transition-all duration-500 ${
+          className={`absolute top-6 left-6 text-slate-400 hover:text-white transition-all duration-300 ${
             isVisible && !isLeaving ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform -translate-x-4'
           }`}
         >
@@ -308,15 +339,15 @@ export default function LoginPage() {
           Back
         </Button>
 
-        <div className={`w-full max-w-7xl transition-all duration-500 ${
-          isLeaving ? 'transform -translate-x-8 opacity-0' :
-          isVisible ? 'transform translate-x-0 opacity-100' : 
-          'transform translate-x-8 opacity-0'
+        <div className={`w-full max-w-7xl transition-all duration-300 ${
+          isLeaving ? 'opacity-0 transform -translate-x-8' :
+          isVisible ? 'opacity-100 transform translate-x-0' : 
+          'opacity-0 transform translate-x-8'
         }`}>
-          <div className={`text-center mb-12 transition-all duration-500 delay-75 ${
-            isLeaving ? 'opacity-0 transform -translate-x-4' :
+          <div className={`text-center mb-12 transition-all duration-300 delay-75 ${
+            isLeaving ? 'opacity-0 transform -translate-x-6' :
             isVisible ? 'opacity-100 transform translate-x-0' : 
-            'opacity-0 transform translate-x-4'
+            'opacity-0 transform translate-x-6'
           }`}>
             <div className="flex items-center justify-center mb-6">
               <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center">
@@ -330,10 +361,10 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleAccountSubmit} className="space-y-8">
-            <div className={`grid grid-cols-1 lg:grid-cols-3 gap-8 transition-all duration-500 delay-100 ${
-              isLeaving ? 'opacity-0 transform -translate-x-6' :
+            <div className={`grid grid-cols-1 lg:grid-cols-3 gap-8 transition-all duration-300 delay-100 ${
+              isLeaving ? 'opacity-0 transform -translate-x-4' :
               isVisible ? 'opacity-100 transform translate-x-0' : 
-              'opacity-0 transform translate-x-6'
+              'opacity-0 transform translate-x-4'
             }`}>
               {/* Left Column - Account Connection */}
               <Card className="bg-slate-800/50 backdrop-blur-xl border-slate-700/50">
@@ -569,7 +600,7 @@ export default function LoginPage() {
             )}
 
             {/* Embedded Loading Section - always present to maintain layout */}
-            <div className={`max-w-3xl mx-auto transition-all duration-500 delay-150 ${
+            <div className={`max-w-3xl mx-auto transition-all duration-300 delay-150 ${
               isLeaving ? 'opacity-0 transform -translate-x-4' :
               isVisible ? 'opacity-100 transform translate-x-0' : 
               'opacity-0 transform translate-x-4'
@@ -591,7 +622,7 @@ export default function LoginPage() {
             </div>
 
             {/* Submit Button */}
-            <div className={`flex justify-center transition-all duration-500 delay-200 ${
+            <div className={`flex justify-center transition-all duration-300 delay-200 ${
               isLeaving ? 'opacity-0 transform -translate-x-2' :
               isVisible ? 'opacity-100 transform translate-x-0' : 
               'opacity-0 transform translate-x-2'
@@ -628,7 +659,7 @@ export default function LoginPage() {
       <Button
         onClick={handleBack}
         variant="ghost"
-        className={`absolute top-6 left-6 text-slate-400 hover:text-white transition-all duration-500 ${
+        className={`absolute top-6 left-6 text-slate-400 hover:text-white transition-all duration-300 ${
           isVisible && !isLeaving ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform -translate-x-4'
         }`}
       >
@@ -636,16 +667,16 @@ export default function LoginPage() {
         Back
       </Button>
 
-      <div className={`max-w-md w-full transition-all duration-500 ${
-        isLeaving ? 'transform -translate-x-8 opacity-0' :
-        isVisible ? 'transform translate-x-0 opacity-100' : 
-        'transform translate-x-8 opacity-0'
+      <div className={`max-w-md w-full transition-all duration-300 ${
+        isLeaving ? 'opacity-0 transform -translate-x-8' :
+        isVisible ? 'opacity-100 transform translate-x-0' : 
+        'opacity-0 transform translate-x-8'
       }`}>
         <Card className="bg-slate-800/50 backdrop-blur-xl border-slate-700/50">
-          <CardHeader className={`text-center transition-all duration-500 delay-75 ${
-            isLeaving ? 'opacity-0 transform -translate-x-4' :
+          <CardHeader className={`text-center transition-all duration-300 delay-75 ${
+            isLeaving ? 'opacity-0 transform -translate-x-6' :
             isVisible ? 'opacity-100 transform translate-x-0' : 
-            'opacity-0 transform translate-x-4'
+            'opacity-0 transform translate-x-6'
           }`}>
             <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
               <Cloud className="w-8 h-8 text-white" />
@@ -655,7 +686,7 @@ export default function LoginPage() {
               Backup your chess analysis data to Google Drive for safekeeping
             </p>
           </CardHeader>
-          <CardContent className={`space-y-6 transition-all duration-500 delay-100 ${
+          <CardContent className={`space-y-6 transition-all duration-300 delay-100 ${
             isLeaving ? 'opacity-0 transform -translate-x-4' :
             isVisible ? 'opacity-100 transform translate-x-0' : 
             'opacity-0 transform translate-x-4'
