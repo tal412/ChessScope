@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { extractGameData } from '../components/chess/PgnParser';
+import { extractGameData, extractGameDataGeneric } from '../components/chess/PgnParser';
 import { identifyOpening } from '../components/chess/OpeningDatabase';
 import { 
   saveOpeningGraph, 
@@ -56,24 +56,37 @@ export const AuthProvider = ({ children }) => {
     setIsLoading(false);
   }, []);
 
-  const login = async (chessComUsername, importSettings = null, googleAccount = null) => {
+  const login = async (username, platform = 'chess.com', importSettings = null, googleAccount = null) => {
     try {
       setIsImporting(true);
       setImportProgress(0);
-      setImportStatus('Verifying Chess.com account...');
+      setImportStatus(`Verifying ${platform === 'lichess' ? 'Lichess' : 'Chess.com'} account...`);
       
-      // Simulate Chess.com account verification
-      const chessComUser = await verifyChessComAccount(chessComUsername);
+      // Verify account based on platform
+      let platformUser;
+      if (platform === 'lichess') {
+        platformUser = await verifyLichessAccount(username);
+      } else {
+        platformUser = await verifyChessComAccount(username);
+      }
       
       setImportProgress(10);
       setImportStatus('Account verified! Starting import...');
       
       const userData = {
-        chessComUsername,
-        chessComUser,
+        platform,
+        username,
+        platformUser,
+        // Keep backwards compatibility with existing Chess.com keys
+        chessComUsername: platform === 'chess.com' ? username : null,
+        chessComUser: platform === 'chess.com' ? platformUser : null,
+        lichessUsername: platform === 'lichess' ? username : null,
+        lichessUser: platform === 'lichess' ? platformUser : null,
         googleAccount,
         importSettings: importSettings || {
-          selectedTimeControls: ['rapid', 'blitz', 'bullet'],
+          selectedTimeControls: platform === 'lichess' ? 
+            ['rapid', 'blitz', 'bullet', 'classical'] : 
+            ['rapid', 'blitz', 'bullet'],
           selectedDateRange: '3',
           customDateRange: { from: null, to: null },
           autoSync: true
@@ -124,8 +137,8 @@ export const AuthProvider = ({ children }) => {
     try {
       console.log('🔄 Starting comprehensive logout cleanup...');
       
-      // Get username before clearing auth data for IndexedDB cleanup
-      const currentUsername = user?.chessComUsername;
+      // Get platform-specific identifier before clearing auth data for IndexedDB cleanup
+      const currentIdentifier = user?.platform ? `${user.platform}:${user.username}`.toLowerCase() : user?.chessComUsername?.toLowerCase();
       
       // 1. Clear authentication data
       localStorage.removeItem('chessScope_auth');
@@ -167,9 +180,9 @@ export const AuthProvider = ({ children }) => {
         console.warn('⚠️ Could not clear all graphs:', error);
         
         // Fallback: try to delete specific user's graph
-        if (currentUsername) {
+        if (currentIdentifier) {
           try {
-            await deleteOpeningGraph(currentUsername.toLowerCase());
+            await deleteOpeningGraph(currentIdentifier);
             console.log('✅ Deleted specific user graph as fallback');
           } catch (fallbackError) {
             console.warn('⚠️ Could not delete user-specific graph either:', fallbackError);
@@ -225,10 +238,15 @@ export const AuthProvider = ({ children }) => {
     
     setIsSyncing(true);
     try {
-      console.log('Starting sync for user:', userData.chessComUsername);
+      console.log('Starting sync for user:', userData.username, 'on platform:', userData.platform);
       
-      // Fetch latest games from Chess.com (lightweight sync)
-      const latestGames = await fetchChessComGames(userData.chessComUsername, userData.importSettings);
+      // Fetch latest games based on platform (lightweight sync)
+      let latestGames;
+      if (userData.platform === 'lichess') {
+        latestGames = await fetchLichessGames(userData.username, userData.importSettings);
+      } else {
+        latestGames = await fetchChessComGames(userData.username, userData.importSettings);
+      }
       
       // Update user's last sync time
       const updatedUser = {
@@ -266,7 +284,12 @@ export const AuthProvider = ({ children }) => {
       
       // Backup existing data to Google Drive
       if (user.gameCount > 0) {
-        const games = await fetchChessComGames(user.chessComUsername, user.importSettings);
+        let games;
+        if (user.platform === 'lichess') {
+          games = await fetchLichessGames(user.username, user.importSettings);
+        } else {
+          games = await fetchChessComGames(user.username, user.importSettings);
+        }
         await backupToGoogleDrive(games, googleAccount);
       }
       
@@ -320,99 +343,117 @@ export const AuthProvider = ({ children }) => {
 
   // New function to import games with progress tracking (similar to import page)
   const importGamesWithProgress = async (userData) => {
-    const { chessComUsername, importSettings } = userData;
+    const { platform, username, importSettings } = userData;
     const {
-      selectedTimeControls = ['rapid', 'blitz', 'bullet'],
+      selectedTimeControls = platform === 'lichess' ? 
+        ['rapid', 'blitz', 'bullet', 'classical'] : 
+        ['rapid', 'blitz', 'bullet'],
       selectedDateRange = '3',
       customDateRange = { from: null, to: null }
     } = importSettings;
 
     try {
       setImportProgress(15);
-      setImportStatus('Fetching game archives...');
+      setImportStatus('Fetching games...');
 
-      const response = await fetch(`https://api.chess.com/pub/player/${chessComUsername}/games/archives`);
-      if (!response.ok) {
-        throw new Error("Username not found or API error");
-      }
-
-      const archivesData = await response.json();
-      const allArchives = archivesData.archives;
-      
-      let recentArchives = [];
-      
-      if (selectedDateRange === "custom") {
-        // Filter archives based on custom date range
-        const fromDate = new Date(customDateRange.from);
-        const toDate = new Date(customDateRange.to);
-        
-        recentArchives = allArchives.filter(archiveUrl => {
-          const urlParts = archiveUrl.split('/');
-          const year = parseInt(urlParts[urlParts.length - 2]);
-          const month = parseInt(urlParts[urlParts.length - 1]);
-          const archiveDate = new Date(year, month - 1, 1);
-          
-          return archiveDate >= fromDate && archiveDate <= toDate;
-        });
-      } else {
-        const monthsToFetch = parseInt(selectedDateRange);
-        recentArchives = allArchives.slice(-monthsToFetch);
-      }
-      
-      setImportProgress(25);
-      setImportStatus('Fetching games by time control...');
-
-      let targetedGames = [];
+      let recentTargetedGames = [];
       const TARGET_GAMES = 1500; // Hard limit
-      let archivesProcessed = 0;
       
-      // Process archives from most recent to oldest until we have enough games
-      for (let i = recentArchives.length - 1; i >= 0 && targetedGames.length < TARGET_GAMES; i--) {
-        try {
-          setImportStatus(`Checking archive ${archivesProcessed + 1}/${recentArchives.length} for ${selectedTimeControls.join('/')} games...`);
-          
-          const archiveResponse = await fetch(recentArchives[i]);
-          const archiveData = await archiveResponse.json();
-          
-          // Filter games by selected time controls as we fetch
-          const filteredGames = archiveData.games
-            .filter(game => game.rules === "chess")
-            .filter(game => selectedTimeControls.includes(game.time_class));
-          
-          targetedGames = [...targetedGames, ...filteredGames];
-          
-          archivesProcessed++;
-          
-          // Update progress: 25% to 45% for fetching
-          setImportProgress(25 + (archivesProcessed / recentArchives.length) * 20);
-          
-          setImportStatus(`Found ${targetedGames.length} ${selectedTimeControls.join('/')} games so far...`);
-          
-          // Small delay to prevent API rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
-          
-        } catch (archiveError) {
-          console.warn(`Failed to fetch archive ${recentArchives[i]}:`, archiveError);
+      if (platform === 'lichess') {
+        // Lichess direct API approach
+        const games = await fetchLichessGames(username, importSettings);
+        recentTargetedGames = games.slice(0, TARGET_GAMES);
+        
+        setImportProgress(45);
+        setImportStatus(`Found ${recentTargetedGames.length} games from Lichess...`);
+        
+      } else {
+        // Chess.com archive-based approach
+        const response = await fetch(`https://api.chess.com/pub/player/${username}/games/archives`);
+        if (!response.ok) {
+          throw new Error("Username not found or API error");
         }
-      }
 
-      // Take the most recent games up to our target
-      const recentTargetedGames = targetedGames
-        .slice(-TARGET_GAMES)
-        .reverse(); // Process newest first
+        const archivesData = await response.json();
+        const allArchives = archivesData.archives;
+        
+        let recentArchives = [];
+        
+        if (selectedDateRange === "custom") {
+          // Filter archives based on custom date range
+          const fromDate = new Date(customDateRange.from);
+          const toDate = new Date(customDateRange.to);
+          
+          recentArchives = allArchives.filter(archiveUrl => {
+            const urlParts = archiveUrl.split('/');
+            const year = parseInt(urlParts[urlParts.length - 2]);
+            const month = parseInt(urlParts[urlParts.length - 1]);
+            const archiveDate = new Date(year, month - 1, 1);
+            
+            return archiveDate >= fromDate && archiveDate <= toDate;
+          });
+        } else {
+          const monthsToFetch = parseInt(selectedDateRange);
+          recentArchives = allArchives.slice(-monthsToFetch);
+        }
+        
+        setImportProgress(25);
+        setImportStatus('Fetching games by time control...');
+
+        let targetedGames = [];
+        let archivesProcessed = 0;
+        
+        // Process archives from most recent to oldest until we have enough games
+        for (let i = recentArchives.length - 1; i >= 0 && targetedGames.length < TARGET_GAMES; i--) {
+          try {
+            setImportStatus(`Checking archive ${archivesProcessed + 1}/${recentArchives.length} for ${selectedTimeControls.join('/')} games...`);
+            
+            const archiveResponse = await fetch(recentArchives[i]);
+            const archiveData = await archiveResponse.json();
+            
+            // Filter games by selected time controls as we fetch
+            const filteredGames = archiveData.games
+              .filter(game => game.rules === "chess")
+              .filter(game => selectedTimeControls.includes(game.time_class));
+            
+            targetedGames = [...targetedGames, ...filteredGames];
+            
+            archivesProcessed++;
+            
+            // Update progress: 25% to 45% for fetching
+            setImportProgress(25 + (archivesProcessed / recentArchives.length) * 20);
+            
+            setImportStatus(`Found ${targetedGames.length} ${selectedTimeControls.join('/')} games so far...`);
+            
+            // Small delay to prevent API rate limiting
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+          } catch (archiveError) {
+            console.warn(`Failed to fetch archive ${recentArchives[i]}:`, archiveError);
+          }
+        }
+
+        // Take the most recent games up to our target
+        recentTargetedGames = targetedGames
+          .slice(-TARGET_GAMES)
+          .reverse(); // Process newest first
+      }
       
       setImportProgress(50);
       setImportStatus('Clearing previous data and creating new opening graph...');
 
+      // Create platform-specific identifier
+      const identifier = `${platform}:${username}`.toLowerCase();
+      
       // Clear any existing graph data first (fresh start)
       try {
-        await deleteOpeningGraph(chessComUsername.toLowerCase());
+        await deleteOpeningGraph(identifier);
       } catch (error) {
         // Ignore if no existing graph to delete
       }
 
       // Create a completely new OpeningGraph
-      const openingGraph = new OpeningGraph(chessComUsername.toLowerCase());
+      const openingGraph = new OpeningGraph(identifier);
       
       setImportStatus(`Processing ${recentTargetedGames.length} games into new opening graph...`);
 
@@ -421,9 +462,44 @@ export const AuthProvider = ({ children }) => {
       // Process games one at a time with proper UI yielding
       for (let i = 0; i < totalGames; i++) {
         const game = recentTargetedGames[i];
-        const gameData = extractGameData(game, chessComUsername);
+        let gameData;
         
-        if (gameData) {
+        // DEBUG: Log the actual Lichess game structure
+        if (platform === 'lichess' && i === 0) {
+          console.log('🔍 DEBUG AuthContext - First Lichess game structure:', {
+            game,
+            keys: Object.keys(game),
+            hasWinner: !!game.winner,
+            hasPlayers: !!game.players,
+            hasStatus: !!game.status,
+            hasMoves: !!game.moves,
+            sample: JSON.stringify(game).substring(0, 200)
+          });
+          // Log the full game object to see its structure
+          console.log('📋 Full first game object:', game);
+        }
+        
+        // For Lichess, the games are already processed by fetchLichessGames
+        if (platform === 'lichess') {
+          // Lichess games are already in the correct format from fetchLichessGames
+          gameData = game;
+          
+          // DEBUG: Check player color distribution
+          if (i === 0 || i === 50 || i === 100) {
+            console.log(`🎨 DEBUG Game ${i} player color:`, {
+              player_color: gameData.player_color,
+              white_username: gameData.white_username,
+              black_username: gameData.black_username,
+              input_username: username,
+              result: gameData.result
+            });
+          }
+        } else {
+          // Use the generic function for Chess.com
+          gameData = extractGameDataGeneric(game, username, platform);
+        }
+        
+        if (gameData && gameData.moves && gameData.moves.length > 0) {
           // Add opening information
           const opening = await identifyOpening(gameData.moves);
           gameData.opening = opening;
@@ -447,8 +523,8 @@ export const AuthProvider = ({ children }) => {
       // Save the complete graph
       await saveOpeningGraph(openingGraph);
       
-      // Store the username in localStorage
-      localStorage.setItem('chesscope_username', chessComUsername.toLowerCase());
+      // Store the platform-specific username in localStorage
+      localStorage.setItem('chesscope_username', identifier);
 
       const stats = openingGraph.getOverallStats();
       const totalPositions = stats.white.totalPositions + stats.black.totalPositions;
@@ -546,6 +622,103 @@ const verifyChessComAccount = async (username) => {
   }
 };
 
+// Function to verify Lichess account and fetch real data
+const verifyLichessAccount = async (username) => {
+  try {
+    // Validate username format
+    if (!username || username.trim().length === 0) {
+      throw new Error('Username cannot be empty');
+    }
+    
+    if (username.length < 3 || username.length > 20) {
+      throw new Error('Username must be between 3 and 20 characters');
+    }
+    
+    // Fetch user profile from Lichess API
+    const profileResponse = await fetch(`https://lichess.org/api/user/${username}`, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    // Handle specific HTTP status codes
+    if (profileResponse.status === 404) {
+      throw new Error(`User "${username}" not found on Lichess. Please check the username and try again.`);
+    } else if (profileResponse.status === 429) {
+      throw new Error('Too many requests to Lichess API. Please wait a moment and try again.');
+    } else if (profileResponse.status >= 500) {
+      throw new Error('Lichess servers are currently unavailable. Please try again later.');
+    } else if (!profileResponse.ok) {
+      throw new Error(`Lichess API error (${profileResponse.status}): Unable to verify account`);
+    }
+    
+    const profileData = await profileResponse.json();
+    
+    // Validate response structure
+    if (!profileData || !profileData.username) {
+      throw new Error('Invalid response from Lichess API. Please try again.');
+    }
+    
+    // Check if the account is closed/banned
+    if (profileData.disabled || profileData.tosViolation) {
+      throw new Error('This Lichess account is disabled or has violated terms of service.');
+    }
+    
+    // Get the most relevant rating (rapid, blitz, or bullet - whichever is highest/most recent)
+    let rating = null;
+    let gameType = 'unrated';
+    
+    if (profileData.perfs?.rapid?.rating) {
+      rating = profileData.perfs.rapid.rating;
+      gameType = 'rapid';
+    } else if (profileData.perfs?.blitz?.rating) {
+      rating = profileData.perfs.blitz.rating;
+      gameType = 'blitz';
+    } else if (profileData.perfs?.bullet?.rating) {
+      rating = profileData.perfs.bullet.rating;
+      gameType = 'bullet';
+    } else if (profileData.perfs?.classical?.rating) {
+      rating = profileData.perfs.classical.rating;
+      gameType = 'classical';
+    } else if (profileData.perfs?.correspondence?.rating) {
+      rating = profileData.perfs.correspondence.rating;
+      gameType = 'correspondence';
+    }
+    
+    return {
+      username: profileData.username,
+      rating: rating || 'Unrated',
+      gameType,
+      country: profileData.profile?.country || 'Unknown',
+      verified: true,
+      joinDate: profileData.createdAt,
+      lastOnline: profileData.seenAt,
+      title: profileData.title || null
+    };
+  } catch (error) {
+    console.error('Lichess API error:', error);
+    
+    // Handle network errors
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      throw new Error('Network error: Unable to connect to Lichess. Please check your internet connection.');
+    }
+    
+    // Re-throw with our custom message if it's already a user-friendly error
+    if (error.message.includes('not found') || 
+        error.message.includes('Too many requests') || 
+        error.message.includes('servers are currently unavailable') ||
+        error.message.includes('disabled') ||
+        error.message.includes('Username must be') ||
+        error.message.includes('Username cannot be') ||
+        error.message.includes('Invalid response')) {
+      throw error;
+    }
+    
+    // Generic fallback error
+    throw new Error(`Failed to verify Lichess account: ${error.message || 'Unknown error occurred'}`);
+  }
+};
+
 // Function to fetch recent Chess.com games
 const fetchChessComGames = async (username, importSettings = {}) => {
   try {
@@ -621,6 +794,229 @@ const fetchChessComGames = async (username, importSettings = {}) => {
   }
 };
 
+// Function to fetch recent Lichess games
+const fetchLichessGames = async (username, importSettings = {}) => {
+  try {
+    // Validate inputs
+    if (!username || username.trim().length === 0) {
+      console.warn('Empty username provided to fetchLichessGames');
+      return [];
+    }
+    
+    const {
+      selectedTimeControls = ['rapid', 'blitz', 'bullet'],
+      selectedDateRange = '3',
+      customDateRange = { from: null, to: null }
+    } = importSettings;
+
+    // Validate time controls
+    if (!Array.isArray(selectedTimeControls) || selectedTimeControls.length === 0) {
+      console.warn('No time controls selected for Lichess games fetch');
+      return [];
+    }
+
+    // Calculate date range for Lichess API
+    const currentDate = new Date();
+    let sinceDate = new Date();
+    
+    try {
+      if (selectedDateRange === "custom") {
+        if (customDateRange.from && customDateRange.to) {
+          sinceDate = new Date(customDateRange.from);
+          const toDate = new Date(customDateRange.to);
+          
+          // Validate date range
+          if (sinceDate >= toDate) {
+            console.warn('Invalid date range: start date must be before end date');
+            sinceDate.setMonth(currentDate.getMonth() - 3); // fallback to 3 months
+          }
+        } else {
+          sinceDate.setMonth(currentDate.getMonth() - 3); // default to 3 months
+        }
+      } else {
+        const monthsBack = parseInt(selectedDateRange);
+        if (isNaN(monthsBack) || monthsBack <= 0) {
+          console.warn('Invalid date range value, defaulting to 3 months');
+          sinceDate.setMonth(currentDate.getMonth() - 3);
+        } else {
+          sinceDate.setMonth(currentDate.getMonth() - monthsBack);
+        }
+      }
+    } catch (dateError) {
+      console.warn('Error processing date range, defaulting to 3 months:', dateError);
+      sinceDate.setMonth(currentDate.getMonth() - 3);
+    }
+    
+    // Convert to Unix timestamp (milliseconds)
+    const sinceTimestamp = sinceDate.getTime();
+    
+    // Build Lichess API URL like the working openingtree project
+    const lichessBaseURL = 'https://lichess.org/api/games/user/';
+    const playerNameFilter = encodeURIComponent(username);
+    
+    // Map our time controls to Lichess perfType values
+    const getPerfs = (selectedTimeControls) => {
+      if (selectedTimeControls.length === 0 || selectedTimeControls.length >= 4) {
+        return null; // Get all time controls
+      }
+      
+      const perfMapping = {
+        'bullet': 'bullet',
+        'blitz': 'blitz', 
+        'rapid': 'rapid',
+        'classical': 'classical'
+      };
+      
+      return selectedTimeControls
+        .map(tc => perfMapping[tc])
+        .filter(p => p)
+        .join(',');
+    };
+    
+    const perfs = getPerfs(selectedTimeControls);
+    const perfFilter = perfs ? `&perfType=${perfs}` : '';
+    const ratedFilter = '&rated=true'; // Only rated games
+    const timeSinceFilter = `&since=${sinceTimestamp}`;
+    
+    const apiUrl = `${lichessBaseURL}${playerNameFilter}?max=1500${ratedFilter}${perfFilter}${timeSinceFilter}`;
+    
+    console.log('Fetching Lichess games from:', apiUrl);
+    
+    const response = await fetch(apiUrl, {
+      headers: {
+        'Accept': 'application/x-ndjson'
+      }
+    });
+    
+    // Handle specific HTTP status codes
+    if (response.status === 404) {
+      console.warn(`User "${username}" not found on Lichess or has no games`);
+      return [];
+    } else if (response.status === 429) {
+      console.warn('Rate limited by Lichess API');
+      throw new Error('Too many requests to Lichess. Please wait a moment and try again.');
+    } else if (response.status >= 500) {
+      console.warn('Lichess server error');
+      throw new Error('Lichess servers are temporarily unavailable. Please try again later.');
+    } else if (!response.ok) {
+      console.warn(`Lichess API error: ${response.status}`);
+      throw new Error(`Unable to fetch games from Lichess (Error ${response.status})`);
+    }
+    
+    // Check if response is empty (no games)
+    const text = await response.text();
+    if (!text || text.trim().length === 0) {
+      console.info(`No games found for user ${username} in the specified date range`);
+      return [];
+    }
+    
+    // Parse NDJSON (newline-delimited JSON) - each line is a separate game JSON object
+    let jsonLines = [];
+    try {
+      jsonLines = text.trim().split('\n').filter(line => line.trim());
+      console.log(`Received ${jsonLines.length} JSON games from Lichess`);
+    } catch (parseError) {
+      console.error('Error parsing Lichess games response:', parseError);
+      throw new Error('Invalid response format from Lichess API');
+    }
+    
+    // Check if we got any valid games
+    if (jsonLines.length === 0) {
+      console.info(`No valid games found for user ${username}`);
+      return [];
+    }
+    
+    // Parse JSON lines to extract game data
+    let processedGames = [];
+    for (let i = 0; i < jsonLines.length; i++) {
+      try {
+        const jsonLine = jsonLines[i];
+        if (!jsonLine || jsonLine.trim().length === 0) continue;
+        
+        // Parse the JSON game data
+        const gameData = JSON.parse(jsonLine);
+        
+        // Extract game data directly from Lichess JSON format
+        const extractedData = {
+          username,
+          game_id: gameData.id,
+          url: `https://lichess.org/${gameData.id}`,
+          time_control: `${gameData.clock.initial}+${gameData.clock.increment}`,
+          end_time: new Date(gameData.lastMoveAt).toISOString(),
+          rated: gameData.rated,
+          time_class: gameData.speed,
+          rules: gameData.variant,
+          white_rating: gameData.players.white.rating,
+          black_rating: gameData.players.black.rating,
+          white_username: gameData.players.white.user.name,
+          black_username: gameData.players.black.user.name,
+          moves: gameData.moves.split(' ').filter(m => m.trim()),
+          player_color: gameData.players.white.user.name.toLowerCase() === username.toLowerCase() ? "white" : "black",
+          result: (() => {
+            const isWhite = gameData.players.white.user.name.toLowerCase() === username.toLowerCase();
+            if (gameData.winner === 'white' && isWhite) return "win";
+            else if (gameData.winner === 'black' && !isWhite) return "win";
+            else if (gameData.winner === 'white' && !isWhite) return "lose";
+            else if (gameData.winner === 'black' && isWhite) return "lose";
+            else return "draw";
+          })(),
+          platform: 'lichess'
+        };
+        
+        // Filter by time control if needed (additional safety check)
+        const gameType = getLichessGameType(extractedData.time_class);
+        if (selectedTimeControls.includes(gameType)) {
+          processedGames.push(extractedData);
+          
+          // Debug logging every 50 games to track result distribution
+          if (processedGames.length % 50 === 0 || i === jsonLines.length - 1) {
+            const wins = processedGames.filter(g => g.result === 'win').length;
+            const losses = processedGames.filter(g => g.result === 'lose').length;
+            const draws = processedGames.filter(g => g.result === 'draw').length;
+            console.log(`📊 After ${processedGames.length} games: ${wins} wins (${((wins/processedGames.length)*100).toFixed(1)}%), ${losses} losses (${((losses/processedGames.length)*100).toFixed(1)}%), ${draws} draws (${((draws/processedGames.length)*100).toFixed(1)}%)`);
+          }
+        }
+      } catch (processError) {
+        console.warn(`Error processing game ${i}:`, processError);
+        // Continue processing other games
+      }
+    }
+    
+    // Final result summary
+    const finalWins = processedGames.filter(g => g.result === 'win').length;
+    const finalLosses = processedGames.filter(g => g.result === 'lose').length;
+    const finalDraws = processedGames.filter(g => g.result === 'draw').length;
+    
+    console.log(`✅ Final Lichess results: ${finalWins} wins (${((finalWins/processedGames.length)*100).toFixed(1)}%), ${finalLosses} losses (${((finalLosses/processedGames.length)*100).toFixed(1)}%), ${finalDraws} draws (${((finalDraws/processedGames.length)*100).toFixed(1)}%)`);
+    console.log(`Successfully processed ${processedGames.length} games from Lichess`);
+    
+    // Sort by date (most recent first) and limit to 1500 games
+    return processedGames
+      .sort((a, b) => new Date(b.end_time) - new Date(a.end_time))
+      .slice(0, 1500);
+    
+  } catch (error) {
+    console.error('Failed to fetch Lichess games:', error);
+    
+    // Handle network errors
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      console.warn('Network error fetching Lichess games');
+      throw new Error('Network error: Unable to connect to Lichess. Please check your internet connection.');
+    }
+    
+    // Re-throw user-friendly errors
+    if (error.message.includes('Too many requests') || 
+        error.message.includes('temporarily unavailable') ||
+        error.message.includes('Invalid response format')) {
+      throw error;
+    }
+    
+    // For other errors, log but return empty array to allow the app to continue
+    console.warn('Unexpected error fetching Lichess games, returning empty array');
+    return [];
+  }
+};
+
 // Mock function to backup to Google Drive
 const backupToGoogleDrive = async (games, googleAccount) => {
   // Simulate Google Drive API call
@@ -656,4 +1052,24 @@ const getGameType = (timeControl) => {
   if (minutes > 30) return 'classical';
   
   return 'daily';
+};
+
+// Helper function to determine Lichess game type from speed
+const getLichessGameType = (speed) => {
+  if (!speed) return 'unknown';
+  
+  switch (speed) {
+    case 'bullet':
+      return 'bullet';
+    case 'blitz':
+      return 'blitz';
+    case 'rapid':
+      return 'rapid';
+    case 'classical':
+      return 'classical';
+    case 'correspondence':
+      return 'correspondence';
+    default:
+      return 'unknown';
+  }
 }; 

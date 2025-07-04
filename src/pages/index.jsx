@@ -108,28 +108,58 @@ function SimpleLoginPrompt() {
                             </div>
                         </div>
 
-                        {/* Connect Button with Chess.com Logo */}
-                        <div className="flex justify-center">
-                            <Button 
-                                onClick={handleConnectClick}
-                                disabled={isNavigating}
-                                size="lg"
-                                className="bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 text-white px-6 py-7 rounded-2xl text-xl font-bold shadow-2xl hover:shadow-3xl transition-all duration-300 group transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed"
-                            >
-                                <div className="flex items-center gap-4">
-                                    {isNavigating ? (
-                                        <>
-                                            <Loader2 className="w-6 h-6 animate-spin" />
-                                            <span>Connecting...</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <img src="/chesscom_logo_wordmark.svg" alt="Chess.com Logo" className="h-8 w-auto transition-all duration-300 group-hover:scale-105" />
-                                            <span>Connect Chess.com Account</span>
-                                        </>
-                                    )}
-                                </div>
-                            </Button>
+                        {/* Connect Buttons for Both Platforms */}
+                        <div className="flex flex-col gap-4 items-center">
+                            <p className="text-slate-400 text-lg font-medium">Choose your chess platform:</p>
+                            
+                            <div className="flex flex-col sm:flex-row gap-4 justify-center w-full max-w-2xl">
+                                {/* Chess.com Button */}
+                                <Button 
+                                    onClick={handleConnectClick}
+                                    disabled={isNavigating}
+                                    size="lg"
+                                    className="bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 text-white px-6 py-6 rounded-xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 group transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed flex-1"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        {isNavigating ? (
+                                            <>
+                                                <Loader2 className="w-6 h-6 animate-spin" />
+                                                <span>Connecting...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <img src="/chesscom_logo_wordmark.svg" alt="Chess.com Logo" className="h-7 w-auto transition-all duration-300 group-hover:scale-105" />
+                                                <span>Connect Chess.com</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </Button>
+
+                                {/* Lichess Button */}
+                                <Button 
+                                    onClick={handleConnectClick}
+                                    disabled={isNavigating}
+                                    size="lg"
+                                    className="bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 text-white px-6 py-6 rounded-xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 group transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed flex-1"
+                                >
+                                    <div className="flex items-center gap-3">
+                                        {isNavigating ? (
+                                            <>
+                                                <Loader2 className="w-6 h-6 animate-spin" />
+                                                <span>Connecting...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div className="flex items-center gap-2">
+                                                    <img src="/Lichess_Logo_2019.svg.png" alt="Lichess" className="h-7 w-7 transition-all duration-300 group-hover:scale-105" />
+                                                    <span className="text-lg font-semibold">Lichess</span>
+                                                </div>
+                                                <span>Connect Lichess</span>
+                                            </>
+                                        )}
+                                    </div>
+                                </Button>
+                            </div>
                         </div>
                     </div>
 

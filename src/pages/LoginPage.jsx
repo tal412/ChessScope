@@ -25,10 +25,12 @@ export default function LoginPage() {
   const [isVisible, setIsVisible] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   
+  const [selectedPlatform, setSelectedPlatform] = useState('');
+  const [username, setUsername] = useState('');
   const [chessComUsername, setChessComUsername] = useState('');
   const [googleAccount, setGoogleAccount] = useState('');
   const [error, setError] = useState('');
-  const [step, setStep] = useState(1); // 1: Connect Account, 2: Google Drive (optional)
+  const [step, setStep] = useState(0); // 0: Platform Selection, 1: Connect Account, 2: Google Drive (optional)
   
   // Import settings - matching the import page exactly
   const [selectedTimeControls, setSelectedTimeControls] = useState(['rapid']); // Default selection
@@ -55,6 +57,13 @@ export default function LoginPage() {
         setStep(1);
         setIsVisible(true);
       }, 100);
+    } else if (step === 1) {
+      // Go back to step 0
+      setIsVisible(false);
+      setTimeout(() => {
+        setStep(0);
+        setIsVisible(true);
+      }, 100);
     } else {
       // Go back to home
       setIsLeaving(true);
@@ -74,10 +83,28 @@ export default function LoginPage() {
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
-  const handleChessComSubmit = async (e) => {
+  const handlePlatformSelection = (platform) => {
+    setSelectedPlatform(platform);
+    setError('');
+    
+    // Update default time controls based on platform
+    if (platform === 'lichess') {
+      setSelectedTimeControls(['rapid']);
+    } else {
+      setSelectedTimeControls(['rapid']);
+    }
+    
+    setIsVisible(false);
+    setTimeout(() => {
+      setStep(1);
+      setIsVisible(true);
+    }, 100);
+  };
+
+  const handleAccountSubmit = async (e) => {
     e.preventDefault();
-    if (!chessComUsername.trim()) {
-      setError('Please enter your Chess.com username');
+    if (!username.trim()) {
+      setError(`Please enter your ${selectedPlatform === 'lichess' ? 'Lichess' : 'Chess.com'} username`);
       return;
     }
 
@@ -109,12 +136,12 @@ export default function LoginPage() {
         autoSync
       };
       
-      const result = await login(chessComUsername, importSettings);
+      const result = await login(username, selectedPlatform, importSettings);
       if (result.success) {
         // The onComplete callback will handle moving to step 2
         // No need for setTimeout here since SettingsLoading handles the timing
       } else {
-        setError(result.error || 'Failed to connect Chess.com account');
+        setError(result.error || `Failed to connect ${selectedPlatform === 'lichess' ? 'Lichess' : 'Chess.com'} account`);
       }
     } catch {
       setError('Connection failed. Please check your username and try again.');
@@ -156,6 +183,116 @@ export default function LoginPage() {
     }, 100);
   };
 
+  // Step 0: Platform Selection
+  if (step === 0) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 relative">
+        {/* Back Button */}
+        <Button
+          onClick={handleBack}
+          variant="ghost"
+          className={`absolute top-6 left-6 text-slate-400 hover:text-white transition-all duration-500 ${
+            isVisible && !isLeaving ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform -translate-x-4'
+          }`}
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          Back
+        </Button>
+
+        <div className={`w-full max-w-4xl transition-all duration-500 ${
+          isLeaving ? 'transform -translate-x-8 opacity-0' :
+          isVisible ? 'transform translate-x-0 opacity-100' : 
+          'transform translate-x-8 opacity-0'
+        }`}>
+          <div className={`text-center mb-12 transition-all duration-500 delay-75 ${
+            isLeaving ? 'opacity-0 transform -translate-x-4' :
+            isVisible ? 'opacity-100 transform translate-x-0' : 
+            'opacity-0 transform translate-x-4'
+          }`}>
+            <div className="flex items-center justify-center mb-6">
+              <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center">
+                <Shield className="w-8 h-8 text-slate-900" />
+              </div>
+            </div>
+            <h1 className="text-4xl font-bold text-white mb-3">Welcome to ChessScope</h1>
+            <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+              Choose your chess platform to analyze your opening performance and discover patterns in your games
+            </p>
+          </div>
+
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto transition-all duration-500 delay-100 ${
+            isLeaving ? 'opacity-0 transform -translate-x-6' :
+            isVisible ? 'opacity-100 transform translate-x-0' : 
+            'opacity-0 transform translate-x-6'
+          }`}>
+            {/* Chess.com Platform */}
+            <Card 
+              className="bg-slate-800/50 backdrop-blur-xl border-slate-700/50 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group"
+              onClick={() => handlePlatformSelection('chess.com')}
+            >
+              <CardContent className="p-8">
+                <div className="flex flex-col items-center space-y-6">
+                  <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                    <img src="/chesscom_logo_pawn.svg" alt="Chess.com" className="w-12 h-12" />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="text-2xl font-bold text-white mb-2">Chess.com</h3>
+                    <p className="text-slate-400 text-sm">
+                      Connect your Chess.com account to analyze your games and openings
+                    </p>
+                  </div>
+                  <div className="bg-slate-700/30 p-4 rounded-lg border border-slate-600/50 w-full">
+                    <div className="flex items-start gap-3">
+                      <Shield className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="text-slate-200 font-medium mb-1">Secure Access</p>
+                        <p className="text-slate-400">
+                          Only public game data is accessed through Chess.com's official API
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Lichess Platform */}
+            <Card 
+              className="bg-slate-800/50 backdrop-blur-xl border-slate-700/50 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group"
+              onClick={() => handlePlatformSelection('lichess')}
+            >
+              <CardContent className="p-8">
+                <div className="flex flex-col items-center space-y-6">
+                  <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
+                    <img src="/Lichess_Logo_2019.svg.png" alt="Lichess" className="w-12 h-12" />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="text-2xl font-bold text-white mb-2">Lichess</h3>
+                    <p className="text-slate-400 text-sm">
+                      Connect your Lichess account to analyze your games and openings
+                    </p>
+                  </div>
+                  <div className="bg-slate-700/30 p-4 rounded-lg border border-slate-600/50 w-full">
+                    <div className="flex items-start gap-3">
+                      <Shield className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm">
+                        <p className="text-slate-200 font-medium mb-1">Open Source</p>
+                        <p className="text-slate-400">
+                          Connect to the free, open-source chess platform with comprehensive data
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Step 1: Account Connection
   if (step === 1) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6 relative">
@@ -186,13 +323,13 @@ export default function LoginPage() {
                 <Shield className="w-8 h-8 text-slate-900" />
               </div>
             </div>
-            <h1 className="text-4xl font-bold text-white mb-3">Welcome to ChessScope</h1>
+            <h1 className="text-4xl font-bold text-white mb-3">Connect Your {selectedPlatform === 'lichess' ? 'Lichess' : 'Chess.com'} Account</h1>
             <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-              Connect your Chess.com account to analyze your opening performance and discover patterns in your games
+              Configure your import settings and connect to analyze your opening performance and discover patterns in your games
             </p>
           </div>
 
-          <form onSubmit={handleChessComSubmit} className="space-y-8">
+          <form onSubmit={handleAccountSubmit} className="space-y-8">
             <div className={`grid grid-cols-1 lg:grid-cols-3 gap-8 transition-all duration-500 delay-100 ${
               isLeaving ? 'opacity-0 transform -translate-x-6' :
               isVisible ? 'opacity-100 transform translate-x-0' : 
@@ -207,21 +344,28 @@ export default function LoginPage() {
                     </div>
                     <div>
                       <CardTitle className="text-xl text-white">Connect Account</CardTitle>
-                      <p className="text-slate-400 text-sm">Link your Chess.com profile</p>
+                      <p className="text-slate-400 text-sm">Link your {selectedPlatform === 'lichess' ? 'Lichess' : 'Chess.com'} profile</p>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
-                    <div className="mb-2">
-                      <img src="/chesscom_logo_wordmark.svg" alt="Chess.com Logo" className="h-8 w-auto" />
+                    <div className="mb-2 flex items-center gap-2">
+                      {selectedPlatform === 'lichess' ? (
+                        <div className="flex items-center gap-2">
+                          <img src="/Lichess_Logo_2019.svg.png" alt="Lichess" className="h-8 w-8" />
+                          <span className="text-white font-semibold text-lg">Lichess</span>
+                        </div>
+                      ) : (
+                        <img src="/chesscom_logo_wordmark.svg" alt="Chess.com Logo" className="h-8 w-auto" />
+                      )}
                     </div>
-                    <Label htmlFor="username" className="sr-only">Chess.com Username</Label>
+                    <Label htmlFor="username" className="sr-only">{selectedPlatform === 'lichess' ? 'Lichess' : 'Chess.com'} Username</Label>
                     <Input
                       id="username"
                       type="text"
-                      value={chessComUsername}
-                      onChange={(e) => setChessComUsername(e.target.value)}
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
                       placeholder="Enter your username"
                       className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-500"
                       disabled={isImporting}
@@ -257,12 +401,18 @@ export default function LoginPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {[
+                  {(selectedPlatform === 'lichess' ? [
+                    { id: 'bullet', label: 'Bullet', desc: '< 3 minutes' },
+                    { id: 'blitz', label: 'Blitz', desc: '3-8 minutes' },
+                    { id: 'rapid', label: 'Rapid', desc: '8-25 minutes' },
+                    { id: 'classical', label: 'Classical', desc: '> 25 minutes' },
+                    { id: 'correspondence', label: 'Correspondence', desc: 'Several days' }
+                  ] : [
                     { id: 'bullet', label: 'Bullet', desc: '< 3 minutes' },
                     { id: 'blitz', label: 'Blitz', desc: '3-10 minutes' },
                     { id: 'rapid', label: 'Rapid', desc: '10-30 minutes' },
                     { id: 'daily', label: 'Daily', desc: 'Correspondence' }
-                  ].map((timeControl) => (
+                  ]).map((timeControl) => (
                     <div key={timeControl.id} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-slate-700/30 transition-colors">
                       <Checkbox
                         id={timeControl.id}

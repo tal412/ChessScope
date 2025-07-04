@@ -722,9 +722,24 @@ function PerformanceGraphContent() {
         setGraphLoaded(true); // Trigger recalculation
         setInitialLoad(false); // Mark initial load as complete
         
+        // Auto-detect user's primary playing color and set as default
+        const overallStats = graph.getOverallStats();
+        const whiteGames = overallStats.white?.totalGames || 0;
+        const blackGames = overallStats.black?.totalGames || 0;
+        
+        // Set selectedPlayer to the color with more games (or white if equal)
+        if (blackGames > whiteGames) {
+          console.log(`🎯 Auto-detected primary color: black (${blackGames} games vs ${whiteGames} white games)`);
+          setSelectedPlayer('black');
+        } else if (whiteGames > 0) {
+          console.log(`🎯 Auto-detected primary color: white (${whiteGames} games vs ${blackGames} black games)`);
+          setSelectedPlayer('white');
+        } else {
+          console.log('🎯 No games found, keeping default white selection');
+        }
+        
         // Also set up opening moves with the same graph
         setOpeningGraph(graph);
-        const overallStats = graph.getOverallStats();
         setMovesStats(overallStats);
         
 
@@ -1181,13 +1196,22 @@ function PerformanceGraphContent() {
                 return;
               }
               
+              const calculatedWinRate = move.details?.winRate || move.winRate || 0;
+              
+              // Debug logging for Lichess win rates
+              if (currentLevel === 1 && calculatedWinRate < 40) {
+                console.log(`🔍 DEBUG Low win rate for ${move.san}: ${calculatedWinRate}% (${gameCount} games)`);
+                console.log(`  - move.details:`, move.details);
+                console.log(`  - move.winRate:`, move.winRate);
+              }
+              
               const childNode = {
                 id: nodeId,
                 type: 'chessPosition',
                 position: { x: 0, y: 0 }, // Will be calculated later
                 data: {
                   fen: move.toFen,
-                  winRate: move.details?.winRate || move.winRate || 0,
+                  winRate: calculatedWinRate,
                   gameCount: gameCount,
                   san: move.san,
                   openingName: move.openingInfo?.name || 'Unknown Opening',
@@ -1536,6 +1560,27 @@ function PerformanceGraphContent() {
         edges: validEdges, 
         maxGameCount 
       };
+      
+      // Debug: Show win rate distribution for Lichess
+      if (validNodes.length > 0) {
+        const winRates = validNodes.map(n => n.data.winRate || 0);
+        const avgWinRate = winRates.reduce((a, b) => a + b, 0) / winRates.length;
+        const minWinRate = Math.min(...winRates);
+        const maxWinRate = Math.max(...winRates);
+        
+        const redNodes = winRates.filter(wr => wr < 40).length;
+        const orangeNodes = winRates.filter(wr => wr >= 40 && wr < 50).length;
+        const yellowNodes = winRates.filter(wr => wr >= 50 && wr < 60).length;
+        const greenNodes = winRates.filter(wr => wr >= 60).length;
+        
+        console.log(`📊 WIN RATE DISTRIBUTION (${validNodes.length} nodes):`);
+        console.log(`  - Average: ${avgWinRate.toFixed(1)}%`);
+        console.log(`  - Range: ${minWinRate.toFixed(1)}% - ${maxWinRate.toFixed(1)}%`);
+        console.log(`  - Red (<40%): ${redNodes} nodes`);
+        console.log(`  - Orange (40-50%): ${orangeNodes} nodes`);
+        console.log(`  - Yellow (50-60%): ${yellowNodes} nodes`);
+        console.log(`  - Green (60%+): ${greenNodes} nodes`);
+      }
       
       // Set the graph data and clear generating state
       setGraphData(finalGraphData);

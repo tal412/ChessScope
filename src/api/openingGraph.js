@@ -29,6 +29,11 @@ class GraphNode {
     this.gameResults.push(gameIndex);
     this.details.totalGames++;
     
+    // Debug logging for Lichess result processing
+    if (gameIndex < 5) { // Only log first 5 games to avoid spam
+      console.log(`🎯 DEBUG Opening Graph - Game ${gameIndex}: result="${result}", position games: ${this.details.totalGames}`);
+    }
+    
     switch (result) {
       case 'win':
         this.details.wins++;
@@ -38,6 +43,10 @@ class GraphNode {
         break;
       case 'draw':
         this.details.draws++;
+        break;
+      default:
+        console.warn(`⚠️ Unknown game result: "${result}" for game ${gameIndex}`);
+        this.details.draws++; // Default to draw
         break;
     }
     
@@ -100,6 +109,11 @@ class Graph {
     
     // Add this game to pgnStats for reference with full metadata
     const gameIndex = this.pgnStats.length;
+    
+    // Debug logging for Lichess games
+    if (gameIndex < 5) { // Only log first 5 games to avoid spam
+      console.log(`🎮 DEBUG addPGN - Game ${gameIndex}: result="${gameResult}", player="${this.playerColor}", moves: ${moves.length}`);
+    }
     this.pgnStats.push({
       result: gameResult,
       opponentRating,
@@ -410,6 +424,11 @@ export class OpeningGraph {
   // Add a PGN game to the appropriate graph
   async addGame(gameData) {
     const { moves, player_color, result, opening } = gameData;
+    
+    // Debug logging for first few games
+    if (this.whiteGraph.pgnStats.length + this.blackGraph.pgnStats.length < 5) {
+      console.log(`📊 DEBUG addGame: result="${result}", player_color="${player_color}", moves: ${moves?.length || 0}`);
+    }
     
     // Determine opponent rating
     const opponentRating = player_color === 'white' 
