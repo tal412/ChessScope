@@ -95,6 +95,10 @@ export default function InteractiveChessboard({
   const [positionExistsInGraph, setPositionExistsInGraph] = useState(true);
   const [openingLoadingCache, setOpeningLoadingCache] = useState(new Map()); // Cache for opening lookups
   const [positionInOpenings, setPositionInOpenings] = useState([]); // Track which openings contain this position
+  
+  // Create stable reference for currentMoves to prevent infinite re-renders
+  const stableCurrentMoves = useMemo(() => currentMoves, [currentMoves.length, currentMoves.join(',')]);
+  const stableGraphNodes = useMemo(() => graphNodes, [graphNodes.length]);
 
   // Calculate valid moves in chessground format
   const calculateDests = useCallback((game) => {
@@ -304,7 +308,7 @@ export default function InteractiveChessboard({
     setSelected(null);
     setTopMoves([]); // Clear Stockfish arrows when position changes externally
     setStockfishEnabled(false); // Disable Stockfish on position changes
-  }, [currentMoves, currentMoveIndex]);
+  }, [stableCurrentMoves, currentMoveIndex]);
 
   // Update move index when current moves change from external source
   useEffect(() => {
@@ -321,7 +325,9 @@ export default function InteractiveChessboard({
       // Check if we already have this FEN cached
       if (openingLoadingCache.has(currentFen)) {
         const cached = openingLoadingCache.get(currentFen);
-        setCurrentOpeningInfo(cached.openingInfo);
+        if (cached.openingInfo) {
+          setCurrentOpeningInfo(cached.openingInfo);
+        }
         setPositionExistsInGraph(cached.existsInGraph);
         setPositionInOpenings(cached.inOpenings || []);
         return;
@@ -360,7 +366,7 @@ export default function InteractiveChessboard({
          } else {
            // No opening found, just update graph existence but keep current opening name
            const cacheEntry = {
-             openingInfo: currentOpeningInfo, // Keep current opening info
+             openingInfo: null, // Don't cache incomplete info
              existsInGraph: positionExists,
              inOpenings: inOpenings
            };
@@ -385,12 +391,12 @@ export default function InteractiveChessboard({
     };
     
     updatePositionInfo();
-  }, [game.fen(), graphNodes, currentMoves, openingLoadingCache]);
+  }, [game.fen(), stableGraphNodes, stableCurrentMoves]); // Use stable dependencies to prevent infinite loop
 
   // Helper function to get formatted opening name for display
   const getFormattedOpeningName = () => {
     // For starting position, always show just "Starting Position" without ECO
-    if (currentMoves.length === 0) {
+    if (stableCurrentMoves.length === 0) {
       return "Starting Position";
     }
     

@@ -1152,4 +1152,268 @@ function euclideanDistance(a, b) {
   return Math.sqrt(
     a.reduce((sum, val, i) => sum + Math.pow(val - b[i], 2), 0)
   );
-} 
+}
+
+// Shared clustering utilities for performance graphs
+
+// Opening cluster colors - SINGLE NICE PURPLE SHADE
+const SINGLE_PURPLE_COLOR = { bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' };
+const OPENING_CLUSTER_COLORS = Array(15).fill(SINGLE_PURPLE_COLOR);
+
+// Gray color for unclustered openings
+const UNCLUSTERED_OPENING_COLOR = { bg: '#64748b', border: '#475569', text: '#ffffff' };
+
+// Helper function to find connected components in opening subgraphs
+const findConnectedComponents = (nodes, nodeMap, childrenMap) => {
+  const visited = new Set();
+  const components = [];
+  
+  // DFS to find all nodes reachable from startNode through same-opening connections
+  const dfs = (nodeId, component, targetOpening) => {
+    if (visited.has(nodeId)) return;
+    
+    const node = nodeMap.get(nodeId);
+    if (!node || (node.data.ecoOpeningName || 'Unknown Opening') !== targetOpening) return;
+    
+    visited.add(nodeId);
+    component.push(node);
+    
+    // Visit children that have the same opening
+    const children = childrenMap.get(nodeId) || [];
+    children.forEach(childId => {
+      const childNode = nodeMap.get(childId);
+      if (childNode && (childNode.data.ecoOpeningName || 'Unknown Opening') === targetOpening) {
+        dfs(childId, component, targetOpening);
+      }
+    });
+    
+    // Visit parent if it has the same opening
+    const parentId = [...childrenMap.entries()].find(([_, children]) => children.includes(nodeId))?.[0];
+    if (parentId) {
+      const parentNode = nodeMap.get(parentId);
+      if (parentNode && (parentNode.data.ecoOpeningName || 'Unknown Opening') === targetOpening) {
+        dfs(parentId, component, targetOpening);
+      }
+    }
+  };
+  
+  // Find connected components for each opening
+  nodes.forEach(node => {
+    if (visited.has(node.id)) return;
+    
+    const opening = node.data.ecoOpeningName || 'Unknown Opening';
+    const component = [];
+    dfs(node.id, component, opening);
+    
+    if (component.length > 0) {
+      components.push(component);
+    }
+  });
+  
+  return components;
+};
+
+// Function to create opening-based node clusters using connected components
+export const createOpeningClusters = (nodes) => {
+  if (!nodes || nodes.length === 0) return [];
+  
+  // Filter out root nodes
+  const nonRootNodes = nodes.filter(node => !node.data.isRoot);
+  if (nonRootNodes.length === 0) return [];
+  
+  // Build tree structure maps
+  const nodeMap = new Map();
+  const childrenMap = new Map();
+  
+  // Build node map and initialize children map
+  nonRootNodes.forEach(node => {
+    nodeMap.set(node.id, node);
+    childrenMap.set(node.id, []);
+  });
+  
+  // Build parent-child relationships
+  nonRootNodes.forEach(node => {
+    const nodeSequence = node.data.moveSequence || [];
+    if (nodeSequence.length > 0) {
+      const parentSequence = nodeSequence.slice(0, -1);
+      
+      // Find parent node
+      const parentNode = nonRootNodes.find(n => {
+        const parentSeq = n.data.moveSequence || [];
+        return parentSeq.length === parentSequence.length &&
+               parentSeq.every((move, index) => move === parentSequence[index]);
+      });
+      
+      if (parentNode) {
+        const parentChildren = childrenMap.get(parentNode.id) || [];
+        parentChildren.push(node.id);
+        childrenMap.set(parentNode.id, parentChildren);
+      }
+    }
+  });
+  
+  // Find connected components where nodes can only be connected if they share the same opening
+  // AND there's a direct tree path between them through nodes of the same opening
+  const connectedComponents = findConnectedComponents(nonRootNodes, nodeMap, childrenMap);
+  
+  const clusters = [];
+  let clusterIdCounter = 0;
+  
+  // Convert connected components to clusters
+  connectedComponents.forEach(component => {
+    if (component.length === 0) return;
+    
+    const opening = component[0].data.ecoOpeningName || 'Unknown Opening';
+    
+    // Group components by opening name to add branch numbers if needed
+    const existingClustersForOpening = clusters.filter(c => c.openingName === opening);
+    
+    let clusterName = opening;
+    if (existingClustersForOpening.length > 0) {
+      clusterName += ` (Branch ${existingClustersForOpening.length + 1})`;
+    }
+    
+    clusters.push({
+      id: clusterIdCounter,
+      name: clusterName,
+      nodes: component,
+      nodeCount: component.length,
+      totalGames: component.reduce((sum, node) => sum + (node.data.gameCount || 0), 0),
+      avgWinRate: component.reduce((sum, node) => sum + (node.data.winRate || 0), 0) / component.length,
+      colorIndex: clusterIdCounter, // Each cluster gets its own color
+      openingName: opening // Store original opening name
+    });
+    
+    clusterIdCounter++;
+  });
+  
+  // Sort clusters by node count (descending), then alphabetically
+  clusters.sort((a, b) => {
+    // First by node count (descending)
+    if (b.nodeCount !== a.nodeCount) {
+      return b.nodeCount - a.nodeCount;
+    }
+    // Then alphabetically by name
+    return a.name.localeCompare(b.name);
+  });
+  
+  return clusters;
+};
+
+// Function to create position-based clusters for current position and ALL its descendants
+export const createPositionClusters = (nodes, currentFen) => {
+  if (!nodes || nodes.length === 0 || !currentFen) return [];
+
+  const clusters = [];
+  
+  // Find all nodes with the current FEN (transpositions) - EXCLUDE ROOT NODES
+  const currentPositionNodes = nodes.filter(node => 
+    node.data.fen === currentFen && !node.data.isRoot
+  );
+  
+  if (currentPositionNodes.length === 0) return [];
+
+  // For each instance of the current position, create a cluster with ALL its descendants
+  currentPositionNodes.forEach((parentNode, clusterIndex) => {
+    
+    // Recursively find ALL descendants of this parent node
+    const findAllDescendants = (ancestorNode, allNodes) => {
+      const descendants = [];
+      const ancestorMoves = ancestorNode.data.moveSequence || [];
+      
+      // Find all nodes that are descendants of this ancestor
+      allNodes.forEach(candidateNode => {
+        const candidateMoves = candidateNode.data.moveSequence || [];
+        
+        // Check if candidate is a descendant (longer sequence that starts with ancestor's moves)
+        if (candidateMoves.length > ancestorMoves.length &&
+            ancestorMoves.every((move, index) => move === candidateMoves[index])) {
+          descendants.push(candidateNode);
+        }
+      });
+      
+      return descendants;
+    };
+
+    const descendantNodes = findAllDescendants(parentNode, nodes);
+
+    // Create cluster whether there are descendants or not (for single leaf nodes too)
+    const clusterNodes = [parentNode, ...descendantNodes];
+    
+    // Count immediate children for display
+    const immediateChildren = descendantNodes.filter(childNode => {
+      const parentMoves = parentNode.data.moveSequence || [];
+      const childMoves = childNode.data.moveSequence || [];
+      return childMoves.length === parentMoves.length + 1;
+    });
+    
+    // Create appropriate cluster name based on whether it has descendants
+    let clusterName;
+    if (descendantNodes.length > 0) {
+      clusterName = `Position ${clusterIndex + 1} (${immediateChildren.length} moves, ${descendantNodes.length} total nodes)`;
+    } else {
+      // Single leaf node - create cluster around just this position
+      clusterName = `Leaf Position ${clusterIndex + 1} (single position)`;
+    }
+    
+    clusters.push({
+      id: `position-cluster-${clusterIndex}`,
+      name: clusterName,
+      parentNode: parentNode,
+      childNodes: immediateChildren, // Immediate children for reference (empty for leaf nodes)
+      descendantNodes: descendantNodes, // ALL descendants (empty for leaf nodes)
+      allNodes: clusterNodes, // Just the parent node for leaf positions
+      nodeCount: clusterNodes.length,
+      type: 'position',
+      isLeafCluster: descendantNodes.length === 0, // Flag to identify leaf clusters
+      colorIndex: clusterIndex % 3 // Cycle through 3 colors for different transpositions
+    });
+  });
+
+  return clusters;
+};
+
+// Function to enrich nodes with opening cluster information and current position
+export const enrichNodesWithOpeningClusters = (nodes, clusters, currentNodeId, hoveredNextMoveNodeId, openingClusteringEnabled, nodeOpeningsMap = new Map()) => {
+  const baseEnrichedNodes = nodes.map(node => {
+    const savedOpenings = nodeOpeningsMap.get(node.data.fen) || [];
+    return {
+      ...node,
+      data: {
+        ...node.data,
+        isCurrentPosition: node.id === currentNodeId, // Add current position info
+        isHoveredNextMove: node.id === hoveredNextMoveNodeId, // Add hovered next move info
+        openingClusteringEnabled: openingClusteringEnabled && clusters.length > 0,
+        openingClusterId: undefined,
+        savedOpenings: savedOpenings, // Add saved openings info
+        inSavedOpening: savedOpenings.length > 0
+      }
+    };
+  });
+
+  if (!openingClusteringEnabled || clusters.length === 0) {
+    return baseEnrichedNodes;
+  }
+  
+  // Create node-to-cluster mapping
+  const nodeToClusterMap = new Map();
+  
+  clusters.forEach((cluster, clusterIndex) => {
+    cluster.nodes.forEach(node => {
+      nodeToClusterMap.set(node.id, clusterIndex);
+    });
+  });
+  
+  // Enrich nodes with cluster information (for background shapes)
+  return baseEnrichedNodes.map(node => ({
+    ...node,
+    data: {
+      ...node.data,
+      openingClusteringEnabled: true,
+      openingClusterId: nodeToClusterMap.get(node.id) ?? -1 // -1 for unclustered
+    }
+  }));
+};
+
+// Export cluster colors for use in components
+export { OPENING_CLUSTER_COLORS, UNCLUSTERED_OPENING_COLOR }; 

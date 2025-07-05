@@ -21,18 +21,23 @@ const PERFORMANCE_COLORS = {
   solid: { bg: '#f59e0b', border: '#d97706', text: '#000000' },
   challenging: { bg: '#f97316', border: '#ea580c', text: '#ffffff' },
   difficult: { bg: '#dc2626', border: '#b91c1c', text: '#ffffff' },
+  missing: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' }, // Gray for missing moves
 };
 
 // Opening tree node colors
 const OPENING_NODE_COLORS = {
-  mainLine: { bg: '#f59e0b', border: '#d97706', text: '#000000' }, // Amber for main line
-  variation: { bg: '#64748b', border: '#475569', text: '#ffffff' }, // Slate for variations
+  // New color scheme based on move color
+  whiteMove: { bg: '#ffffff', border: '#d1d5db', text: '#000000' }, // White background for white moves
+  blackMove: { bg: '#1f2937', border: '#374151', text: '#ffffff' }, // Black background for black moves
   selected: { bg: '#3b82f6', border: '#2563eb', text: '#ffffff' }, // Blue for selected
   withComment: { bg: '#06b6d4', border: '#0891b2', text: '#ffffff' }, // Cyan for annotated
   withLinks: { bg: '#10b981', border: '#059669', text: '#ffffff' }, // Green for links
+  missing: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' }, // Gray for missing moves
+  startNode: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' }, // Gray for start node
 };
 
-const getPerformanceData = (winRate, gameCount) => {
+const getPerformanceData = (winRate, gameCount, isMissing = false) => {
+  if (isMissing || winRate === null || winRate === undefined) return PERFORMANCE_COLORS.missing;
   if (winRate >= 70) return PERFORMANCE_COLORS.excellent;
   if (winRate >= 60) return PERFORMANCE_COLORS.good;
   if (winRate >= 50) return PERFORMANCE_COLORS.solid;
@@ -41,11 +46,22 @@ const getPerformanceData = (winRate, gameCount) => {
 };
 
 const getOpeningNodeColor = (node, isSelected) => {
-  if (isSelected) return OPENING_NODE_COLORS.selected;
+  if (node.data.isMissing) return OPENING_NODE_COLORS.missing;
+  // Remove selected node color change - we'll handle selection with glow only
+  // if (isSelected) return OPENING_NODE_COLORS.selected;
   if (node.data.hasLinks && node.data.hasLinks > 0) return OPENING_NODE_COLORS.withLinks;
   if (node.data.hasComment) return OPENING_NODE_COLORS.withComment;
-  if (node.data.isMainLine) return OPENING_NODE_COLORS.mainLine;
-  return OPENING_NODE_COLORS.variation;
+  
+  // For root node, use gray start node styling
+  if (node.data.isRoot) {
+    return OPENING_NODE_COLORS.startNode;
+  }
+  
+  // Get move sequence to determine if this is a white or black move
+  const moveSequence = node.data.moveSequence || [];
+  const isWhiteMove = moveSequence.length % 2 === 1; // Odd move number = white move
+  
+  return isWhiteMove ? OPENING_NODE_COLORS.whiteMove : OPENING_NODE_COLORS.blackMove;
 };
 
 // Function to create convex hull for organic cluster shapes
@@ -177,6 +193,7 @@ const CanvasPerformanceGraph = ({
   showPositionClusters = false,
   onFitView, // Callback to expose fitView function
   onZoomToClusters, // Callback to expose zoomToClusters function
+  onZoomTo, // Callback to expose generic zoomTo function
   onToggleOpeningClusters, // Callback for opening cluster toggle
   onTogglePositionClusters, // Callback for position cluster toggle
   onClusterHover, // Callback for cluster hover
@@ -184,6 +201,7 @@ const CanvasPerformanceGraph = ({
   hoveredOpeningName = null, // Current hovered opening name
   hoveredClusterColor = null, // Current hovered cluster color
   onResizeStateChange, // Callback to notify parent of resize state
+  onInitializingStateChange, // Callback to notify parent of initialization state
   // Control props to match ReactFlow version
   maxDepth = 20,
   minGameCount = 20,
@@ -233,6 +251,13 @@ const CanvasPerformanceGraph = ({
       onResizeStateChange(isResizing);
     }
   }, [isResizing, onResizeStateChange]);
+  
+  // Notify parent of initialization state changes
+  useEffect(() => {
+    if (onInitializingStateChange) {
+      onInitializingStateChange(isInitializing);
+    }
+  }, [isInitializing, onInitializingStateChange]);
   
   // Animation state for smooth fit view - like ReactFlow
   const animationStateRef = useRef(null);
@@ -531,7 +556,7 @@ const CanvasPerformanceGraph = ({
         setIsInitialPositioningComplete(true);
       }, 100);
     }
-  }, [graphData, calculateOptimalTransform, dimensions, isInitialPositioningComplete]); // Removed positionedNodes.length dependency
+  }, [graphData, calculateOptimalTransform, dimensions]); // Removed positionedNodes.length and isInitialPositioningComplete dependencies to prevent infinite loop
 
   // Fallback timeout to prevent initialization from getting stuck
   useEffect(() => {
@@ -774,7 +799,7 @@ const CanvasPerformanceGraph = ({
           // Opening mode edge rendering - simpler style
           const isMainLine = source.data.isMainLine && target.data.isMainLine;
           
-          ctx.strokeStyle = isMainLine ? '#f59e0b' : '#64748b';
+          ctx.strokeStyle = isMainLine ? '#8b5cf6' : '#64748b'; // Purple for main line, gray for variations
           ctx.lineWidth = isMainLine ? 3 : 2;
           ctx.lineCap = 'round';
           ctx.globalAlpha = isMainLine ? 1 : 0.7;
@@ -789,7 +814,7 @@ const CanvasPerformanceGraph = ({
           ctx.globalAlpha = 1;
         } else {
           // Performance mode edge rendering (existing)
-          const perfData = getPerformanceData(edge.data?.winRate || 0, edge.data?.gameCount || 0);
+          const perfData = getPerformanceData(edge.data?.winRate || 0, edge.data?.gameCount || 0, edge.data?.isMissing);
           const thickness = Math.max(4, Math.min(12, 4 + ((edge.data?.gameCount || 0) / 25)));
 
           ctx.strokeStyle = perfData.border;
@@ -848,11 +873,21 @@ const CanvasPerformanceGraph = ({
         
         renderedNodeCount++;
 
-        // Glow effect for special states
-        if (isCurrentNode || isHoveredNextMove) {
-          const glowColor = isCurrentNode ? '#3b82f6' : '#8b5cf6';
+        // Glow effect for special states and main line
+        if (isCurrentNode || isHoveredNextMove || node.data.isMainLine) {
+          let glowColor = '#8b5cf6'; // Purple glow for main line
+          let glowIntensity = 15;
+          
+          if (isCurrentNode) {
+            glowColor = '#3b82f6'; // Blue glow for current node (overrides main line)
+            glowIntensity = 20;
+          } else if (isHoveredNextMove) {
+            glowColor = '#8b5cf6'; // Purple glow for hovered next move
+            glowIntensity = 15;
+          }
+          
           ctx.shadowColor = glowColor;
-          ctx.shadowBlur = isCurrentNode ? 20 : 15;
+          ctx.shadowBlur = glowIntensity;
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = 0;
         } else {
@@ -918,17 +953,11 @@ const CanvasPerformanceGraph = ({
             ctx.fillText('🔗', iconX, centerY + 30);
           }
           
-          // Show variation indicator
-          if (!node.data.isMainLine) {
-            ctx.font = `500 16px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-            ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
-            ctx.strokeStyle = 'transparent';
-            ctx.fillText('variation', centerX, centerY + 55);
-          }
+          // Removed variation text overlay as requested
         }
       } else {
         // Performance mode rendering (existing code)
-        const perfData = getPerformanceData(node.data.winRate || 0, node.data.gameCount || 0);
+        const perfData = getPerformanceData(node.data.winRate || 0, node.data.gameCount || 0, node.data.isMissing);
         const isCurrentNode = node.id === currentNodeId;
         const isHoveredNextMove = node.id === hoveredNextMoveNodeId;
         const isHovered = hoveredNode?.id === node.id;
@@ -1022,16 +1051,23 @@ const CanvasPerformanceGraph = ({
           ctx.strokeText(node.data.san || '?', centerX, centerY - 35);
           ctx.fillText(node.data.san || '?', centerX, centerY - 35);
           
-          // Win rate (middle line) - MUCH LARGER (centered)
-          const winRate = Math.round(node.data.winRate || 0);
-          ctx.font = `600 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-          ctx.strokeText(`${winRate}%`, centerX, centerY);
-          ctx.fillText(`${winRate}%`, centerX, centerY);
-          
-          // Game count (bottom line) - MUCH LARGER (better spacing)
-          ctx.font = `500 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-          ctx.strokeText(`${node.data.gameCount || 0}g`, centerX, centerY + 35);
-          ctx.fillText(`${node.data.gameCount || 0}g`, centerX, centerY + 35);
+          if (node.data.isMissing) {
+            // Missing node - show "No Data" instead of win rate and game count
+            ctx.font = `600 20px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+            ctx.strokeText('No Data', centerX, centerY + 10);
+            ctx.fillText('No Data', centerX, centerY + 10);
+          } else {
+            // Win rate (middle line) - MUCH LARGER (centered)
+            const winRate = Math.round(node.data.winRate || 0);
+            ctx.font = `600 26px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+            ctx.strokeText(`${winRate}%`, centerX, centerY);
+            ctx.fillText(`${winRate}%`, centerX, centerY);
+            
+            // Game count (bottom line) - MUCH LARGER (better spacing)
+            ctx.font = `500 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+            ctx.strokeText(`${node.data.gameCount || 0}g`, centerX, centerY + 35);
+            ctx.fillText(`${node.data.gameCount || 0}g`, centerX, centerY + 35);
+          }
         }
       }
       
@@ -1420,9 +1456,8 @@ const CanvasPerformanceGraph = ({
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [zoomTo]);
 
-  // TEMPORARILY DISABLED fitView exposure for debugging
+  // Expose fitView function to parent
   useEffect(() => {
-    /*
     if (onFitView && zoomToRef.current) {
       onFitView(() => {
         if (zoomToRef.current) {
@@ -1430,7 +1465,6 @@ const CanvasPerformanceGraph = ({
         }
       });
     }
-    */
   }, [onFitView, zoomToRef.current]); // Expose as soon as zoomTo is available
 
   // Expose zoomToClusters function to parent
@@ -1444,6 +1478,13 @@ const CanvasPerformanceGraph = ({
       });
     }
   }, [onZoomToClusters, zoomToRef.current]); // Expose as soon as zoomTo is available
+  
+  // Expose generic zoomTo function to parent
+  useEffect(() => {
+    if (onZoomTo && zoomToRef.current) {
+      onZoomTo(zoomToRef.current);
+    }
+  }, [onZoomTo, zoomToRef.current]); // Expose as soon as zoomTo is available
 
   // Cleanup animation on unmount
   useEffect(() => {
