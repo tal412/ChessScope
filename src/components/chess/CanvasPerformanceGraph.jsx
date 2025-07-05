@@ -38,6 +38,10 @@ const OPENING_NODE_COLORS = {
 
 const getPerformanceData = (winRate, gameCount, isMissing = false) => {
   if (isMissing || winRate === null || winRate === undefined) return PERFORMANCE_COLORS.missing;
+  // Special case: if gameCount is 0 or null, use orange color instead of red
+  if ((gameCount === 0 || gameCount === null) && winRate !== null && winRate !== undefined) {
+    return PERFORMANCE_COLORS.solid; // Orange color for no games
+  }
   if (winRate >= 70) return PERFORMANCE_COLORS.excellent;
   if (winRate >= 60) return PERFORMANCE_COLORS.good;
   if (winRate >= 50) return PERFORMANCE_COLORS.solid;
@@ -533,7 +537,10 @@ const CanvasPerformanceGraph = ({
     // Reset positioning state on significant changes
     if (isSignificantChange && isInitialPositioningComplete) {
       setIsInitialPositioningComplete(false);
-      setIsInitializing(true);
+      // Only show initialization overlay if parent is not already generating
+      if (!isGenerating) {
+        setIsInitializing(true);
+      }
     }
 
     // Only auto-fit if this is initial positioning (not a resize after setup)
@@ -556,7 +563,7 @@ const CanvasPerformanceGraph = ({
         setIsInitialPositioningComplete(true);
       }, 100);
     }
-  }, [graphData, calculateOptimalTransform, dimensions]); // Removed positionedNodes.length and isInitialPositioningComplete dependencies to prevent infinite loop
+  }, [graphData, calculateOptimalTransform, dimensions, isGenerating]); // Added isGenerating dependency
 
   // Fallback timeout to prevent initialization from getting stuck
   useEffect(() => {
@@ -568,6 +575,24 @@ const CanvasPerformanceGraph = ({
       return () => clearTimeout(fallbackTimeout);
     }
   }, [isInitializing]);
+
+  // Hide initialization overlay when parent is generating to prevent conflicts
+  useEffect(() => {
+    if (isGenerating && isInitializing) {
+      setIsInitializing(false);
+    }
+  }, [isGenerating, isInitializing]);
+
+  // Reset initialization state when parent stops generating and we need to show positioning
+  useEffect(() => {
+    if (!isGenerating && !isInitialPositioningComplete && positionedNodes.length > 0 && dimensions.width > 0 && dimensions.height > 0) {
+      // Only show initialization if we actually need to do positioning work
+      const needsPositioning = !hasAutoFitted || positionedNodes.some(node => !node.position || isNaN(node.position.x) || isNaN(node.position.y));
+      if (needsPositioning) {
+        setIsInitializing(true);
+      }
+    }
+  }, [isGenerating, isInitialPositioningComplete, positionedNodes.length, dimensions, hasAutoFitted]);
 
   // Calculate cluster paths when clusters change - use useMemo to prevent infinite loops
   const clusterPathsData = useMemo(() => {
@@ -879,17 +904,24 @@ const CanvasPerformanceGraph = ({
           let glowIntensity = 15;
           
           if (isCurrentNode) {
-            glowColor = '#3b82f6'; // Blue glow for current node (overrides main line)
-            glowIntensity = 20;
+            // Multiple shadow layers for stronger glow without spreading
+            ctx.shadowColor = 'rgba(59, 130, 246, 1.0)';
+            ctx.shadowBlur = 15;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
           } else if (isHoveredNextMove) {
             glowColor = '#8b5cf6'; // Purple glow for hovered next move
             glowIntensity = 15;
+            ctx.shadowColor = glowColor;
+            ctx.shadowBlur = glowIntensity;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+          } else {
+            ctx.shadowColor = glowColor;
+            ctx.shadowBlur = glowIntensity;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
           }
-          
-          ctx.shadowColor = glowColor;
-          ctx.shadowBlur = glowIntensity;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 0;
         } else {
           ctx.shadowBlur = 0;
         }
@@ -899,10 +931,20 @@ const CanvasPerformanceGraph = ({
         ctx.strokeStyle = nodeColor.border;
         ctx.lineWidth = isCurrentNode || isHoveredNextMove ? 8 : (isHovered ? 6 : 4);
         
-        ctx.beginPath();
-        ctx.roundRect(x, y, node.width, node.height, 12);
-        ctx.fill();
-        ctx.stroke();
+        if (isCurrentNode) {
+          // Draw multiple layers for stronger glow without spreading
+          ctx.beginPath();
+          ctx.roundRect(x, y, node.width, node.height, 12);
+          ctx.fill();
+          ctx.fill(); // Second fill for intensity
+          ctx.fill(); // Third fill for even more intensity
+          ctx.stroke();
+        } else {
+          ctx.beginPath();
+          ctx.roundRect(x, y, node.width, node.height, 12);
+          ctx.fill();
+          ctx.stroke();
+        }
 
         // Reset shadow
         ctx.shadowBlur = 0;
@@ -1037,8 +1079,11 @@ const CanvasPerformanceGraph = ({
           
           // Game count - MUCH LARGER (better spacing)
           ctx.font = `600 28px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-          ctx.strokeText(`${node.data.gameCount} games`, centerX, centerY + 25);
-          ctx.fillText(`${node.data.gameCount} games`, centerX, centerY + 25);
+          const gameCountText = node.data.gameCount === null || node.data.gameCount === undefined 
+            ? '0 games' 
+            : `${node.data.gameCount} games`;
+          ctx.strokeText(gameCountText, centerX, centerY + 25);
+          ctx.fillText(gameCountText, centerX, centerY + 25);
           
         } else {
           // MOVE NODE: Three-line layout with proper spacing - ALL LARGER
@@ -1065,8 +1110,11 @@ const CanvasPerformanceGraph = ({
             
             // Game count (bottom line) - MUCH LARGER (better spacing)
             ctx.font = `500 22px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-            ctx.strokeText(`${node.data.gameCount || 0}g`, centerX, centerY + 35);
-            ctx.fillText(`${node.data.gameCount || 0}g`, centerX, centerY + 35);
+            const gameCountShort = node.data.gameCount === null || node.data.gameCount === undefined 
+              ? '0g' 
+              : `${node.data.gameCount}g`;
+            ctx.strokeText(gameCountShort, centerX, centerY + 35);
+            ctx.fillText(gameCountShort, centerX, centerY + 35);
           }
         }
       }
@@ -1744,7 +1792,7 @@ const CanvasPerformanceGraph = ({
       )}
 
       {/* Initialization Loading Overlay - Covers initial positioning flash */}
-      {isInitializing && (
+      {isInitializing && !isGenerating && (
         <div className="absolute inset-0 bg-slate-900 flex items-center justify-center z-20">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mb-4 mx-auto"></div>

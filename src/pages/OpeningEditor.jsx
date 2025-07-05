@@ -8,6 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 import { 
   FlexibleLayout, 
@@ -154,6 +155,18 @@ export default function OpeningEditor() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   
+  // Unsaved changes tracking
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
+  const [isNavigatingAway, setIsNavigatingAway] = useState(false);
+  
+  // Store initial state for comparison
+  const [initialState, setInitialState] = useState(null);
+  
+  // Hover state for chessboard arrows
+  const [hoveredMove, setHoveredMove] = useState(null);
+  
   // Layout state - using flexible layout system
   const [layoutInfo, setLayoutInfo] = useState({});
   const [showDetails, setShowDetails] = useState(true);
@@ -191,7 +204,89 @@ export default function OpeningEditor() {
       loadOpening();
     }
   }, [openingId]);
-  
+
+  // Set initial state after loading or on mount for new openings
+  useEffect(() => {
+    if (!loading && !initialState) {
+      setInitialState({
+        name,
+        description,
+        color,
+        tags: [...tags],
+        moveTreeId: moveTree.id
+      });
+    }
+  }, [loading, name, description, color, tags, moveTree.id, initialState]);
+
+  // Set initial state immediately for new openings
+  useEffect(() => {
+    if (isNewOpening && !initialState && !loading) {
+      setInitialState({
+        name: '',
+        description: '',
+        color: 'white',
+        tags: [],
+        moveTreeId: moveTree.id
+      });
+    }
+  }, [isNewOpening, initialState, loading, moveTree.id]);
+
+  // Track changes
+  useEffect(() => {
+    if (!initialState) return;
+    
+    const currentState = {
+      name,
+      description,
+      color,
+      tags: [...tags],
+      moveTreeId: moveTree.id
+    };
+    
+    const hasChanges = 
+      currentState.name !== initialState.name ||
+      currentState.description !== initialState.description ||
+      currentState.color !== initialState.color ||
+      JSON.stringify(currentState.tags) !== JSON.stringify(initialState.tags) ||
+      currentState.moveTreeId !== initialState.moveTreeId;
+    
+    setHasUnsavedChanges(hasChanges);
+  }, [name, description, color, tags, moveTree.id, initialState]);
+
+  // Prevent navigation with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        e.returnValue = '';
+        return '';
+      }
+    };
+
+    const handlePopState = (e) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault();
+        setShowUnsavedChangesDialog(true);
+        setPendingNavigation('back');
+        // Push state back to prevent navigation
+        window.history.pushState(null, '', window.location.pathname);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('popstate', handlePopState);
+
+    // Push a state to catch back button
+    if (hasUnsavedChanges) {
+      window.history.pushState(null, '', window.location.pathname);
+    }
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [hasUnsavedChanges]);
+
   // Cleanup canvas state on unmount
   useEffect(() => {
     return () => {
@@ -201,13 +296,20 @@ export default function OpeningEditor() {
   
   // Update graph data when tree changes or mode changes
   useEffect(() => {
-    if (canvasMode === 'opening') {
-      updateGraphData();
-    } else if (canvasMode === 'performance' && openingGraph) {
+    // Always update the underlying opening tree data when the tree changes
+    updateGraphData();
+  }, [moveTree?.id, selectedNode?.id]); // Update opening tree data when tree changes
+  
+  // Handle performance mode overlay separately
+  useEffect(() => {
+    if (canvasMode === 'performance' && openingGraph && graphData.nodes.length > 0) {
       // Overlay performance data onto the opening tree
       navigateToPerformancePosition();
+      
+      // Don't schedule auto-fit here - let the mode switch button handle it
+      // This prevents conflicts between different canvas states
     }
-  }, [moveTree?.id, selectedNode?.id, canvasMode, openingGraph, graphData.nodes.length]); // Use stable IDs instead of full objects
+  }, [canvasMode, openingGraph, graphData.nodes.length]); // Trigger when mode changes or opening data updates
   
   // Trigger auto-fit when graph data changes (only when nodes actually change)
   useEffect(() => {
@@ -551,6 +653,11 @@ export default function OpeningEditor() {
         return { nodes: [], edges: [], maxGameCount: 0 };
       }
       
+      // Check if we only have the start position (no moves)
+      const hasOnlyStartPosition = currentGraphData.nodes.length === 1 && 
+                                  currentGraphData.nodes[0].data.isRoot &&
+                                  currentGraphData.edges.length === 0;
+      
       let maxGameCount = 0;
       
       // Process each node in the opening tree
@@ -558,20 +665,37 @@ export default function OpeningEditor() {
         const nodeData = { ...node.data };
         
         if (nodeData.isRoot) {
-          // Root node - keep as is but add some performance styling
-          enhancedNodes.push({
-            ...node,
-            data: {
-              ...nodeData,
-              winRate: 50,
-              gameCount: 0,
-              performanceData: {
-                hasData: true,
-                winRate: 50,
-                gameCount: 0
+          // Root node - handle differently based on whether we have moves or not
+          if (hasOnlyStartPosition) {
+            // For start-only position, keep it simple and clean like opening mode
+            enhancedNodes.push({
+              ...node,
+              data: {
+                ...nodeData,
+                // Don't add performance data for start-only case to avoid styling issues
+                winRate: null,
+                gameCount: null,
+                performanceData: null,
+                isMissing: false // Don't mark as missing to avoid gray styling
               }
-            }
-          });
+            });
+          } else {
+            // For root with moves, add neutral performance styling
+            enhancedNodes.push({
+              ...node,
+              data: {
+                ...nodeData,
+                winRate: 50,
+                gameCount: 0,
+                performanceData: {
+                  hasData: true,
+                  winRate: 50,
+                  gameCount: 0
+                },
+                isMissing: false
+              }
+            });
+          }
         } else {
           // Try to get performance data for this node
           let performanceData = null;
@@ -663,7 +787,7 @@ export default function OpeningEditor() {
     setPerformanceGraphData(enhancedGraph);
   };
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!name.trim()) {
       setError('Opening name is required');
       return;
@@ -756,6 +880,16 @@ export default function OpeningEditor() {
         await saveMoveNode(child, moveTree.fen);
       }
       
+      // Reset unsaved changes state
+      setHasUnsavedChanges(false);
+      setInitialState({
+        name: name.trim(),
+        description: description.trim(),
+        color,
+        tags: [...tags],
+        moveTreeId: moveTree.id
+      });
+      
       // Navigate to the opening view
       navigate(`/openings-book/opening/${savedOpening.id}`);
       
@@ -765,7 +899,23 @@ export default function OpeningEditor() {
     } finally {
       setSaving(false);
     }
-  };
+  }, [isNewOpening, openingId, name, description, color, tags, moveTree, navigate]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      // Ctrl+S or Cmd+S to save
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        if (!saving) {
+          handleSave();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [saving, handleSave]);
 
   const handleNewMove = (newMoves) => {
     // Handle new move from chessboard
@@ -818,9 +968,11 @@ export default function OpeningEditor() {
     setMoveTree(updatedTree);
     
     // Schedule auto-fit after tree update (longer delay to ensure graph is updated)
+    // Use the appropriate canvas state based on current mode
+    const activeCanvasState = canvasMode === 'performance' ? performanceState.canvasState : canvasState;
     setTimeout(() => {
-      canvasState.scheduleAutoFit('new-move-added', 100);
-    }, 200);
+      activeCanvasState.scheduleAutoFit('new-move-added', 200);
+    }, 300);
   };
   
   const handleNodeSelect = (node) => {
@@ -893,6 +1045,47 @@ export default function OpeningEditor() {
     }
   }, [canvasMode, handleNodeSelect, performanceState.updateCurrentPosition]); // handleNodeSelect is stable, moveTree accessed via closure
 
+  // Hover handlers for showing arrows on chessboard
+  const handleCanvasNodeHover = useCallback((e, node) => {
+    if (!node.data || !currentNode) return;
+    
+    const currentMoves = currentPath || [];
+    const hoveredMoves = node.data.moveSequence || [];
+    
+    // Check if the hovered node is exactly one move ahead of current position
+    if (hoveredMoves.length === currentMoves.length + 1 && 
+        currentMoves.every((move, index) => move === hoveredMoves[index])) {
+      
+      const nextMove = hoveredMoves[hoveredMoves.length - 1];
+      
+      // Determine if we should use pink arrows
+      const shouldUsePinkArrow = canvasMode === 'opening' || 
+                                 node.data.isMissing || 
+                                 node.data.winRate === null || 
+                                 node.data.winRate === undefined ||
+                                 node.data.gameCount === 0;
+      
+      // Create move data similar to performance graph format
+      const moveData = {
+        san: nextMove,
+        gameCount: node.data.gameCount || 0,
+        maxGameCount: graphData.nodes.reduce((max, n) => Math.max(max, n.data?.gameCount || 0), 0),
+        details: {
+          winRate: node.data.winRate || null
+        },
+        winRate: node.data.winRate || null,
+        // Use pink arrow color for opening mode or missing data
+        arrowColor: shouldUsePinkArrow ? '#ec4899' : undefined // Pink color (pink-500)
+      };
+      
+      setHoveredMove(moveData);
+    }
+  }, [currentNode, currentPath, graphData.nodes, canvasMode]);
+
+  const handleCanvasNodeHoverEnd = useCallback(() => {
+    setHoveredMove(null);
+  }, []);
+
   // Layout control handlers - memoized to prevent infinite re-renders
   const handleLayoutChange = useCallback((layoutData) => {
     setLayoutInfo(layoutData);
@@ -934,6 +1127,57 @@ export default function OpeningEditor() {
     tree: showTree
   };
 
+  // Navigation handlers with unsaved changes check
+  const handleNavigateBack = () => {
+    if (hasUnsavedChanges) {
+      setShowUnsavedChangesDialog(true);
+      setPendingNavigation('back');
+    } else {
+      navigate('/openings-book');
+    }
+  };
+
+  const handleCancel = () => {
+    if (hasUnsavedChanges) {
+      setShowUnsavedChangesDialog(true);
+      setPendingNavigation('cancel');
+    } else {
+      navigate('/openings-book');
+    }
+  };
+
+  const handleConfirmNavigation = () => {
+    setIsNavigatingAway(true);
+    setShowUnsavedChangesDialog(false);
+    
+    // Navigate without saving
+    if (pendingNavigation === 'back' || pendingNavigation === 'cancel') {
+      navigate('/openings-book');
+    }
+    
+    setPendingNavigation(null);
+  };
+
+  const handleSaveAndNavigate = async () => {
+    setIsNavigatingAway(true);
+    setShowUnsavedChangesDialog(false);
+    
+    try {
+      await handleSave();
+      // handleSave already navigates on success
+    } catch (error) {
+      setIsNavigatingAway(false);
+      console.error('Error saving before navigation:', error);
+    }
+    
+    setPendingNavigation(null);
+  };
+
+  const handleCancelNavigation = () => {
+    setShowUnsavedChangesDialog(false);
+    setPendingNavigation(null);
+  };
+
   if (loading) {
     return (
       <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
@@ -949,12 +1193,21 @@ export default function OpeningEditor() {
     <div className="h-full w-full bg-slate-900 flex flex-col">
       {/* Header using AppBar */}
       <AppBar
-        title={isNewOpening ? 'Create New Opening' : 'Edit Opening'}
+        title={
+          <div className="flex items-center gap-2">
+            {isNewOpening ? 'Create New Opening' : 'Edit Opening'}
+            {hasUnsavedChanges && (
+              <Badge variant="secondary" className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+                Unsaved Changes
+              </Badge>
+            )}
+          </div>
+        }
         icon={Edit}
         leftControls={
           <Button
             variant="ghost"
-            onClick={() => navigate('/openings-book')}
+            onClick={handleNavigateBack}
             className="text-slate-300 hover:text-white"
           >
             <ChevronLeft className="w-5 h-5 mr-1" />
@@ -987,7 +1240,7 @@ export default function OpeningEditor() {
           <>
             <Button
               variant="outline"
-              onClick={() => navigate('/openings-book')}
+              onClick={handleCancel}
               className="border-slate-600 text-slate-300"
             >
               <X className="w-4 h-4 mr-2" />
@@ -1244,6 +1497,7 @@ export default function OpeningEditor() {
                     handleNewMove(moves);
                   }}
                   isWhiteTree={color === 'white'}
+                  hoveredMove={hoveredMove}
                   className="w-full max-w-none"
                 />
               </div>
@@ -1274,10 +1528,18 @@ export default function OpeningEditor() {
                     size="sm"
                     variant="outline"
                     onClick={() => {
-                      setCanvasMode(canvasMode === 'opening' ? 'performance' : 'opening');
-                      // Schedule auto-fit after mode change
+                      const newMode = canvasMode === 'opening' ? 'performance' : 'opening';
+                      setCanvasMode(newMode);
+                      
+                      // Schedule auto-fit using the correct canvas state for the new mode
                       setTimeout(() => {
-                        canvasState.scheduleAutoFit('mode-change', 200);
+                        if (newMode === 'performance') {
+                          // When switching TO performance mode, use performance canvas state
+                          performanceState.canvasState.scheduleAutoFit('mode-change', 200);
+                        } else {
+                          // When switching TO opening mode, use opening canvas state
+                          canvasState.scheduleAutoFit('mode-change', 200);
+                        }
                       }, 300);
                     }}
                     className="bg-slate-800/90 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white backdrop-blur-sm shadow-lg"
@@ -1291,6 +1553,8 @@ export default function OpeningEditor() {
                   graphData={canvasMode === 'opening' ? graphData : performanceGraphData}
                   mode={canvasMode}
                   onNodeClick={handleCanvasNodeClick}
+                  onNodeHover={handleCanvasNodeHover}
+                  onNodeHoverEnd={handleCanvasNodeHoverEnd}
                   currentNodeId={canvasMode === 'opening' ? selectedNode?.id : performanceState.currentNodeId}
                   isGenerating={false}
                   showPerformanceLegend={false}
@@ -1312,6 +1576,57 @@ export default function OpeningEditor() {
           )
         }}
       </FlexibleLayout>
+
+             {/* Unsaved Changes Dialog */}
+       <AlertDialog open={showUnsavedChangesDialog} onOpenChange={handleCancelNavigation}>
+         <AlertDialogContent className="bg-slate-800/95 backdrop-blur-xl border-slate-700/50">
+           <AlertDialogHeader>
+             <AlertDialogTitle className="text-xl text-white">Unsaved Changes</AlertDialogTitle>
+             <AlertDialogDescription className="text-slate-400">
+               You have unsaved changes to your opening. What would you like to do?
+             </AlertDialogDescription>
+           </AlertDialogHeader>
+           <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+             <AlertDialogCancel 
+               onClick={handleCancelNavigation}
+               className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+             >
+               Keep Editing
+             </AlertDialogCancel>
+             <Button
+               onClick={handleSaveAndNavigate}
+               disabled={saving || isNavigatingAway}
+               className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+             >
+               {saving || isNavigatingAway ? (
+                 <>
+                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                   Saving...
+                 </>
+               ) : (
+                 <>
+                   <Save className="w-4 h-4 mr-2" />
+                   Save & Leave
+                 </>
+               )}
+             </Button>
+             <AlertDialogAction 
+               onClick={handleConfirmNavigation}
+               disabled={isNavigatingAway}
+               className="bg-red-600 hover:bg-red-700 text-white"
+             >
+               {isNavigatingAway ? (
+                 <>
+                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                   Leaving...
+                 </>
+               ) : (
+                 'Discard Changes'
+               )}
+             </AlertDialogAction>
+           </AlertDialogFooter>
+         </AlertDialogContent>
+       </AlertDialog>
     </div>
   );
 } 
