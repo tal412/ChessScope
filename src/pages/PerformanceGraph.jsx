@@ -43,7 +43,7 @@ import { useChessboardSync } from '../hooks/useChessboardSync';
 import { loadOpeningGraph } from '../api/graphStorage';
 import { checkPositionInOpenings } from '../api/openingEntities';
 import { useAuth } from '../contexts/AuthContext';
-import { usePerformanceGraphState } from '../hooks/useCanvasState';
+import { useCanvasState } from '../hooks/useCanvasState';
 import { createOpeningClusters, createPositionClusters, enrichNodesWithOpeningClusters } from '../utils/clusteringAnalysis';
 
 
@@ -408,10 +408,10 @@ function PerformanceGraphContent() {
   const openingGraphRef = useRef(null);
   
   // Use shared performance graph state management
-  const performanceState = usePerformanceGraphState({
+  const performanceState = useCanvasState({
     openingGraph: openingGraphRef.current,
     selectedPlayer,
-    enableClustering: true,
+    enableClustering: false,
     enablePositionClusters: true,
     enableAutoZoom: true
   });
@@ -1902,11 +1902,11 @@ function PerformanceGraphContent() {
                   onClusterHoverEnd={performanceState.handleClusterHoverEnd}
                   hoveredOpeningName={performanceState.hoveredOpeningName}
                   hoveredClusterColor={performanceState.hoveredClusterColor}
-                  onFitView={performanceState.canvasState.onFitView}
-                  onZoomToClusters={performanceState.canvasState.onZoomToClusters}
-                  onZoomTo={performanceState.canvasState.onZoomTo}
-                  onResizeStateChange={performanceState.canvasState.onResizeStateChange}
-                  onInitializingStateChange={performanceState.canvasState.onInitializingStateChange}
+                  onFitView={performanceState.onFitView}
+                  onZoomToClusters={performanceState.onZoomToClusters}
+                  onZoomTo={performanceState.onZoomTo}
+                  onResizeStateChange={performanceState.onResizeStateChange}
+                  onInitializingStateChange={performanceState.onInitializingStateChange}
                   maxDepth={performanceState.maxDepth}
                   minGameCount={performanceState.minGameCount}
                   winRateFilter={performanceState.winRateFilter}

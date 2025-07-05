@@ -224,7 +224,8 @@ const CanvasPerformanceGraph = ({
   onShowPerformanceControls,
   isClusteringLoading = false,
   className = "",
-  mode = 'performance' // Added mode prop
+  mode = 'performance', // Added mode prop
+  enableOpeningClusters = true // Added prop to control opening cluster visibility
 }) => {
   const canvasRef = useRef();
   const containerRef = useRef();
@@ -248,6 +249,14 @@ const CanvasPerformanceGraph = ({
   // Track resize transitions to prevent zoom conflicts
   const [isResizing, setIsResizing] = useState(false);
   const resizeTimeoutRef = useRef(null);
+  
+  // Use ref to store positioned nodes for stable access in effects
+  const positionedNodesRef = useRef([]);
+  
+  // Update ref when positioned nodes change
+  useEffect(() => {
+    positionedNodesRef.current = positionedNodes;
+  }, [positionedNodes]);
   
   // Notify parent of resize state changes
   useEffect(() => {
@@ -446,7 +455,7 @@ const CanvasPerformanceGraph = ({
         clearTimeout(resizeTimeoutRef.current);
       }
     };
-  }, [positionedNodes.length, hasAutoFitted]); // Dependencies for auto-fit decision
+  }, [hasAutoFitted]); // Removed positionedNodes.length dependency
 
   // Auto-fit is handled directly in the graph processing effect below
 
@@ -509,7 +518,7 @@ const CanvasPerformanceGraph = ({
     }
 
     return optimalTransform;
-  }, []);
+  }, []); // Empty dependency array - this function is pure and doesn't depend on external state
 
   // Process graph data and calculate positions with immediate optimal transform
   useEffect(() => {
@@ -537,7 +546,7 @@ const CanvasPerformanceGraph = ({
 
     // Check if this is a significant graph change (different nodes)
     const newNodeCount = positioned.length;
-    const prevNodeCount = positionedNodes.length;
+    const prevNodeCount = positionedNodesRef.current.length; // Use ref to avoid dependency
     const isSignificantChange = prevNodeCount === 0 || Math.abs(prevNodeCount - newNodeCount) > 5;
     
     // Reset positioning state on significant changes
@@ -569,7 +578,7 @@ const CanvasPerformanceGraph = ({
         setIsInitialPositioningComplete(true);
       }, 100);
     }
-  }, [graphData, calculateOptimalTransform, dimensions, isGenerating]); // Added isGenerating dependency
+  }, [graphData, dimensions, isGenerating, isInitialPositioningComplete]); // Removed calculateOptimalTransform to prevent infinite loops
 
   // Fallback timeout to prevent initialization from getting stuck
   useEffect(() => {
@@ -591,18 +600,20 @@ const CanvasPerformanceGraph = ({
 
   // Reset initialization state when parent stops generating and we need to show positioning
   useEffect(() => {
-    if (!isGenerating && !isInitialPositioningComplete && positionedNodes.length > 0 && dimensions.width > 0 && dimensions.height > 0) {
+    const currentPositionedNodes = positionedNodesRef.current;
+    if (!isGenerating && !isInitialPositioningComplete && currentPositionedNodes.length > 0 && dimensions.width > 0 && dimensions.height > 0) {
       // Only show initialization if we actually need to do positioning work
-      const needsPositioning = !hasAutoFitted || positionedNodes.some(node => !node.position || isNaN(node.position.x) || isNaN(node.position.y));
+      const needsPositioning = !hasAutoFitted || currentPositionedNodes.some(node => !node.position || isNaN(node.position.x) || isNaN(node.position.y));
       if (needsPositioning) {
         setIsInitializing(true);
       }
     }
-  }, [isGenerating, isInitialPositioningComplete, positionedNodes.length, dimensions, hasAutoFitted]);
+  }, [isGenerating, isInitialPositioningComplete, dimensions, hasAutoFitted]); // Removed positionedNodes dependency
 
   // Calculate cluster paths when clusters change - use useMemo to prevent infinite loops
   const clusterPathsData = useMemo(() => {
-    if (!showOpeningClusters || !openingClusters.length || !positionedNodes.length) {
+    const currentPositionedNodes = positionedNodesRef.current;
+    if (!enableOpeningClusters || !showOpeningClusters || !openingClusters.length || currentPositionedNodes.length === 0) {
       return [];
     }
 
@@ -612,7 +623,7 @@ const CanvasPerformanceGraph = ({
       if (!cluster.nodes || cluster.nodes.length === 0) return;
 
       const clusterNodes = cluster.nodes.map(n => 
-        positionedNodes.find(pn => pn.id === n.id)
+        currentPositionedNodes.find(pn => pn.id === n.id)
       ).filter(Boolean);
 
       if (clusterNodes.length === 0) return;
@@ -684,9 +695,49 @@ const CanvasPerformanceGraph = ({
     });
 
     return newClusterPaths;
-  }, [showOpeningClusters, openingClusters, positionedNodes]);
+  }, [enableOpeningClusters, showOpeningClusters, openingClusters]); // Removed positionedNodes dependency
 
-  // Canvas rendering function - HIGH DPI SUPPORT
+  // Use refs for frequently changing values to avoid render function recreation
+  const currentNodeIdRef = useRef(currentNodeId);
+  const hoveredNextMoveNodeIdRef = useRef(hoveredNextMoveNodeId);
+  const hoveredNodeRef = useRef(hoveredNode);
+  const hoveredClusterRef = useRef(hoveredCluster);
+  const showOpeningClustersRef = useRef(showOpeningClusters);
+  const showPositionClustersRef = useRef(showPositionClusters);
+  
+  // Separate cursor state for proper cursor display
+  const [cursorStyle, setCursorStyle] = useState('grab');
+  
+  // Update refs when values change
+  useEffect(() => {
+    currentNodeIdRef.current = currentNodeId;
+  }, [currentNodeId]);
+  
+  useEffect(() => {
+    hoveredNextMoveNodeIdRef.current = hoveredNextMoveNodeId;
+  }, [hoveredNextMoveNodeId]);
+  
+  useEffect(() => {
+    hoveredNodeRef.current = hoveredNode;
+    // Update cursor when hover state changes
+    setCursorStyle(hoveredNode || hoveredCluster ? 'pointer' : 'grab');
+  }, [hoveredNode, hoveredCluster]);
+  
+  useEffect(() => {
+    hoveredClusterRef.current = hoveredCluster;
+    // Update cursor when hover state changes
+    setCursorStyle(hoveredNode || hoveredCluster ? 'pointer' : 'grab');
+  }, [hoveredCluster, hoveredNode]);
+  
+  useEffect(() => {
+    showOpeningClustersRef.current = showOpeningClusters;
+  }, [showOpeningClusters]);
+  
+  useEffect(() => {
+    showPositionClustersRef.current = showPositionClusters;
+  }, [showPositionClusters]);
+
+  // Canvas rendering function - HIGH DPI SUPPORT - Optimized dependencies
   const render = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -730,7 +781,7 @@ const CanvasPerformanceGraph = ({
     ctx.scale(scale, scale);
 
                // Render position clusters - MATCH ReactFlow brightness levels
-      if (showPositionClusters && positionClusters.length > 0) {
+      if (showPositionClustersRef.current && positionClusters.length > 0 && mode === 'performance') {
         positionClusters.forEach((cluster, index) => {
           if (!cluster.allNodes || cluster.allNodes.length === 0) return;
 
@@ -775,7 +826,7 @@ const CanvasPerformanceGraph = ({
       }
 
                    // Render opening clusters - MATCH ReactFlow brightness levels
-     if (showOpeningClusters && openingClusters.length > 0) {
+     if (enableOpeningClusters && showOpeningClustersRef.current && openingClusters.length > 0) {
        openingClusters.forEach((cluster, index) => {
          if (!cluster.nodes || cluster.nodes.length === 0) return;
 
@@ -794,7 +845,7 @@ const CanvasPerformanceGraph = ({
          // Create convex hull and render organic shape
          const hull = createConvexHull(nodePoints);
          
-         const isHovered = hoveredCluster && hoveredCluster.id === cluster.id;
+         const isHovered = hoveredClusterRef.current && hoveredClusterRef.current.id === cluster.id;
          
          // EXACT ReactFlow opening cluster colors
          const OPENING_CLUSTER_COLORS = [{ bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' }];
@@ -883,9 +934,9 @@ const CanvasPerformanceGraph = ({
       // Mode-specific rendering
       if (mode === 'opening') {
         // Opening tree mode rendering
-        const isCurrentNode = node.id === currentNodeId;
-        const isHoveredNextMove = node.id === hoveredNextMoveNodeId;
-        const isHovered = hoveredNode?.id === node.id;
+        const isCurrentNode = node.id === currentNodeIdRef.current;
+        const isHoveredNextMove = node.id === hoveredNextMoveNodeIdRef.current;
+        const isHovered = hoveredNodeRef.current?.id === node.id;
         const nodeColor = getOpeningNodeColor(node, isCurrentNode);
         
         const x = node.x - node.width/2;
@@ -1006,9 +1057,9 @@ const CanvasPerformanceGraph = ({
       } else {
         // Performance mode rendering (existing code)
         const perfData = getPerformanceData(node.data.winRate || 0, node.data.gameCount || 0, node.data.isMissing);
-        const isCurrentNode = node.id === currentNodeId;
-        const isHoveredNextMove = node.id === hoveredNextMoveNodeId;
-        const isHovered = hoveredNode?.id === node.id;
+        const isCurrentNode = node.id === currentNodeIdRef.current;
+        const isHoveredNextMove = node.id === hoveredNextMoveNodeIdRef.current;
+        const isHovered = hoveredNodeRef.current?.id === node.id;
         
         const x = node.x - node.width/2;
         const y = node.y - node.height/2;
@@ -1132,7 +1183,7 @@ const CanvasPerformanceGraph = ({
     } // End of nodes rendering if statement
 
     ctx.restore();
-     }, [positionedNodes, dimensions, transform, currentNodeId, hoveredNextMoveNodeId, hoveredNode, hoveredCluster, graphData.edges, openingClusters, positionClusters, showOpeningClusters, showPositionClusters, mode]);
+  }, [positionedNodes, dimensions, transform, graphData.edges, openingClusters, positionClusters, mode]); // Removed refs from dependencies
 
   // Animation loop
   useEffect(() => {
@@ -1175,7 +1226,7 @@ const CanvasPerformanceGraph = ({
 
   // Hit testing for clusters
   const getClusterAtPosition = useCallback((clientX, clientY) => {
-    if (!showOpeningClusters || clusterPathsData.length === 0) return null;
+    if (!enableOpeningClusters || !showOpeningClusters || clusterPathsData.length === 0) return null;
 
     const canvas = canvasRef.current;
     if (!canvas) return null;
@@ -1235,19 +1286,23 @@ const CanvasPerformanceGraph = ({
     let targetNodes = [];
     let logMessage = '';
 
+    // Use refs to access current state without causing dependency issues
+    const currentPositionedNodes = positionedNodesRef.current;
+    const currentPositionClusters = positionClusters; // This is passed as prop, safe to use directly
+
     switch (target) {
       case 'all':
-        targetNodes = positionedNodes;
+        targetNodes = currentPositionedNodes;
         logMessage = 'ZOOM TO ALL NODES';
         break;
       
       case 'clusters':
         // Get all nodes that are part of position clusters
-        if (positionClusters && positionClusters.length > 0) {
-          positionClusters.forEach(cluster => {
+        if (currentPositionClusters && currentPositionClusters.length > 0) {
+          currentPositionClusters.forEach(cluster => {
             if (cluster.allNodes) {
               cluster.allNodes.forEach(node => {
-                const positionedNode = positionedNodes.find(pn => pn.id === node.id);
+                const positionedNode = currentPositionedNodes.find(pn => pn.id === node.id);
                 if (positionedNode) {
                   targetNodes.push(positionedNode);
                 }
@@ -1258,7 +1313,7 @@ const CanvasPerformanceGraph = ({
         
         // If no cluster nodes, fall back to all nodes
         if (targetNodes.length === 0) {
-          targetNodes = positionedNodes;
+          targetNodes = currentPositionedNodes;
           logMessage = 'ZOOM TO ALL NODES (FALLBACK)';
         } else {
           logMessage = 'ZOOM TO POSITION CLUSTERS';
@@ -1267,7 +1322,7 @@ const CanvasPerformanceGraph = ({
       
       case 'reset':
         // Reset to default position with animation
-        targetNodes = positionedNodes;
+        targetNodes = currentPositionedNodes;
         logMessage = 'ZOOM RESET TO DEFAULT';
         // Use a special transform for reset
         const resetOptimalTransform = { x: 0, y: 0, scale: 1 };
@@ -1310,7 +1365,7 @@ const CanvasPerformanceGraph = ({
           targetNodes = target;
           logMessage = `ZOOM TO ${target.length} CUSTOM NODES`;
         } else {
-          targetNodes = positionedNodes;
+          targetNodes = currentPositionedNodes;
           logMessage = 'ZOOM TO ALL NODES (DEFAULT)';
         }
     }
@@ -1328,7 +1383,7 @@ const CanvasPerformanceGraph = ({
     // Calculate optimal transform for target nodes - use more padding only for position cluster zoom
     // Use standard padding (50px) for both initial 'all' view and normal fit view
     // Only use larger padding (120px) when specifically zooming to position clusters
-    const clusterPadding = (target === 'clusters' && positionClusters.length > 0) ? 120 : 50;
+    const clusterPadding = (target === 'clusters' && currentPositionClusters.length > 0) ? 120 : 50;
     const optimalTransform = calculateOptimalTransform(targetNodes, dimensions, clusterPadding);
 
     // Apply transform with smooth animation - simplified to prevent conflicts
@@ -1360,7 +1415,7 @@ const CanvasPerformanceGraph = ({
     
     // Start animation immediately
     animationStateRef.current = requestAnimationFrame(animate);
-  }, [positionedNodes, positionClusters, dimensions, calculateOptimalTransform, isResizing, isInitializing]);
+  }, [dimensions, isResizing, isInitializing, positionClusters]); // Stable dependencies only
 
   // Convenience functions for backward compatibility and cleaner API
   const fitView = useCallback(() => zoomTo('all'), [zoomTo]);
@@ -1412,19 +1467,19 @@ const CanvasPerformanceGraph = ({
       
       // Handle node hover first (nodes take priority over clusters)
       const node = getNodeAtPosition(e.clientX, e.clientY);
-      if (node !== hoveredNode) {
+      if (node !== hoveredNodeRef.current) {
         setHoveredNode(node);
         if (node && onNodeHover) {
           onNodeHover(e, node);
         } else if (!node && onNodeHoverEnd) {
-          onNodeHoverEnd(e, hoveredNode);
+          onNodeHoverEnd(e, hoveredNodeRef.current);
         }
       }
 
       // Handle cluster hover only if no node is hovered - EXACT ReactFlow logic
       if (!node) {
         const cluster = getClusterAtPosition(e.clientX, e.clientY);
-        if (cluster !== hoveredCluster) {
+        if (cluster !== hoveredClusterRef.current) {
           setHoveredCluster(cluster);
           if (cluster && onClusterHover) {
             // EXACT ReactFlow cluster hover handling
@@ -1436,7 +1491,7 @@ const CanvasPerformanceGraph = ({
             onClusterHoverEnd();
           }
         }
-      } else if (hoveredCluster) {
+      } else if (hoveredClusterRef.current) {
         // Clear cluster hover when hovering over a node
         setHoveredCluster(null);
         // Tooltip state is managed by parent component through callback
@@ -1445,7 +1500,7 @@ const CanvasPerformanceGraph = ({
         }
       }
     }
-  }, [mousePressed, lastMouse, getNodeAtPosition, getClusterAtPosition, hoveredNode, hoveredCluster, onNodeHover, onNodeHoverEnd, onClusterHover, onClusterHoverEnd]);
+  }, [mousePressed, lastMouse, getNodeAtPosition, getClusterAtPosition, onNodeHover, onNodeHoverEnd, onClusterHover, onClusterHoverEnd]); // Removed refs from dependencies
 
   const handleMouseUp = useCallback(() => {
     setMousePressed(false);
@@ -1577,7 +1632,7 @@ const CanvasPerformanceGraph = ({
         ref={canvasRef}
         className="w-full h-full block"
         style={{ 
-          cursor: mousePressed ? 'grabbing' : (hoveredNode || hoveredCluster ? 'pointer' : 'grab'),
+          cursor: mousePressed ? 'grabbing' : cursorStyle,
           opacity: isInitializing ? 0 : 1,
           transition: 'opacity 200ms ease-in-out'
         }}
@@ -1589,7 +1644,7 @@ const CanvasPerformanceGraph = ({
         onContextMenu={(e) => e.preventDefault()} // Prevent context menu
       />
       
-      {/* Graph Controls - Top Left - EXACT match with ReactFlow version */}
+      {/* Graph Controls - Top Left - SHARED between modes */}
       {!isInitializing && positionedNodes.length > 0 && (
         <div className="absolute top-4 left-4 space-y-2 pointer-events-auto">
           <div className="flex gap-2 flex-wrap">
@@ -1606,53 +1661,41 @@ const CanvasPerformanceGraph = ({
               </svg>
             </Button>
 
-            {mode === 'performance' && (
-              <>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleToggleOpeningClusters}
-                  className={`${showOpeningClusters ? 'bg-purple-600 border-purple-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
-                  title="Toggle Opening Clusters"
-                >
-                  <Layers className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
-                  <span className="hidden group-hover:inline transition-opacity duration-100">Opening Clusters</span>
-                </Button>
+            {/* Show opening cluster controls only when clustering is enabled */}
+            {enableOpeningClusters && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleToggleOpeningClusters}
+                className={`${showOpeningClustersRef.current ? 'bg-purple-600 border-purple-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
+                title="Toggle Opening Clusters"
+              >
+                <Layers className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
+                <span className="hidden group-hover:inline transition-opacity duration-100">Opening Clusters</span>
+              </Button>
+            )}
 
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={handleTogglePositionClusters}
-                  className={`${showPositionClusters ? 'bg-orange-600 border-orange-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
-                  title="Toggle Position Clusters (Current Move)"
-                >
-                  <Target className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
-                  <span className="hidden group-hover:inline transition-opacity duration-100">Position Clusters</span>
-                </Button>
-              </>
+            {/* Only show position cluster controls in performance mode */}
+            {mode === 'performance' && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleTogglePositionClusters}
+                className={`${showPositionClustersRef.current ? 'bg-orange-600 border-orange-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
+                title="Toggle Position Clusters (Current Move)"
+              >
+                <Target className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
+                <span className="hidden group-hover:inline transition-opacity duration-100">Position Clusters</span>
+              </Button>
             )}
           </div>
         </div>
       )}
 
-      {/* Controls Show Button - Right Side */}
+      {/* Controls Show Button - Bottom Right */}
       {mode === 'performance' && !isInitializing && positionedNodes.length > 0 && (
-        <div className="absolute top-4 right-4 space-y-4 max-w-sm pointer-events-auto">
-          {/* Show Button for Controls only */}
-          <div className="flex gap-2 flex-wrap justify-end">
-            {!showPerformanceControls && onShowPerformanceControls && (
-              <Button
-                onClick={() => onShowPerformanceControls(true)}
-                className="bg-slate-800/95 border border-slate-700 text-slate-200 hover:bg-slate-700/95"
-                size="sm"
-              >
-                <Target className="w-4 h-4 mr-2" />
-                Controls ({maxDepth} moves, {minGameCount}+ games)
-              </Button>
-            )}
-          </div>
-
-          {/* Controls Card - EXACT match with ReactFlow version */}
+        <div className="absolute bottom-4 right-4 space-y-4 max-w-sm pointer-events-auto">
+          {/* Controls Card - positioned above the button */}
           {showPerformanceControls && onShowPerformanceControls && (
           <Card className="bg-slate-800/95 border-slate-700 backdrop-blur-lg shadow-xl">
             <CardHeader className="pb-3">
@@ -1760,6 +1803,20 @@ const CanvasPerformanceGraph = ({
           </CardContent>
         </Card>
         )}
+
+          {/* Show Button for Controls */}
+          <div className="flex gap-2 flex-wrap justify-end">
+            {!showPerformanceControls && onShowPerformanceControls && (
+              <Button
+                onClick={() => onShowPerformanceControls(true)}
+                className="bg-slate-800/95 border border-slate-700 text-slate-200 hover:bg-slate-700/95"
+                size="sm"
+              >
+                <Target className="w-4 h-4 mr-2" />
+                Controls ({maxDepth} moves, {minGameCount}+ games)
+              </Button>
+            )}
+          </div>
         </div>
       )}
 
@@ -1779,28 +1836,7 @@ const CanvasPerformanceGraph = ({
         </div>
       )}
 
-      {/* Permanent Performance Legend - Bottom Right */}
-      {mode === 'performance' && !isInitializing && positionedNodes.length > 0 && (
-        <div className="absolute bottom-4 right-4 bg-slate-800/90 border border-slate-700 px-3 py-2 rounded text-xs pointer-events-none backdrop-blur-sm">
-          <div className="flex items-center gap-3">
-            {[
-              { threshold: '70%', color: PERFORMANCE_COLORS.excellent },
-              { threshold: '60%', color: PERFORMANCE_COLORS.good },
-              { threshold: '50%', color: PERFORMANCE_COLORS.solid },
-              { threshold: '40%', color: PERFORMANCE_COLORS.challenging },
-              { threshold: '0%', color: PERFORMANCE_COLORS.difficult },
-            ].map(({ threshold, color }) => (
-              <div key={threshold} className="flex items-center gap-1">
-                <div 
-                  className="w-3 h-3 rounded-sm border shadow-sm"
-                  style={{ backgroundColor: color.bg, borderColor: color.border }}
-                />
-                <span className="text-slate-200 font-mono text-xs">{threshold}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* Opening Cluster Name Tooltip - Bottom Center */}
       {hoveredOpeningName && hoveredClusterColor && (
