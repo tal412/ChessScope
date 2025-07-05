@@ -1590,51 +1590,53 @@ const CanvasPerformanceGraph = ({
       />
       
       {/* Graph Controls - Top Left - EXACT match with ReactFlow version */}
-      <div className="absolute top-4 left-4 space-y-2 pointer-events-auto">
-        <div className="flex gap-2 flex-wrap">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => zoomTo('all')}
-            className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600"
-            title="Fit graph to view"
-            disabled={isGenerating || isInitializing}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-            </svg>
-          </Button>
+      {!isInitializing && positionedNodes.length > 0 && (
+        <div className="absolute top-4 left-4 space-y-2 pointer-events-auto">
+          <div className="flex gap-2 flex-wrap">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => zoomTo('all')}
+              className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600"
+              title="Fit graph to view"
+              disabled={isGenerating}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+              </svg>
+            </Button>
 
-          {mode === 'performance' && (
-            <>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleToggleOpeningClusters}
-                className={`${showOpeningClusters ? 'bg-purple-600 border-purple-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
-                title="Toggle Opening Clusters"
-              >
-                <Layers className="w-4 h-4 mr-0 group-hover:mr-2 2xl:mr-2 transition-all duration-100" />
-                <span className="hidden group-hover:inline 2xl:inline transition-opacity duration-100">Opening Clusters</span>
-              </Button>
+            {mode === 'performance' && (
+              <>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleToggleOpeningClusters}
+                  className={`${showOpeningClusters ? 'bg-purple-600 border-purple-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
+                  title="Toggle Opening Clusters"
+                >
+                  <Layers className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
+                  <span className="hidden group-hover:inline transition-opacity duration-100">Opening Clusters</span>
+                </Button>
 
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleTogglePositionClusters}
-                className={`${showPositionClusters ? 'bg-orange-600 border-orange-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
-                title="Toggle Position Clusters (Current Move)"
-              >
-                <Target className="w-4 h-4 mr-0 group-hover:mr-2 2xl:mr-2 transition-all duration-100" />
-                <span className="hidden group-hover:inline 2xl:inline transition-opacity duration-100">Position Clusters</span>
-              </Button>
-            </>
-          )}
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleTogglePositionClusters}
+                  className={`${showPositionClusters ? 'bg-orange-600 border-orange-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
+                  title="Toggle Position Clusters (Current Move)"
+                >
+                  <Target className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
+                  <span className="hidden group-hover:inline transition-opacity duration-100">Position Clusters</span>
+                </Button>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Controls Show Button - Right Side */}
-      {mode === 'performance' && (
+      {mode === 'performance' && !isInitializing && positionedNodes.length > 0 && (
         <div className="absolute top-4 right-4 space-y-4 max-w-sm pointer-events-auto">
           {/* Show Button for Controls only */}
           <div className="flex gap-2 flex-wrap justify-end">
@@ -1762,21 +1764,23 @@ const CanvasPerformanceGraph = ({
       )}
 
       {/* Zoom indicator with keyboard shortcut */}
-      <div className="absolute bottom-4 left-4 bg-slate-800/90 border border-slate-700 text-slate-200 px-3 py-2 rounded text-xs pointer-events-none backdrop-blur-sm shadow-lg">
-        <div className="flex items-center gap-3">
-          <span>Zoom: {Math.round(transform.scale * 100)}%</span>
-          <span className="text-slate-500">
-            <kbd className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 font-mono text-xs">R</kbd>
-            <span className="mx-1">or</span>
-            <span className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 text-xs">Middle&nbsp;Mouse&nbsp;Button</span>
-            <span className="mx-1">–</span>
-            Fit
-          </span>
+      {!isInitializing && positionedNodes.length > 0 && (
+        <div className="absolute bottom-4 left-4 bg-slate-800/90 border border-slate-700 text-slate-200 px-3 py-2 rounded text-xs pointer-events-none backdrop-blur-sm shadow-lg">
+          <div className="flex items-center gap-3">
+            <span>Zoom: {Math.round(transform.scale * 100)}%</span>
+            <span className="text-slate-500">
+              <kbd className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 font-mono text-xs">R</kbd>
+              <span className="mx-1">or</span>
+              <span className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 text-xs">Middle&nbsp;Mouse&nbsp;Button</span>
+              <span className="mx-1">–</span>
+              Fit
+            </span>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Permanent Performance Legend - Bottom Right */}
-      {mode === 'performance' && (
+      {mode === 'performance' && !isInitializing && positionedNodes.length > 0 && (
         <div className="absolute bottom-4 right-4 bg-slate-800/90 border border-slate-700 px-3 py-2 rounded text-xs pointer-events-none backdrop-blur-sm">
           <div className="flex items-center gap-3">
             {[
