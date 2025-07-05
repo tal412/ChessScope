@@ -1447,6 +1447,35 @@ function PerformanceGraphContent() {
     });
   }, []);
 
+  // Example context menu actions (commented out for now)
+  // const contextMenuActions = useMemo(() => [
+  //   {
+  //     label: 'Analyze Position',
+  //     icon: Target,
+  //     onClick: (node) => {
+  //       // Navigate to position analysis
+  //       console.log('Analyzing position:', node.data.fen);
+  //     }
+  //   },
+  //   {
+  //     label: 'Copy FEN',
+  //     icon: Copy,
+  //     onClick: (node) => {
+  //       navigator.clipboard.writeText(node.data.fen);
+  //       // Show toast notification
+  //     }
+  //   },
+  //   {
+  //     label: 'View Games',
+  //     icon: BookOpen,
+  //     onClick: (node) => {
+  //       // Open games viewer for this position
+  //       console.log('Viewing games for:', node.data.san);
+  //     },
+  //     disabled: (node) => (node.data.gameCount || 0) === 0
+  //   }
+  // ], []);
+
   // Handle node clicks
   const onNodeClick = (event, node) => {
     // Ignore cluster background nodes - they shouldn't trigger position changes

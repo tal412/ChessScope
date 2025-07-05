@@ -33,7 +33,9 @@ import {
   FileText,
   Grid3x3,
   Network,
-  Edit
+  Edit,
+  AlertTriangle,
+  Edit3
 } from 'lucide-react';
 import InteractiveChessboard from '@/components/chess/InteractiveChessboard';
 import { UserOpening, UserOpeningMove, MoveAnnotation } from '@/api/entities';
@@ -180,6 +182,10 @@ export default function OpeningEditor() {
   
   // Graph data for canvas view
   const [graphData, setGraphData] = useState({ nodes: [], edges: [] });
+  
+  // NEW: Context menu state
+  const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
+  const [nodeToDelete, setNodeToDelete] = useState(null);
   
   // Helper function to find node by ID in tree
   const findNodeById = useCallback((root, targetId) => {
@@ -1351,6 +1357,86 @@ export default function OpeningEditor() {
     setPendingNavigation(null);
   };
 
+  // NEW: Context menu actions for opening mode
+  const contextMenuActions = useMemo(() => {
+    if (canvasMode !== 'opening') {
+      return null;
+    }
+    
+
+    
+    return [
+      {
+        label: 'Delete Move',
+        icon: Trash2,
+        onClick: (node) => {
+          // Don't allow deleting the root node
+          if (node.data.isRoot) {
+            return;
+          }
+          
+          // Find the actual tree node
+          const treeNode = findNodeById(moveTree, node.id);
+          if (treeNode && treeNode.parent) {
+            setNodeToDelete(treeNode);
+            setShowDeleteConfirmDialog(true);
+          }
+        },
+        disabled: (node) => node.data.isRoot || !node.data.san
+      }
+    ];
+  }, [canvasMode, moveTree]);
+
+  // NEW: Handle confirmed node deletion
+  const handleConfirmDelete = useCallback(() => {
+    if (nodeToDelete && nodeToDelete.parent) {
+      // Get the move notation for the confirmation message
+      const moveNotation = nodeToDelete.san;
+      
+      // Remove the node and all its children
+      nodeToDelete.parent.removeChild(nodeToDelete.id);
+      
+      // If deleted node was current, move to parent
+      if (currentNode === nodeToDelete) {
+        setCurrentNode(nodeToDelete.parent);
+        setCurrentPath(currentPath.slice(0, -1)); // Remove last move from path
+        // Update unified performance state position
+        performanceState.updateCurrentPosition(nodeToDelete.parent.id, nodeToDelete.parent.fen);
+      }
+      
+      // Recalculate main line after deletion
+      MoveNode.calculateMainLine(moveTree);
+      
+      // Force re-render with new ID to trigger graph regeneration
+      const updatedTree = { ...moveTree };
+      updatedTree.id = `${moveTree.id}-${Date.now()}`;
+      setMoveTree(updatedTree);
+      
+      // Schedule auto-fit after deletion
+      setTimeout(() => {
+        performanceState.scheduleAutoFit('node-deleted', 200);
+      }, 100);
+    }
+    
+    // Close dialog and reset state
+    setShowDeleteConfirmDialog(false);
+    setNodeToDelete(null);
+  }, [nodeToDelete, currentNode, currentPath, moveTree, performanceState]);
+
+  // NEW: Handle cancel deletion
+  const handleCancelDelete = useCallback(() => {
+    setShowDeleteConfirmDialog(false);
+    setNodeToDelete(null);
+  }, []);
+
+  // NEW: Handle right-click events
+  const handleNodeRightClick = useCallback((event, node) => {
+    if (canvasMode === 'opening') {
+      // Context menu will be handled by the canvas component
+      return;
+    }
+  }, [canvasMode]);
+
   if (loading) {
     return (
       <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
@@ -1689,21 +1775,21 @@ export default function OpeningEditor() {
                   <Button
                     size="sm"
                     variant="outline"
-                                          onClick={() => {
-                        const newMode = canvasMode === 'opening' ? 'performance' : 'opening';
-                        setCanvasMode(newMode);
-                      
-                      // Schedule auto-fit using the unified canvas state
-                      setTimeout(() => {
-                        performanceState.scheduleAutoFit('mode-change', 200);
-                      }, 300);
-                    }}
-                    className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600"
-                    title={`Switch to ${canvasMode === 'opening' ? 'Performance' : 'Opening'} view`}
-                  >
-                    <Network className="w-4 h-4 mr-2" />
-                    {canvasMode === 'opening' ? 'Performance' : 'Opening'}
-                  </Button>
+                    onClick={() => {
+                      const newMode = canvasMode === 'opening' ? 'performance' : 'opening';
+                      setCanvasMode(newMode);
+                    
+                    // Schedule auto-fit using the unified canvas state
+                    setTimeout(() => {
+                      performanceState.scheduleAutoFit('mode-change', 200);
+                    }, 300);
+                  }}
+                  className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600"
+                  title={`Switch to ${canvasMode === 'opening' ? 'Performance' : 'Opening'} view`}
+                >
+                  <Network className="w-4 h-4 mr-2" />
+                  {canvasMode === 'opening' ? 'Performance' : 'Opening'}
+                </Button>
                 </div>
                 
                 <CanvasPerformanceGraph
@@ -1712,6 +1798,8 @@ export default function OpeningEditor() {
                   onNodeClick={handleCanvasNodeClick}
                   onNodeHover={handleCanvasNodeHover}
                   onNodeHoverEnd={handleCanvasNodeHoverEnd}
+                  onNodeRightClick={handleNodeRightClick}
+                  contextMenuActions={contextMenuActions}
                   currentNodeId={performanceState.currentNodeId}
                   isGenerating={false}
 
@@ -1754,56 +1842,88 @@ export default function OpeningEditor() {
         }}
       </FlexibleLayout>
 
-             {/* Unsaved Changes Dialog */}
-       <AlertDialog open={showUnsavedChangesDialog} onOpenChange={handleCancelNavigation}>
-         <AlertDialogContent className="bg-slate-800/95 backdrop-blur-xl border-slate-700/50">
-           <AlertDialogHeader>
-             <AlertDialogTitle className="text-xl text-white">Unsaved Changes</AlertDialogTitle>
-             <AlertDialogDescription className="text-slate-400">
-               You have unsaved changes to your opening. What would you like to do?
-             </AlertDialogDescription>
-           </AlertDialogHeader>
-           <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
-             <AlertDialogCancel 
-               onClick={handleCancelNavigation}
-               className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
-             >
-               Keep Editing
-             </AlertDialogCancel>
-             <Button
-               onClick={handleSaveAndNavigate}
-               disabled={saving || isNavigatingAway}
-               className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
-             >
-               {saving || isNavigatingAway ? (
-                 <>
-                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                   Saving...
-                 </>
-               ) : (
-                 <>
-                   <Save className="w-4 h-4 mr-2" />
-                   Save & Leave
-                 </>
-               )}
-             </Button>
-             <AlertDialogAction 
-               onClick={handleConfirmNavigation}
-               disabled={isNavigatingAway}
-               className="bg-red-600 hover:bg-red-700 text-white"
-             >
-               {isNavigatingAway ? (
-                 <>
-                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                   Leaving...
-                 </>
-               ) : (
-                 'Discard Changes'
-               )}
-             </AlertDialogAction>
-           </AlertDialogFooter>
-         </AlertDialogContent>
-       </AlertDialog>
+      {/* NEW: Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
+        <AlertDialogContent className="bg-slate-800/95 backdrop-blur-xl border-slate-700/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl text-white flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-red-400" />
+              Delete Move
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              Are you sure you want to delete the move <span className="font-semibold text-white">{nodeToDelete?.san}</span>?
+              <br />
+              <span className="text-red-400 font-medium">This will also delete all moves that follow this move.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <AlertDialogCancel 
+              onClick={handleCancelDelete}
+              className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleConfirmDelete}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete Move
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Unsaved Changes Dialog */}
+      <AlertDialog open={showUnsavedChangesDialog} onOpenChange={handleCancelNavigation}>
+        <AlertDialogContent className="bg-slate-800/95 backdrop-blur-xl border-slate-700/50">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl text-white">Unsaved Changes</AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-400">
+              You have unsaved changes to your opening. What would you like to do?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+            <AlertDialogCancel 
+              onClick={handleCancelNavigation}
+              className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+            >
+              Keep Editing
+            </AlertDialogCancel>
+            <Button
+              onClick={handleSaveAndNavigate}
+              disabled={saving || isNavigatingAway}
+              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+            >
+              {saving || isNavigatingAway ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  Save & Leave
+                </>
+              )}
+            </Button>
+            <AlertDialogAction 
+              onClick={handleConfirmNavigation}
+              disabled={isNavigatingAway}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {isNavigatingAway ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Leaving...
+                </>
+              ) : (
+                'Discard Changes'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 } 

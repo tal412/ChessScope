@@ -11,7 +11,11 @@ import {
   Shield,
   MessageSquare,
   Link as LinkIcon,
-  BookOpen
+  BookOpen,
+  Trash2,
+  Edit3,
+  Copy,
+  MoreHorizontal
 } from 'lucide-react';
 
 // Performance color constants
@@ -184,6 +188,40 @@ const hexToRgb = (hex) => {
 // Opening cluster colors - EXACT match with ReactFlow
 const OPENING_CLUSTER_COLORS = [{ bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' }];
 
+/**
+ * Canvas-based performance graph component with context menu support
+ * 
+ * @param {Object} props - Component props
+ * @param {Array} props.contextMenuActions - Array of context menu action objects
+ *   Each action object should have:
+ *   - label: string - Display text for the action
+ *   - icon: React component - Icon to display (optional)
+ *   - onClick: function(node) - Callback when action is clicked
+ *   - disabled: function(node) - Function to determine if action is disabled (optional)
+ * @param {Function} props.onNodeRightClick - Optional callback for right-click events
+ * 
+ * @example
+ * // Basic usage with context menu
+ * const contextActions = [
+ *   {
+ *     label: 'Delete',
+ *     icon: Trash2,
+ *     onClick: (node) => handleDelete(node),
+ *     disabled: (node) => node.data.isRoot
+ *   },
+ *   {
+ *     label: 'Edit',
+ *     icon: Edit,
+ *     onClick: (node) => handleEdit(node)
+ *   }
+ * ];
+ * 
+ * <CanvasPerformanceGraph
+ *   contextMenuActions={contextActions}
+ *   onNodeRightClick={(e, node) => console.log('Right-clicked:', node)}
+ *   // ... other props
+ * />
+ */
 const CanvasPerformanceGraph = ({ 
   graphData, 
   onNodeClick, 
@@ -225,7 +263,11 @@ const CanvasPerformanceGraph = ({
   isClusteringLoading = false,
   className = "",
   mode = 'performance', // Added mode prop
-  enableOpeningClusters = true // Added prop to control opening cluster visibility
+  enableOpeningClusters = true, // Added prop to control opening cluster visibility
+  
+  // Context menu props
+  contextMenuActions = null, // Array of action objects: { label, icon, onClick: (node) => void, disabled?: (node) => boolean }
+  onNodeRightClick = null, // Optional callback for right-click events
 }) => {
   const canvasRef = useRef();
   const containerRef = useRef();
@@ -252,6 +294,10 @@ const CanvasPerformanceGraph = ({
   
   // Use ref to store positioned nodes for stable access in effects
   const positionedNodesRef = useRef([]);
+  
+  // NEW: Context menu state
+  const [contextMenu, setContextMenu] = useState(null); // { x, y, node }
+  const contextMenuRef = useRef(null);
   
   // Update ref when positioned nodes change
   useEffect(() => {
@@ -1428,12 +1474,12 @@ const CanvasPerformanceGraph = ({
 
   // Simplified mouse event handlers
   const handleMouseDown = useCallback((e) => {
-          // Handle middle mouse button click for reset
-      if (e.button === 1) { // Middle mouse button
-        e.preventDefault();
-        zoomTo('all');
-        return;
-      }
+    // Handle middle mouse button click for reset
+    if (e.button === 1) { // Middle mouse button
+      e.preventDefault();
+      zoomTo('all');
+      return;
+    }
     
     // Only handle left mouse button for dragging
     if (e.button !== 0) return;
@@ -1442,7 +1488,7 @@ const CanvasPerformanceGraph = ({
     setLastMouse({ x: e.clientX, y: e.clientY });
     // Reset drag flag at the beginning of a new interaction
     isDraggingRef.current = false;
-      }, [zoomTo]);
+  }, [zoomTo]);
 
   const handleMouseMove = useCallback((e) => {
     if (mousePressed && (e.buttons & 1)) { // Check if left mouse button is pressed
@@ -1511,6 +1557,7 @@ const CanvasPerformanceGraph = ({
     setMousePressed(false);
     setHoveredNode(null);
     setHoveredCluster(null);
+    // Don't close context menu when mouse leaves canvas - let outside click handle it
     // Tooltip state is managed by parent component through callback
     // Clear any hover callbacks
     if (onNodeHoverEnd) onNodeHoverEnd(null, null);
@@ -1528,7 +1575,102 @@ const CanvasPerformanceGraph = ({
     if (node && onNodeClick) {
       onNodeClick(e, node);
     }
-  }, [getNodeAtPosition, onNodeClick]);
+    
+    // Close context menu when clicking on canvas (but not on nodes)
+    if (contextMenu && !node) {
+      setContextMenu(null);
+    }
+  }, [getNodeAtPosition, onNodeClick, contextMenu]);
+
+  // NEW: Handle right-click events
+  const handleRightClick = useCallback((e) => {
+    e.preventDefault(); // Prevent default context menu
+    
+    // Only show context menu if we have actions defined
+    if (!contextMenuActions || contextMenuActions.length === 0) {
+      return;
+    }
+    
+    const node = getNodeAtPosition(e.clientX, e.clientY);
+    
+    if (node) {
+      // Get canvas position for context menu
+      const canvas = canvasRef.current;
+      const rect = canvas.getBoundingClientRect();
+      const menuX = e.clientX - rect.left;
+      const menuY = e.clientY - rect.top;
+      
+      setContextMenu({
+        x: menuX,
+        y: menuY,
+        node: node
+      });
+      
+      // Call optional callback
+      if (onNodeRightClick) {
+        onNodeRightClick(e, node);
+      }
+    } else {
+      // Close context menu if right-clicking on empty space
+      setContextMenu(null);
+    }
+  }, [contextMenuActions, onNodeRightClick, getNodeAtPosition]);
+
+  // NEW: Handle context menu action clicks
+  const handleContextMenuAction = useCallback((action, node) => {
+    if (action.onClick) {
+      action.onClick(node);
+    }
+    setContextMenu(null); // Close menu after action
+  }, []);
+
+  // NEW: Close context menu on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (contextMenu && contextMenuRef.current) {
+        // Don't close if clicking on the context menu itself
+        if (contextMenuRef.current.contains(e.target)) {
+          return;
+        }
+        
+        // Close the context menu for any other click
+        setContextMenu(null);
+      }
+    };
+
+    const handleKeyDown = (e) => {
+      if (contextMenu) {
+        switch (e.key) {
+          case 'Escape':
+            e.preventDefault();
+            setContextMenu(null);
+            break;
+          case 'Enter':
+            e.preventDefault();
+            // Execute first non-disabled action
+            if (contextMenuActions && contextMenuActions.length > 0) {
+              const firstEnabledAction = contextMenuActions.find(action => 
+                !action.disabled || !action.disabled(contextMenu.node)
+              );
+              if (firstEnabledAction) {
+                handleContextMenuAction(firstEnabledAction, contextMenu.node);
+              }
+            }
+            break;
+          // Note: Arrow key navigation could be added here for more complex menus
+        }
+      }
+    };
+
+    if (contextMenu) {
+      document.addEventListener('click', handleOutsideClick);
+      document.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.removeEventListener('click', handleOutsideClick);
+        document.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [contextMenu, contextMenuActions, handleContextMenuAction]);
 
   const handleWheel = useCallback((e) => {
     e.preventDefault();
@@ -1641,8 +1783,43 @@ const CanvasPerformanceGraph = ({
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseLeave}
         onClick={handleClick}
-        onContextMenu={(e) => e.preventDefault()} // Prevent context menu
+        onContextMenu={handleRightClick} // NEW: Handle right-click
       />
+      
+      {/* NEW: Context Menu */}
+      {contextMenu && contextMenuActions && contextMenuActions.length > 0 && (
+        <div
+          ref={contextMenuRef}
+          className="absolute bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 py-1 min-w-[160px]"
+          style={{
+            left: Math.min(contextMenu.x, dimensions.width - 200), // Prevent menu from going off-screen
+            top: Math.min(contextMenu.y, dimensions.height - (contextMenuActions.length * 40 + 20)), // Prevent menu from going off-screen
+          }}
+
+        >
+          {contextMenuActions.map((action, index) => {
+            const isDisabled = action.disabled ? action.disabled(contextMenu.node) : false;
+            
+            return (
+              <button
+                key={index}
+                onClick={() => !isDisabled && handleContextMenuAction(action, contextMenu.node)}
+                disabled={isDisabled}
+                className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors ${
+                  isDisabled 
+                    ? 'text-slate-500 cursor-not-allowed' 
+                    : 'text-slate-200 hover:bg-slate-700 hover:text-white'
+                }`}
+              >
+                {action.icon && <action.icon className="w-4 h-4" />}
+                {action.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+      
+
       
       {/* Graph Controls - Top Left - SHARED between modes */}
       {!isInitializing && positionedNodes.length > 0 && (
