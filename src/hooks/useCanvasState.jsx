@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 
 /**
  * Unified canvas state management hook
- * Handles all canvas functionality: zoom, clustering, performance controls, position tracking
+ * Handles all canvas functionality: zoom, clustering, performance controls, position tracking, context menus
  * Can be used by both PerformanceGraph and OpeningEditor for consistent experience
  */
 export const useCanvasState = ({
@@ -18,6 +18,10 @@ export const useCanvasState = ({
   enableClustering = true,
   enablePositionClusters = true,
   enableAutoZoom = false,
+  
+  // Context menu options
+  enableContextMenu = false,
+  contextMenuActions = null,
   
   // Default control values
   defaultMaxDepth = 20,
@@ -58,6 +62,11 @@ export const useCanvasState = ({
   // Position tracking
   const [currentNodeId, setCurrentNodeId] = useState(null);
   const [currentPositionFen, setCurrentPositionFen] = useState(null);
+  
+  // Context menu state
+  const [contextMenuVisible, setContextMenuVisible] = useState(false);
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 });
+  const [contextMenuNode, setContextMenuNode] = useState(null);
   
   // Auto-fit state
   const autoFitTimeoutRef = useRef(null);
@@ -305,6 +314,27 @@ export const useCanvasState = ({
     return cleanup;
   }, [cleanup]);
   
+  // Context menu handlers
+  const showContextMenu = useCallback((x, y, node) => {
+    if (!enableContextMenu) return;
+    
+    setContextMenuPosition({ x, y });
+    setContextMenuNode(node);
+    setContextMenuVisible(true);
+  }, [enableContextMenu]);
+  
+  const hideContextMenu = useCallback(() => {
+    setContextMenuVisible(false);
+    setContextMenuNode(null);
+  }, []);
+  
+  const handleContextMenuAction = useCallback((action, node) => {
+    if (action.onClick) {
+      action.onClick(node);
+    }
+    hideContextMenu();
+  }, [hideContextMenu]);
+  
   return {
     // Canvas state
     isCanvasResizing,
@@ -359,6 +389,14 @@ export const useCanvasState = ({
     currentNodeId,
     currentPositionFen,
     updateCurrentPosition,
+    
+    // Context menu state
+    contextMenuVisible,
+    contextMenuPosition,
+    contextMenuNode,
+    showContextMenu,
+    hideContextMenu,
+    handleContextMenuAction,
     
     // Auto-zoom
     showZoomDebounceOverlay,
