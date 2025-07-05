@@ -265,6 +265,12 @@ const CanvasPerformanceGraph = ({
   
   // Animation state for smooth fit view - like ReactFlow
   const animationStateRef = useRef(null);
+  
+  // Use ref to track current transform to avoid stale closures
+  const currentTransformRef = useRef(transform);
+  useEffect(() => {
+    currentTransformRef.current = transform;
+  }, [transform]);
 
   // Removed complex loading system - using simple initialization overlay only
 
@@ -1214,9 +1220,9 @@ const CanvasPerformanceGraph = ({
 
   // Unified zoom function that can handle different targets
   const zoomTo = useCallback((target = 'all') => {
-    // Prevent zoom during resize transitions
-    if (isResizing) {
-      console.log('⏸️ Zoom prevented during resize transition');
+    // Prevent zoom during resize transitions or initialization
+    if (isResizing || isInitializing) {
+      console.log('⏸️ Zoom prevented during resize/initialization');
       return;
     }
     
@@ -1260,9 +1266,42 @@ const CanvasPerformanceGraph = ({
         break;
       
       case 'reset':
-        // Reset to default position
-        setTransform({ x: 0, y: 0, scale: 1 });
-        setIsInitializing(false);
+        // Reset to default position with animation
+        targetNodes = positionedNodes;
+        logMessage = 'ZOOM RESET TO DEFAULT';
+        // Use a special transform for reset
+        const resetOptimalTransform = { x: 0, y: 0, scale: 1 };
+        
+        // Apply reset transform with smooth animation
+        const resetStartTransform = { ...currentTransformRef.current };
+        const resetStartTime = Date.now();
+        const resetDuration = 300;
+        
+        const resetAnimate = () => {
+          const elapsed = Date.now() - resetStartTime;
+          const progress = Math.min(elapsed / resetDuration, 1);
+          
+          // Use easing function for smoother animation
+          const easeProgress = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+          
+          const newTransform = {
+            x: resetStartTransform.x + (resetOptimalTransform.x - resetStartTransform.x) * easeProgress,
+            y: resetStartTransform.y + (resetOptimalTransform.y - resetStartTransform.y) * easeProgress,
+            scale: resetStartTransform.scale + (resetOptimalTransform.scale - resetStartTransform.scale) * easeProgress
+          };
+          
+          setTransform(newTransform);
+          
+          if (progress < 1) {
+            animationStateRef.current = requestAnimationFrame(resetAnimate);
+          } else {
+            animationStateRef.current = null;
+            setIsInitializing(false);
+          }
+        };
+        
+        // Start reset animation immediately
+        animationStateRef.current = requestAnimationFrame(resetAnimate);
         return;
       
       default:
@@ -1292,50 +1331,36 @@ const CanvasPerformanceGraph = ({
     const clusterPadding = (target === 'clusters' && positionClusters.length > 0) ? 120 : 50;
     const optimalTransform = calculateOptimalTransform(targetNodes, dimensions, clusterPadding);
 
-    // Apply transform with smooth animation - defer to prevent setState during render
-    requestAnimationFrame(() => {
-      setTransform(currentTransform => {
-        const startTransform = { ...currentTransform };
-        const startTime = Date.now();
-        const duration = 300;
-        
-        const animate = () => {
-          const elapsed = Date.now() - startTime;
-          const progress = Math.min(elapsed / duration, 1);
-          
-          const newTransform = {
-            x: startTransform.x + (optimalTransform.x - startTransform.x) * progress,
-            y: startTransform.y + (optimalTransform.y - startTransform.y) * progress,
-            scale: startTransform.scale + (optimalTransform.scale - startTransform.scale) * progress
-          };
-          
-          // Use requestAnimationFrame to update transform outside of render cycle
-          requestAnimationFrame(() => {
-            setTransform(newTransform);
-          });
-          
-          if (progress < 1) {
-            animationStateRef.current = requestAnimationFrame(animate);
-          } else {
-            animationStateRef.current = null;
-          }
-        };
-        
-        // Start animation on next frame to avoid sync updates
-        requestAnimationFrame(animate);
-        
-        // Force stop after 400ms no matter what
-        setTimeout(() => {
-          if (animationStateRef.current) {
-            cancelAnimationFrame(animationStateRef.current);
-            animationStateRef.current = null;
-          }
-        }, 400);
-        
-        return currentTransform; // Return current transform for now, animation will update it
-      });
-    });
-  }, [positionedNodes, positionClusters, dimensions, calculateOptimalTransform, isResizing]);
+    // Apply transform with smooth animation - simplified to prevent conflicts
+    const startTransform = { ...currentTransformRef.current };
+    const startTime = Date.now();
+    const duration = 300;
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Use easing function for smoother animation
+      const easeProgress = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+      
+      const newTransform = {
+        x: startTransform.x + (optimalTransform.x - startTransform.x) * easeProgress,
+        y: startTransform.y + (optimalTransform.y - startTransform.y) * easeProgress,
+        scale: startTransform.scale + (optimalTransform.scale - startTransform.scale) * easeProgress
+      };
+      
+      setTransform(newTransform);
+      
+      if (progress < 1) {
+        animationStateRef.current = requestAnimationFrame(animate);
+      } else {
+        animationStateRef.current = null;
+      }
+    };
+    
+    // Start animation immediately
+    animationStateRef.current = requestAnimationFrame(animate);
+  }, [positionedNodes, positionClusters, dimensions, calculateOptimalTransform, isResizing, isInitializing]);
 
   // Convenience functions for backward compatibility and cleaner API
   const fitView = useCallback(() => zoomTo('all'), [zoomTo]);

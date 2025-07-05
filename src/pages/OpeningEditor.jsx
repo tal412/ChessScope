@@ -132,6 +132,8 @@ class MoveNode {
   }
 }
 
+
+
 export default function OpeningEditor() {
   const navigate = useNavigate();
   const { openingId } = useParams();
@@ -198,6 +200,53 @@ export default function OpeningEditor() {
     enableAutoZoom: canvasMode === 'performance' // Only auto-zoom in performance mode
   });
   
+  // Override the navigate function to check for unsaved changes
+  const navigateWithCheck = useCallback((to, options = {}) => {
+    if (hasUnsavedChanges && !isNavigatingAway) {
+      setShowUnsavedChangesDialog(true);
+      setPendingNavigation('router-navigation');
+      // Store the navigation details for later use
+      pendingNavigationRef.current = { to, options };
+      return;
+    }
+    navigate(to, options);
+  }, [hasUnsavedChanges, isNavigatingAway, navigate]);
+
+  // Store pending navigation details
+  const pendingNavigationRef = useRef(null);
+
+  // Intercept all Link clicks in the document to check for unsaved changes
+  useEffect(() => {
+    const handleLinkClick = (event) => {
+      // Only intercept if we have unsaved changes and not already navigating
+      if (!hasUnsavedChanges || isNavigatingAway) return;
+      
+      // Check if the clicked element is a link or inside a link
+      const link = event.target.closest('a[href]');
+      if (!link) return;
+      
+      const href = link.getAttribute('href');
+      
+      // Only intercept internal navigation (React Router links)
+      if (href && href.startsWith('/') && !href.startsWith('//')) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        setShowUnsavedChangesDialog(true);
+        setPendingNavigation('router-navigation');
+        // Store the navigation details
+        pendingNavigationRef.current = { to: href, options: {} };
+      }
+    };
+
+    // Add event listener to capture all link clicks
+    document.addEventListener('click', handleLinkClick, true);
+    
+    return () => {
+      document.removeEventListener('click', handleLinkClick, true);
+    };
+  }, [hasUnsavedChanges, isNavigatingAway]);
+
   // Load existing opening
   useEffect(() => {
     if (!isNewOpening) {
@@ -1037,13 +1086,27 @@ export default function OpeningEditor() {
     if (canvasMode === 'opening' && node.data && !node.data.isRoot) {
       const treeNode = findNodeById(moveTree, node.id);
       if (treeNode) {
+        // Check if clicking on currently selected node - if so, deselect it
+        if (selectedNode && selectedNode.id === treeNode.id) {
+          // Deselect the current node
+          setSelectedNode(null);
+          setCurrentNode(null);
+          setCurrentPath([]);
+          return;
+        }
         handleNodeSelect(treeNode);
       }
     } else if (canvasMode === 'performance' && node.data) {
+      // Check if clicking on currently selected node - if so, deselect it
+      if (performanceState.currentNodeId === node.id) {
+        // Deselect the current node
+        performanceState.updateCurrentPosition(null, null);
+        return;
+      }
       // Update performance state position for auto-zoom functionality
       performanceState.updateCurrentPosition(node.id, node.data.fen);
     }
-  }, [canvasMode, handleNodeSelect, performanceState.updateCurrentPosition]); // handleNodeSelect is stable, moveTree accessed via closure
+  }, [canvasMode, handleNodeSelect, performanceState.updateCurrentPosition, selectedNode, performanceState.currentNodeId]); // handleNodeSelect is stable, moveTree accessed via closure
 
   // Hover handlers for showing arrows on chessboard
   const handleCanvasNodeHover = useCallback((e, node) => {
@@ -1150,8 +1213,14 @@ export default function OpeningEditor() {
     setIsNavigatingAway(true);
     setShowUnsavedChangesDialog(false);
     
-    // Navigate without saving
-    if (pendingNavigation === 'back' || pendingNavigation === 'cancel') {
+    // Handle different types of navigation
+    if (pendingNavigation === 'router-navigation' && pendingNavigationRef.current) {
+      // For React Router navigation, use the stored navigation details
+      const { to, options } = pendingNavigationRef.current;
+      navigate(to, options);
+      pendingNavigationRef.current = null;
+    } else if (pendingNavigation === 'back' || pendingNavigation === 'cancel') {
+      // For other navigation types, use navigate
       navigate('/openings-book');
     }
     
@@ -1164,7 +1233,12 @@ export default function OpeningEditor() {
     
     try {
       await handleSave();
-      // handleSave already navigates on success
+      // handleSave already navigates on success, but if we have a blocked navigation, proceed with it
+      if (pendingNavigation === 'router-navigation' && pendingNavigationRef.current) {
+        const { to, options } = pendingNavigationRef.current;
+        navigate(to, options);
+        pendingNavigationRef.current = null;
+      }
     } catch (error) {
       setIsNavigatingAway(false);
       console.error('Error saving before navigation:', error);
@@ -1175,6 +1249,10 @@ export default function OpeningEditor() {
 
   const handleCancelNavigation = () => {
     setShowUnsavedChangesDialog(false);
+    
+    // Clear the pending navigation to cancel it
+    pendingNavigationRef.current = null;
+    
     setPendingNavigation(null);
   };
 

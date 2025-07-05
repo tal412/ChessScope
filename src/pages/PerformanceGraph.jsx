@@ -1454,6 +1454,15 @@ function PerformanceGraphContent() {
       return;
     }
     
+    // Check if clicking on currently selected node - if so, deselect it
+    if (performanceState.currentNodeId === node.id) {
+      // Deselect the current node
+      performanceState.updateCurrentPosition(null, null);
+      // Reset chessboard to starting position
+      chessboardSync.syncMovesToChessboard([]);
+      return;
+    }
+    
     // Extract move sequence from node data
     const moveSequence = node.data.moveSequence || [];
     

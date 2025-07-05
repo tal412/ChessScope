@@ -196,6 +196,36 @@ export const usePerformanceGraphState = ({
     autoFitDelay: 200
   });
   
+  // Handle resize-specific auto-fit when auto-zoom is enabled
+  useEffect(() => {
+    if (!enableAutoZoom) return; // Only handle this when auto-zoom is enabled
+    
+    // When canvas finishes resizing and auto-zoom is enabled, we need to handle fit ourselves
+    if (!canvasState.isCanvasResizing && canvasState.fitView && !isGenerating) {
+      // Clear any existing auto-zoom timeout to prevent conflicts
+      if (autoZoomTimeoutRef.current) {
+        clearTimeout(autoZoomTimeoutRef.current);
+        autoZoomTimeoutRef.current = null;
+      }
+      
+      // After resize, fit appropriately based on whether we have position clusters
+      autoZoomTimeoutRef.current = setTimeout(() => {
+        try {
+          if (positionClusters.length > 0 && canvasState.zoomToClusters) {
+            // If we have position clusters, zoom to them
+            canvasState.zoomToClusters();
+          } else if (canvasState.fitView) {
+            // Otherwise, fit to all nodes
+            canvasState.fitView();
+          }
+        } catch (error) {
+          console.error('❌ Error executing post-resize auto-fit:', error);
+        }
+        autoZoomTimeoutRef.current = null;
+      }, 300); // Use a longer delay for resize to ensure canvas is stable
+    }
+  }, [canvasState.isCanvasResizing, canvasState.fitView, canvasState.zoomToClusters, positionClusters.length, isGenerating, enableAutoZoom]);
+  
   // Control handlers
   const handleMaxDepthChange = useCallback((newDepth) => {
     setMaxDepth(newDepth);
@@ -247,9 +277,15 @@ export const usePerformanceGraphState = ({
     setCurrentPositionFen(fen);
   }, []);
   
-  // Auto-zoom functionality
+  // Auto-zoom functionality with debouncing
   useEffect(() => {
-    if (!enableAutoZoom || !canvasState.zoomToClusters) return;
+    if (!enableAutoZoom || (!canvasState.zoomToClusters && !canvasState.fitView)) return;
+    
+    // Clear any existing auto-zoom timeout
+    if (autoZoomTimeoutRef.current) {
+      clearTimeout(autoZoomTimeoutRef.current);
+      autoZoomTimeoutRef.current = null;
+    }
     
     const positionChanged = currentPositionFen !== lastPositionFenRef.current;
     
@@ -258,26 +294,43 @@ export const usePerformanceGraphState = ({
     }
     
     // Check if canvas is ready and not resizing
-    const canvasIsReady = canvasState.zoomToClusters && !isGenerating && !canvasState.isCanvasResizing;
+    const canvasIsReady = (canvasState.zoomToClusters || canvasState.fitView) && !isGenerating && !canvasState.isCanvasResizing;
     
-    // Auto-zoom when we have position clusters and a current position
-    // This will trigger both when position changes AND when clusters are generated
-    const shouldAutoZoom = positionClusters.length > 0 && canvasIsReady && currentPositionFen;
+    // Auto-zoom logic: 
+    // - If we have position clusters and a current position, zoom to clusters
+    // - If we have a current position but no position clusters, fit to all nodes
+    // This will trigger both when position changes AND when clusters are generated/cleared
+    const shouldZoomToClusters = positionClusters.length > 0 && canvasIsReady && currentPositionFen;
+    const shouldFitToAll = positionClusters.length === 0 && canvasIsReady && currentPositionFen;
     
-    if (shouldAutoZoom) {
-      // Use a longer delay to ensure position clusters are fully rendered
-      setTimeout(() => {
+    if (shouldZoomToClusters || shouldFitToAll) {
+      // Debounce auto-zoom calls to prevent conflicts
+      autoZoomTimeoutRef.current = setTimeout(() => {
         try {
-          canvasState.zoomToClusters();
+          if (shouldZoomToClusters) {
+            canvasState.zoomToClusters();
+          } else if (shouldFitToAll) {
+            canvasState.fitView();
+          }
         } catch (error) {
           console.error('❌ Error executing auto-zoom:', error);
         }
-      }, 100);
+        autoZoomTimeoutRef.current = null;
+      }, 150); // Slightly longer delay to prevent conflicts
     }
     
     setShowZoomDebounceOverlay(false);
-  }, [positionClusters, canvasState.zoomToClusters, currentPositionFen, isGenerating, canvasState.isCanvasResizing, enableAutoZoom]);
+  }, [positionClusters, canvasState.zoomToClusters, canvasState.fitView, currentPositionFen, isGenerating, canvasState.isCanvasResizing, enableAutoZoom]);
   
+  // Cleanup function
+  useEffect(() => {
+    return () => {
+      if (autoZoomTimeoutRef.current) {
+        clearTimeout(autoZoomTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return {
     // Performance controls
     maxDepth,
