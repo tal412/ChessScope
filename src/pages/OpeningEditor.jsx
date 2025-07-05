@@ -12,8 +12,6 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 import { 
   FlexibleLayout, 
-  AppBar, 
-  ComponentToggleButton, 
   LayoutSection,
   ComponentConfigs
 } from '@/components/ui/flexible-layout';
@@ -172,8 +170,8 @@ export default function OpeningEditor() {
   // Layout state - using flexible layout system
   const [layoutInfo, setLayoutInfo] = useState({});
   const [showDetails, setShowDetails] = useState(true);
-  const [showEditor, setShowEditor] = useState(true);
-  const [showTree, setShowTree] = useState(true);
+  const [showBoard, setShowBoard] = useState(true);
+  const [showGraph, setShowGraph] = useState(true);
   
   // Canvas state
   const [canvasMode, setCanvasMode] = useState('opening'); // 'opening' | 'performance'
@@ -1250,45 +1248,30 @@ export default function OpeningEditor() {
     setHoveredMove(null);
   }, []);
 
+
+
   // Layout control handlers - memoized to prevent infinite re-renders
   const handleLayoutChange = useCallback((layoutData) => {
     setLayoutInfo(layoutData);
-    
-    // Schedule auto-fit when layout changes (after a delay to let layout settle)
-    setTimeout(() => {
-      performanceState.scheduleAutoFit('layout-change', 200);
-    }, 300);
-  }, [performanceState.scheduleAutoFit]);
+  }, []);
 
   const toggleDetails = () => {
     setShowDetails(!showDetails);
-    // Schedule auto-fit after layout change
-    setTimeout(() => {
-      performanceState.scheduleAutoFit('details-toggle', 200);
-    }, 300);
   };
 
-  const toggleEditor = () => {
-    setShowEditor(!showEditor);
-    // Schedule auto-fit after layout change
-    setTimeout(() => {
-      performanceState.scheduleAutoFit('editor-toggle', 200);
-    }, 300);
+  const toggleBoard = () => {
+    setShowBoard(!showBoard);
   };
 
-  const toggleTree = () => {
-    setShowTree(!showTree);
-    // Schedule auto-fit after layout change
-    setTimeout(() => {
-      performanceState.scheduleAutoFit('tree-toggle', 200);
-    }, 300);
+  const toggleGraph = () => {
+    setShowGraph(!showGraph);
   };
 
   // Component visibility state for flexible layout
   const componentVisibility = {
-    details: showDetails,
-    editor: showEditor,
-    tree: showTree
+            details: showDetails,
+        board: showBoard,
+        graph: showGraph
   };
 
   // Navigation handlers with unsaved changes check
@@ -1448,10 +1431,43 @@ export default function OpeningEditor() {
     );
   }
 
+  // Component toggle configuration
+  const componentToggleConfig = {
+    details: { icon: FileText, label: 'Details' },
+    board: { icon: Grid3x3, label: 'Board' },
+    graph: { icon: Network, label: 'Graph' }
+  };
+
+  // Handle component toggles
+  const handleComponentToggle = (componentKey) => {
+    switch (componentKey) {
+      case 'details':
+        toggleDetails();
+        break;
+      case 'board':
+        toggleBoard();
+        break;
+      case 'graph':
+        toggleGraph();
+        break;
+    }
+  };
+
   return (
-    <div className="h-full w-full bg-slate-900 flex flex-col">
-      {/* Header using AppBar */}
-      <AppBar
+    <div className="h-full w-full bg-slate-900">
+      {/* Error Alert */}
+      {error && (
+        <div className="absolute top-0 left-0 right-0 z-50 p-4 bg-slate-800 border-b border-slate-700">
+          <Alert className="bg-red-900/20 border-red-700">
+            <AlertDescription className="text-red-400">
+              {error}
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      {/* Main Content using FlexibleLayout with integrated AppBar */}
+      <FlexibleLayout
         title={
           <div className="flex items-center gap-2">
             {isNewOpening ? 'Create New Opening' : 'Edit Opening'}
@@ -1472,28 +1488,6 @@ export default function OpeningEditor() {
             <ChevronLeft className="w-5 h-5 mr-1" />
             Back
           </Button>
-        }
-        centerControls={
-          <>
-            <ComponentToggleButton
-              isActive={showDetails}
-              onClick={toggleDetails}
-              icon={FileText}
-              label="Details"
-            />
-            <ComponentToggleButton
-              isActive={showEditor}
-              onClick={toggleEditor}
-              icon={Grid3x3}
-              label="Editor"
-            />
-            <ComponentToggleButton
-              isActive={showTree}
-              onClick={toggleTree}
-              icon={Network}
-              label="Tree"
-            />
-          </>
         }
         rightControls={
           <>
@@ -1519,23 +1513,10 @@ export default function OpeningEditor() {
             </Button>
           </>
         }
-      />
-
-      {/* Error Alert */}
-      {error && (
-        <div className="p-4 bg-slate-800 border-b border-slate-700">
-          <Alert className="bg-red-900/20 border-red-700">
-            <AlertDescription className="text-red-400">
-              {error}
-            </AlertDescription>
-          </Alert>
-        </div>
-      )}
-
-      {/* Main Content using FlexibleLayout */}
-      <FlexibleLayout
         components={componentVisibility}
         componentConfig={ComponentConfigs.openingEditor}
+        componentToggleConfig={componentToggleConfig}
+        onComponentToggle={handleComponentToggle}
         onLayoutChange={handleLayoutChange}
       >
         {{
@@ -1742,13 +1723,13 @@ export default function OpeningEditor() {
             </LayoutSection>
           ),
 
-          editor: (
+          board: (
             <LayoutSection
-              key="editor"
+              key="board"
               noPadding={true}
             >
               <div className="h-full w-full flex items-center justify-center p-4">
-                <InteractiveChessboard
+                                  <InteractiveChessboard
                   currentMoves={currentPath}
                   onNewMove={handleNewMove}
                   onMoveSelect={(moves) => {
@@ -1764,9 +1745,9 @@ export default function OpeningEditor() {
             </LayoutSection>
           ),
 
-          tree: (
+          graph: (
             <LayoutSection
-              key="tree"
+              key="graph"
               noPadding={true}
               className="bg-slate-900 border-r-0"
             >

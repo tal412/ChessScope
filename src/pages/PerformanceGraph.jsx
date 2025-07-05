@@ -12,8 +12,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { NavigationButtons, NavigationPresets } from '@/components/ui/navigation-buttons';
 import { 
   FlexibleLayout, 
-  AppBar, 
-  ComponentToggleButton, 
   LayoutSection,
   ComponentConfigs
 } from '@/components/ui/flexible-layout';
@@ -1554,30 +1552,16 @@ function PerformanceGraphContent() {
 
   // Canvas control handlers - now handled by shared performance state
 
-  // Trigger layout updates for components when layout changes
-  const triggerCanvasResize = () => {
-    // Force window resize event to trigger chessboard recalculation
-    setTimeout(() => {
-      window.dispatchEvent(new Event('resize'));
-    }, 100);
-  };
-
   const toggleOpeningMoves = () => {
     setShowOpeningMoves(!showOpeningMoves);
-    triggerCanvasResize();
   };
 
   const togglePositionAnalysis = () => {
     setShowPositionAnalysis(!showPositionAnalysis);
-    triggerCanvasResize();
   };
 
   const togglePerformanceGraph = () => {
-    const wasHidden = !showPerformanceGraph;
     setShowPerformanceGraph(!showPerformanceGraph);
-    
-    // Trigger resize to update chessboard when layout changes
-    triggerCanvasResize();
   };
 
   // Legacy functions for backward compatibility
@@ -1706,7 +1690,7 @@ function PerformanceGraphContent() {
   // Component visibility state for flexible layout
   const componentVisibility = {
     moves: showOpeningMoves,
-    analysis: showPositionAnalysis,
+    board: showPositionAnalysis,
     graph: showPerformanceGraph
   };
 
@@ -1756,33 +1740,36 @@ function PerformanceGraphContent() {
     );
   }
 
-        return (
-    <div className="h-full w-full bg-slate-900 flex flex-col">
-      
-      {/* Header using AppBar */}
-      <AppBar
+  // Component toggle configuration
+  const componentToggleConfig = {
+    moves: { icon: Menu, label: 'Moves' },
+    board: { icon: Grid3x3, label: 'Board' },
+    graph: { icon: Network, label: 'Graph' }
+  };
+
+  // Handle component toggles
+  const handleComponentToggle = (componentKey) => {
+    switch (componentKey) {
+      case 'moves':
+        toggleOpeningMoves();
+        break;
+      case 'board':
+        togglePositionAnalysis();
+        break;
+      case 'graph':
+        togglePerformanceGraph();
+        break;
+    }
+  };
+
+  return (
+    <div className="h-full w-full bg-slate-900">
+      {/* Main Content using FlexibleLayout with integrated AppBar */}
+      <FlexibleLayout
         title="Performance Graph"
         icon={Target}
         rightControls={
           <>
-            <ComponentToggleButton
-              isActive={showOpeningMoves}
-              onClick={toggleOpeningMoves}
-              icon={Menu}
-              label="Moves"
-            />
-            <ComponentToggleButton
-              isActive={showPositionAnalysis}
-              onClick={togglePositionAnalysis}
-              icon={Grid3x3}
-              label="Board"
-            />
-            <ComponentToggleButton
-              isActive={showPerformanceGraph}
-              onClick={togglePerformanceGraph}
-              icon={Network}
-              label="Graph"
-            />
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white">
@@ -1817,12 +1804,10 @@ function PerformanceGraphContent() {
             </DropdownMenu>
           </>
         }
-      />
-      
-      {/* Main Content using FlexibleLayout */}
-      <FlexibleLayout
         components={componentVisibility}
         componentConfig={ComponentConfigs.performanceGraph}
+        componentToggleConfig={componentToggleConfig}
+        onComponentToggle={handleComponentToggle}
         onLayoutChange={handleLayoutChange}
       >
         {{
@@ -1883,9 +1868,9 @@ function PerformanceGraphContent() {
             </LayoutSection>
           ),
           
-          analysis: (
+          board: (
             <LayoutSection
-              key="analysis"
+              key="board"
               noPadding={true}
               className="bg-slate-800/70"
             >

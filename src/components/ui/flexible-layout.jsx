@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
 // Responsive breakpoint detection hook
@@ -75,8 +76,27 @@ export function calculateGridLayout(visibleComponents, componentConfig, { isMobi
     }
   }
 
-  // Desktop layout - all components
-  const columns = validComponents.map(comp => componentConfig[comp]?.desktopWidth || '1fr');
+  // Desktop layout - all components with dynamic sizing
+  const columns = validComponents.map(comp => {
+    const config = componentConfig[comp];
+    if (!config) return '1fr';
+    
+    // Determine which width to use based on number of active components
+    if (validComponents.length === 1) {
+      // Single component - use oneActive width
+      return config.oneActive || '1fr';
+    } else if (validComponents.length === 2) {
+      // Two components - use twoActive width
+      const sortedComponents = [...validComponents].sort();
+      const combinationKey = sortedComponents.join('+');
+      const width = config.twoActive?.[combinationKey] || config.desktopWidth || '1fr';
+      return width;
+    } else {
+      // Three or more components - use default desktopWidth
+      return config.desktopWidth || '1fr';
+    }
+  });
+  
   return {
     gridTemplateColumns: columns.join(' ') || '1fr',
     gridTemplateRows: '1fr',
@@ -199,6 +219,15 @@ export function FlexibleLayout({
   componentConfig = {},
   className = "",
   onLayoutChange,
+  // AppBar props
+  title,
+  subtitle,
+  icon: Icon,
+  leftControls,
+  rightControls,
+  // Component toggle configuration
+  componentToggleConfig = {},
+  onComponentToggle,
   ...props 
 }) {
   const { isMobile, isTablet } = useResponsiveLayout();
@@ -223,28 +252,61 @@ export function FlexibleLayout({
     }
   }, [visibleComponents.join(','), gridLayout.gridTemplateColumns, isMobile, isTablet]); // Removed onLayoutChange from deps to prevent infinite loops
 
+  // Trigger canvas resize when components change
+  useEffect(() => {
+    // Small delay to let CSS transitions complete
+    const timer = setTimeout(() => {
+      window.dispatchEvent(new Event('resize'));
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [gridLayout.gridTemplateColumns]);
+
   // Force specific components on mobile/tablet
   const shouldForceComponents = gridLayout.forceComponents && gridLayout.forceComponents.length !== visibleComponents.length;
 
+  // Generate toggle buttons from configuration
+  const toggleButtons = Object.entries(componentToggleConfig).map(([key, config]) => (
+    <ComponentToggleButton
+      key={key}
+      isActive={components[key]}
+      onClick={() => onComponentToggle?.(key)}
+      icon={config.icon}
+      label={config.label}
+    />
+  ));
+
   return (
-    <main 
-      className={cn(
-        "flex-1 min-h-0 overflow-hidden",
-        className
-      )}
-      {...props}
-    >
-      <div 
+    <div className="flex flex-col h-full">
+      {/* AppBar with integrated toggle buttons */}
+      <AppBar
+        title={title}
+        subtitle={subtitle}
+        icon={Icon}
+        leftControls={leftControls}
+        centerControls={toggleButtons.length > 0 ? <>{toggleButtons}</> : undefined}
+        rightControls={rightControls}
+      />
+      
+      {/* Main Content */}
+      <main 
         className={cn(
-          "h-full transition-all duration-300 ease-in-out overflow-hidden",
-          gridLayout.className
+          "flex-1 min-h-0 overflow-hidden",
+          className
         )}
-        style={{
-          display: 'grid',
-          gridTemplateColumns: gridLayout.gridTemplateColumns,
-          gridTemplateRows: gridLayout.gridTemplateRows
-        }}
+        {...props}
       >
+        <div 
+          className={cn(
+            "h-full transition-all duration-300 ease-in-out overflow-hidden",
+            gridLayout.className
+          )}
+          style={{
+            display: 'grid',
+            gridTemplateColumns: gridLayout.gridTemplateColumns,
+            gridTemplateRows: gridLayout.gridTemplateRows
+          }}
+        >
         {/* Render children based on visible components */}
         {visibleComponents.map(componentKey => {
           // Skip if this component is being forced out on mobile/tablet
@@ -269,8 +331,9 @@ export function FlexibleLayout({
             </div>
           </div>
         )}
-      </div>
-    </main>
+        </div>
+      </main>
+    </div>
   );
 }
 
@@ -318,21 +381,31 @@ export const ComponentConfigs = {
   performanceGraph: {
     moves: {
       desktopWidth: 'minmax(280px, 20%)',
-      tabletWidth: 'minmax(200px, 25%)',
-      mobilePriority: 3,
-      tabletPriority: 1
+      // Width when only this component + 1 other is active
+      twoActive: {
+        'board+moves': 'minmax(280px, 30%)',
+        'moves+board': 'minmax(280px, 30%)',
+        'moves+graph': 'minmax(280px, 25%)'
+      },
+      // Width when only this component is active
+      oneActive: '1fr'
     },
-    analysis: {
+    board: {
       desktopWidth: 'minmax(220px, 28%)',
-      tabletWidth: 'minmax(200px, 35%)',
-      mobilePriority: 2,
-      tabletPriority: 2
+      twoActive: {
+        'board+moves': '1fr',
+        'moves+board': '1fr',
+        'board+graph': 'minmax(220px, 35%)'
+      },
+      oneActive: '1fr'
     },
     graph: {
       desktopWidth: '1fr',
-      tabletWidth: '1fr',
-      mobilePriority: 1,
-      tabletPriority: 1
+      twoActive: {
+        'moves+graph': '1fr',
+        'board+graph': '1fr'
+      },
+      oneActive: '1fr'
     }
   },
   
@@ -340,21 +413,29 @@ export const ComponentConfigs = {
   openingEditor: {
     details: {
       desktopWidth: 'minmax(320px, 25%)',
-      tabletWidth: 'minmax(280px, 35%)',
-      mobilePriority: 3,
-      tabletPriority: 2
+      twoActive: {
+        'board+details': 'minmax(320px, 30%)',
+        'details+board': 'minmax(320px, 30%)',
+        'details+graph': 'minmax(320px, 30%)'
+      },
+      oneActive: '1fr'
     },
-    editor: {
+    board: {
       desktopWidth: '1fr',
-      tabletWidth: '1fr',
-      mobilePriority: 1,
-      tabletPriority: 1
+      twoActive: {
+        'board+details': '1fr',
+        'details+board': '1fr',
+        'board+graph': '1fr'
+      },
+      oneActive: '1fr'
     },
-    tree: {
-      desktopWidth: 'minmax(400px, 40%)',
-      tabletWidth: 'minmax(300px, 45%)',
-      mobilePriority: 2,
-      tabletPriority: 2
+    graph: {
+      desktopWidth: '1fr',
+      twoActive: {
+        'details+graph': '1fr',
+        'board+graph': '1fr'
+      },
+      oneActive: '1fr'
     }
   }
 }; 
