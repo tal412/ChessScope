@@ -10,7 +10,6 @@ import {
   BarChart3,
   Crown,
   Shield,
-  Tag,
   Calendar,
   Loader2,
   BookOpen
@@ -100,12 +99,6 @@ export default function OpeningView() {
                   )}
                   {opening.color}
                 </Badge>
-                {opening.tags?.map((tag) => (
-                  <Badge key={tag} variant="outline" className="text-xs">
-                    <Tag className="w-3 h-3 mr-1" />
-                    {tag}
-                  </Badge>
-                ))}
               </div>
             </div>
           </div>
@@ -136,15 +129,6 @@ export default function OpeningView() {
             </TabsList>
 
             <TabsContent value="analysis" className="space-y-6">
-              {/* Description Card */}
-              {opening.description && (
-                <Card className="bg-slate-800 border-slate-700">
-                  <CardContent className="p-4">
-                    <p className="text-slate-300">{opening.description}</p>
-                  </CardContent>
-                </Card>
-              )}
-
               {/* Analysis View - Similar to Performance Graph but filtered */}
               <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
                 <div className="text-sm text-slate-400 mb-4">

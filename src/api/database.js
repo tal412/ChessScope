@@ -107,8 +107,6 @@ const createTables = async () => {
         color TEXT NOT NULL,
         initial_fen TEXT DEFAULT 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
         initial_moves TEXT DEFAULT '[]',
-        description TEXT,
-        tags TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(username, name)

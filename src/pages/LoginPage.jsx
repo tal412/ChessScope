@@ -607,52 +607,28 @@ export default function LoginPage() {
               </Alert>
             )}
 
-            {/* Embedded Loading Section - always present to maintain layout */}
-            <div className={`max-w-3xl mx-auto transition-all duration-300 delay-150 ${
-              isLeaving ? 'opacity-0 transform -translate-x-4' :
-              isVisible ? 'opacity-100 transform translate-x-0' : 
-              'opacity-0 transform translate-x-4'
-            }`}>
-              {isImporting && (
-                <SettingsLoading 
-                  isLoading={isImporting}
-                  progress={importProgress}
-                  status={importStatus}
-                  onComplete={handleImportComplete}
-                  successMessage="Games Imported Successfully!"
-                  className="border-t border-b border-slate-700/50 my-6"
-                />
-              )}
-              {/* Placeholder to maintain consistent height */}
-              {!isImporting && (
-                <div className="border-t border-b border-slate-700/50 my-6 min-h-[60px]" />
-              )}
-            </div>
-
-            {/* Submit Button */}
+            {/* Submit Button with integrated loading */}
             <div className={`flex justify-center transition-all duration-300 delay-200 ${
               isLeaving ? 'opacity-0 transform -translate-x-2' :
               isVisible ? 'opacity-100 transform translate-x-0' : 
               'opacity-0 transform translate-x-2'
             }`}>
-              <Button 
-                type="submit" 
-                size="lg"
-                disabled={isImporting || selectedTimeControls.length === 0}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-12 py-4 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 min-w-[300px]"
-              >
-                {isImporting ? (
-                  <div className="flex items-center gap-3">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    Importing Games...
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-3">
-                    <ChevronRight className="w-5 h-5" />
-                    Connect & Import Games
-                  </div>
-                )}
-              </Button>
+              <SettingsLoading 
+                isLoading={isImporting}
+                progress={importProgress}
+                status={importStatus}
+                onComplete={handleImportComplete}
+                successMessage="Games Imported Successfully!"
+                className="w-full max-w-md"
+                showButtons={!isImporting}
+                buttonText="Connect & Import Games"
+                loadingText="Importing Games..."
+                onButtonClick={(e) => {
+                  e.preventDefault();
+                  handleAccountSubmit(e);
+                }}
+                buttonDisabled={selectedTimeControls.length === 0}
+              />
             </div>
           </form>
         </div>

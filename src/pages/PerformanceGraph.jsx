@@ -480,16 +480,23 @@ function PerformanceGraphContent() {
 
   // State to trigger data refresh
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isRefreshInProgress, setIsRefreshInProgress] = useState(false);
 
   // Load opening graph data
   useEffect(() => {
     const loadData = async () => {
       try {
         // Don't load if syncing is in progress OR if there's a pending auto-sync
-        if (isSyncing || pendingAutoSync) {
+        // UNLESS we're in the middle of a refresh (which means import just completed)
+        if ((isSyncing || pendingAutoSync) && !isRefreshInProgress) {
           console.log('🔄 Skipping graph load - sync in progress or pending auto-sync');
           setLoading(true); // Keep loading state during sync
           return;
+        }
+        
+        // If we're doing a refresh, log that we're bypassing sync checks
+        if (isRefreshInProgress) {
+          console.log('🔄 Refresh in progress - bypassing sync checks to load new data');
         }
         
         setLoading(true);
@@ -539,15 +546,21 @@ function PerformanceGraphContent() {
       } catch (error) {
         console.error('Error loading opening graph:', error);
       } finally {
-        // Only set loading false if not syncing
-        if (!isSyncing) {
+        // Only set loading false if not syncing (unless we're doing a refresh)
+        if (!isSyncing || isRefreshInProgress) {
           setLoading(false);
+        }
+        
+        // Clear refresh flag when loading completes
+        if (isRefreshInProgress) {
+          setIsRefreshInProgress(false);
+          console.log('✅ Refresh completed - data loading finished');
         }
       }
     };
     
     loadData();
-  }, [refreshTrigger, isSyncing, pendingAutoSync]); // Include isSyncing and pendingAutoSync as dependencies
+  }, [refreshTrigger, isSyncing, pendingAutoSync, isRefreshInProgress]); // Include refresh flag as dependency
 
   // Listen for custom refresh event from settings
   useEffect(() => {
@@ -559,6 +572,9 @@ function PerformanceGraphContent() {
       
       // Add a visual indicator that refresh is happening
       console.log('🔄 Starting PerformanceGraph refresh...');
+      
+      // Set refresh in progress flag
+      setIsRefreshInProgress(true);
       
       // Clear all cached state
       openingGraphRef.current = null;
@@ -593,11 +609,13 @@ function PerformanceGraphContent() {
       // Force loading state to show immediately
       setLoading(true);
       
-      // Trigger data reload
-      setRefreshTrigger(prev => {
-        console.log('📈 Incrementing refresh trigger from', prev, 'to', prev + 1);
-        return prev + 1;
-      });
+      // Trigger data reload with a small delay to ensure auth state is updated
+      setTimeout(() => {
+        setRefreshTrigger(prev => {
+          console.log('📈 Incrementing refresh trigger from', prev, 'to', prev + 1);
+          return prev + 1;
+        });
+      }, 100); // Small delay to allow auth state to settle
       
       console.log('✅ PerformanceGraph state reset complete, data reload triggered');
     };
@@ -1699,7 +1717,8 @@ function PerformanceGraphContent() {
     setLayoutInfo(layoutData);
   }, []);
 
-  if (loading && !isSyncing && !pendingAutoSync) {
+  // Show loading screen during initial load OR when syncing/pending auto-sync
+  if ((loading && !isSyncing && !pendingAutoSync) || (initialLoad && !openingGraphRef.current)) {
     return (
       <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
         <div className="text-center">
@@ -1840,7 +1859,7 @@ function PerformanceGraphContent() {
                 </div>
               }
             >
-              {openingGraph ? (
+              {!initialLoad && openingGraph ? (
                 <div className="h-full w-full">
                   <ChunkVisualization
                     openingGraph={openingGraph}
@@ -1860,8 +1879,12 @@ function PerformanceGraphContent() {
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center p-4">
                     <Menu className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                    <p className="text-slate-400 text-xs">No data</p>
-                    <p className="text-slate-500 text-xs">Import games</p>
+                    <p className="text-slate-400 text-xs">
+                      {initialLoad ? "Loading moves..." : openingGraph ? "No data" : "No data"}
+                    </p>
+                    {!initialLoad && !openingGraph && (
+                      <p className="text-slate-500 text-xs">Import games</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -1875,18 +1898,28 @@ function PerformanceGraphContent() {
               className="bg-slate-800/70"
             >
               <div className="h-full flex items-center justify-center p-2">
-                <InteractiveChessboard
-                  key={`chessboard-${showOpeningMoves}-${showPerformanceGraph}`}
-                  currentMoves={chessboardSync.currentMoves}
-                  onMoveSelect={chessboardSync.handleMoveSelect}
-                  onNewMove={chessboardSync.handleNewMove}
-                  isWhiteTree={selectedPlayer === 'white'}
-                  openingGraph={openingGraphRef.current}
-                  graphNodes={nodes}
-                  hoveredMove={movesHoveredMove || hoveredMove}
-                  onFlip={handleUniversalFlip}
-                  className="w-full max-w-none"
-                />
+                {/* Only render chessboard after initial load is complete */}
+                {!initialLoad && openingGraphRef.current ? (
+                  <InteractiveChessboard
+                    key={`chessboard-${showOpeningMoves}-${showPerformanceGraph}`}
+                    currentMoves={chessboardSync.currentMoves}
+                    onMoveSelect={chessboardSync.handleMoveSelect}
+                    onNewMove={chessboardSync.handleNewMove}
+                    isWhiteTree={selectedPlayer === 'white'}
+                    openingGraph={openingGraphRef.current}
+                    graphNodes={nodes}
+                    hoveredMove={movesHoveredMove || hoveredMove}
+                    onFlip={handleUniversalFlip}
+                    className="w-full max-w-none"
+                  />
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-center p-4">
+                      <Grid3x3 className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                      <p className="text-slate-400 text-xs">Loading board...</p>
+                    </div>
+                  </div>
+                )}
               </div>
             </LayoutSection>
           ),

@@ -276,6 +276,25 @@ export function FlexibleLayout({
     />
   ));
 
+  // Combine rightControls with toggle buttons, adding divider if both exist
+  const combinedRightControls = (
+    <>
+      {rightControls && (
+        <>
+          {rightControls}
+          {toggleButtons.length > 0 && (
+            <div className="w-px h-6 bg-slate-600 mx-2" />
+          )}
+        </>
+      )}
+      {toggleButtons.length > 0 && (
+        <div className="flex items-center gap-1 sm:gap-2">
+          {toggleButtons}
+        </div>
+      )}
+    </>
+  );
+
   return (
     <div className="flex flex-col h-full">
       {/* AppBar with integrated toggle buttons */}
@@ -284,8 +303,7 @@ export function FlexibleLayout({
         subtitle={subtitle}
         icon={Icon}
         leftControls={leftControls}
-        centerControls={toggleButtons.length > 0 ? <>{toggleButtons}</> : undefined}
-        rightControls={rightControls}
+        rightControls={combinedRightControls}
       />
       
       {/* Main Content */}
