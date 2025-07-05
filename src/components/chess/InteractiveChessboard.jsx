@@ -128,9 +128,19 @@ export default function InteractiveChessboard({
         if (move) {
           const winRate = hoveredMove.details?.winRate ?? hoveredMove.winRate ?? 0;
           const gameCount = hoveredMove.gameCount ?? 0;
-          const arrowColor = getArrowColor(winRate);
+          // Check for custom arrow color first, otherwise use win rate-based color
+          let arrowColor, brushKey;
           const thickness = getArrowThickness(gameCount, hoveredMove.maxGameCount || gameCount);
-          const brushKey = `${arrowColor}_${thickness}`;
+          
+          if (hoveredMove.arrowColor) {
+            // Use custom color - create a special brush key
+            arrowColor = hoveredMove.arrowColor;
+            brushKey = `custom_${arrowColor.replace('#', '')}_${thickness}`;
+          } else {
+            // Use win rate-based color
+            arrowColor = getArrowColor(winRate);
+            brushKey = `${arrowColor}_${thickness}`;
+          }
           
           arrows.push({
             orig: move.from,
@@ -146,9 +156,19 @@ export default function InteractiveChessboard({
         if (matchingMove) {
           const winRate = hoveredMove.details?.winRate ?? hoveredMove.winRate ?? 0;
           const gameCount = hoveredMove.gameCount ?? 0;
-          const arrowColor = getArrowColor(winRate);
+          // Check for custom arrow color first, otherwise use win rate-based color
+          let arrowColor, brushKey;
           const thickness = getArrowThickness(gameCount, hoveredMove.maxGameCount || gameCount);
-          const brushKey = `${arrowColor}_${thickness}`;
+          
+          if (hoveredMove.arrowColor) {
+            // Use custom color - create a special brush key
+            arrowColor = hoveredMove.arrowColor;
+            brushKey = `custom_${arrowColor.replace('#', '')}_${thickness}`;
+          } else {
+            // Use win rate-based color
+            arrowColor = getArrowColor(winRate);
+            brushKey = `${arrowColor}_${thickness}`;
+          }
           
           arrows.push({
             orig: matchingMove.from,
@@ -823,6 +843,19 @@ export default function InteractiveChessboard({
     return brushes;
   }, []);
 
+  // Dynamic brush generation for custom colors (like pink arrows)
+  const generateCustomBrush = useCallback((color, thickness) => {
+    const brushKey = `custom_${color.replace('#', '')}_${thickness}`;
+    return {
+      [brushKey]: {
+        key: `c${thickness}`, // Unique key for custom colors
+        color: color,
+        opacity: 0.8,
+        lineWidth: thickness
+      }
+    };
+  }, []);
+
   return (
     <div ref={containerRef} className={`w-full h-full flex items-center justify-center ${className}`}>
       <Card 
@@ -912,11 +945,15 @@ export default function InteractiveChessboard({
                 selectable={{
                   enabled: true // Enable click-to-move
                 }}
-                drawable={{
+                                  drawable={{
                   enabled: true,
                   visible: true,
                   autoShapes: arrowShapes,
-                  brushes: dynamicBrushes
+                  brushes: {
+                    ...dynamicBrushes,
+                    // Add custom brushes for pink arrows if needed
+                    ...(hoveredMove?.arrowColor ? generateCustomBrush(hoveredMove.arrowColor, getArrowThickness(hoveredMove.gameCount || 0, hoveredMove.maxGameCount || 0)) : {})
+                  }
                 }}
                 promotion={promotion}
                 reset={reset}

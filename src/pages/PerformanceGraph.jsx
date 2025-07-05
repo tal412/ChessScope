@@ -635,9 +635,12 @@ function PerformanceGraphContent() {
   // Immediately set loading state when parameters change (before graph generation)
   useEffect(() => {
     if (openingGraphRef.current && !loading && !initialLoad) {
-      performanceState.setIsGenerating(true);
+      // Only set generating if not already generating to prevent unnecessary state updates
+      if (!performanceState.isGenerating) {
+        performanceState.setIsGenerating(true);
+      }
     }
-  }, [selectedPlayer, performanceState.maxDepth, performanceState.minGameCount, performanceState.winRateFilter]);
+  }, [selectedPlayer, performanceState.maxDepth, performanceState.minGameCount, performanceState.winRateFilter, loading, initialLoad, performanceState.isGenerating]);
   
   // enrichNodesWithOpeningClusters now imported from shared utilities
   
@@ -1914,34 +1917,23 @@ function PerformanceGraphContent() {
                   isClusteringLoading={false}
                   className="w-full h-full"
                 />
-
-                {/* Graph Loading Overlay */}
-                {loading && (
-                  <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-10">
-                    <div className="text-center">
-                      <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-400 mb-4 mx-auto"></div>
-                      <div className="text-slate-200 text-lg font-medium mb-2">
-                        {(isSyncing || pendingAutoSync) ? 'Syncing Games' : 'Preparing Graph'}
-                      </div>
-                      <div className="text-slate-400 text-sm">
-                        {(isSyncing || pendingAutoSync) ? (syncStatus || 'Updating analysis...') : 'Building performance analysis...'}
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
             </LayoutSection>
           )
         }}
       </FlexibleLayout>
       
-      {/* Global Loading Overlay */}
-      {performanceState.isGenerating && (
+      {/* Single Consolidated Loading Overlay - Only show when generating or initial loading */}
+      {(performanceState.isGenerating || (loading && (isSyncing || pendingAutoSync))) && (
         <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500 mx-auto mb-6"></div>
-            <p className="text-slate-200 text-lg font-medium">Generating Performance Graph</p>
-            <p className="text-slate-400 text-sm mt-2">Processing your opening analysis...</p>
+            <p className="text-slate-200 text-lg font-medium">
+              {(loading && (isSyncing || pendingAutoSync)) ? 'Syncing Games' : 'Generating Performance Graph'}
+            </p>
+            <p className="text-slate-400 text-sm mt-2">
+              {(loading && (isSyncing || pendingAutoSync)) ? (syncStatus || 'Updating analysis...') : 'Processing your opening analysis...'}
+            </p>
           </div>
         </div>
       )}
