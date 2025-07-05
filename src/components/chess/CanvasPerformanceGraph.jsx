@@ -57,8 +57,6 @@ const getOpeningNodeColor = (node, isSelected) => {
   if (node.data.isMissing) return OPENING_NODE_COLORS.missing;
   // Remove selected node color change - we'll handle selection with glow only
   // if (isSelected) return OPENING_NODE_COLORS.selected;
-  if (node.data.hasLinks && node.data.hasLinks > 0) return OPENING_NODE_COLORS.withLinks;
-  if (node.data.hasComment) return OPENING_NODE_COLORS.withComment;
   
   // For root node, use gray start node styling
   if (node.data.isRoot) {
@@ -1001,56 +999,46 @@ const CanvasPerformanceGraph = ({
         
         renderedNodeCount++;
 
-        // Glow effect for special states and main line
-        if (isCurrentNode || isHoveredNextMove || node.data.isMainLine) {
-          let glowColor = '#8b5cf6'; // Purple glow for main line
-          let glowIntensity = 15;
-          
-          if (isCurrentNode) {
-            // Multiple shadow layers for stronger glow without spreading
-            ctx.shadowColor = 'rgba(59, 130, 246, 1.0)';
-            ctx.shadowBlur = 15;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
-          } else if (isHoveredNextMove) {
-            glowColor = '#8b5cf6'; // Purple glow for hovered next move
-            glowIntensity = 15;
-            ctx.shadowColor = glowColor;
-            ctx.shadowBlur = glowIntensity;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
-          } else {
-            ctx.shadowColor = glowColor;
-            ctx.shadowBlur = glowIntensity;
-            ctx.shadowOffsetX = 0;
-            ctx.shadowOffsetY = 0;
-          }
-        } else {
-          ctx.shadowBlur = 0;
-        }
-
         // Node background with proper styling
         ctx.fillStyle = nodeColor.bg;
         ctx.strokeStyle = nodeColor.border;
         ctx.lineWidth = isCurrentNode || isHoveredNextMove ? 8 : (isHovered ? 6 : 4);
         
         if (isCurrentNode) {
-          // Draw multiple layers for stronger glow without spreading
+          // INTENSE GLOW: Draw multiple layers with shadow for selected node
+          ctx.shadowColor = 'rgba(59, 130, 246, 1.0)'; // Blue glow
+          ctx.shadowBlur = 20;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+          
+          // Draw 8 layers for very intense glow
+          for (let i = 0; i < 8; i++) {
+            ctx.beginPath();
+            ctx.roundRect(x, y, node.width, node.height, 12);
+            ctx.fill();
+          }
+          ctx.stroke();
+          ctx.shadowBlur = 0; // Reset shadow
+        } else if (isHoveredNextMove || node.data.isMainLine) {
+          // Lighter glow for hovered or main line nodes
+          const glowColor = isHoveredNextMove ? '#8b5cf6' : '#8b5cf6'; // Purple glow
+          ctx.shadowColor = glowColor;
+          ctx.shadowBlur = 15;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+          
           ctx.beginPath();
           ctx.roundRect(x, y, node.width, node.height, 12);
           ctx.fill();
-          ctx.fill(); // Second fill for intensity
-          ctx.fill(); // Third fill for even more intensity
           ctx.stroke();
+          ctx.shadowBlur = 0; // Reset shadow
         } else {
+          // Normal node - no glow
           ctx.beginPath();
           ctx.roundRect(x, y, node.width, node.height, 12);
           ctx.fill();
           ctx.stroke();
         }
-
-        // Reset shadow
-        ctx.shadowBlur = 0;
         
         // Text rendering for opening mode
         ctx.textAlign = 'center';
@@ -1077,28 +1065,88 @@ const CanvasPerformanceGraph = ({
           // Move node
           ctx.font = `bold 40px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
           ctx.fillStyle = textColor;
-          ctx.strokeText(node.data.label || node.data.san || '?', centerX, centerY - 10);
-          ctx.fillText(node.data.label || node.data.san || '?', centerX, centerY - 10);
+          ctx.strokeText(node.data.label || node.data.san || '?', centerX, centerY);
+          ctx.fillText(node.data.label || node.data.san || '?', centerX, centerY);
           
-          // Show annotation indicators
-          const iconSize = 20;
-          const iconSpacing = 25;
-          let iconX = centerX - ((node.data.hasComment && node.data.hasLinks) ? iconSpacing/2 : 0);
+          // Show annotation indicators at bottom of node using reversed colors
+          const hasComment = node.data.hasComment;
+          const hasLinks = node.data.hasLinks && node.data.linkCount > 0;
           
-          if (node.data.hasComment) {
-            ctx.fillStyle = '#3b82f6';
-            ctx.font = `${iconSize}px -apple-system`;
-            ctx.fillText('💬', iconX, centerY + 30);
-            iconX += iconSpacing;
+          // Show annotation indicators at bottom of node using reversed colors
+          if (hasComment || hasLinks) {
+            // Save the current context state
+            ctx.save();
+            
+            // Calculate icon positioning
+            const iconSize = 20;
+            const iconSpacing = 32;
+            const totalWidth = (hasComment && hasLinks) ? iconSpacing : 0;
+            let iconX = centerX - totalWidth / 2;
+            const iconY = centerY + 65;
+            
+            // Use reversed colors for icons (opposite of node background color)
+            // White nodes get black icons, black nodes get white icons
+            const nodeBackgroundColor = nodeColor.bg;
+            const iconColor = nodeBackgroundColor === '#ffffff' ? '#000000' : '#ffffff';
+            
+            // Reset any previous shadows or effects
+            ctx.shadowBlur = 0;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            ctx.globalAlpha = 1;
+            
+            // Helper function to draw SVG icon paths on canvas
+            const drawIcon = (iconPath, x, y, size, color) => {
+              ctx.save();
+              ctx.translate(x - size/2, y - size/2);
+              ctx.scale(size/24, size/24); // Scale from 24x24 to desired size
+              ctx.fillStyle = color;
+              ctx.strokeStyle = color;
+              ctx.lineWidth = 1.5;
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+              
+              // Parse and draw the path
+              const path = new Path2D(iconPath);
+              ctx.fill(path);
+              ctx.stroke(path);
+              
+              ctx.restore();
+            };
+            
+            if (hasComment) {
+              // MessageSquare icon path (from Lucide)
+              const messageSquarePath = 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z';
+              drawIcon(messageSquarePath, iconX, iconY, iconSize, iconColor);
+              iconX += iconSpacing;
+            }
+            
+            if (hasLinks) {
+              // Draw a simple, bold chain link icon for small size
+              ctx.save();
+              ctx.strokeStyle = iconColor;
+              ctx.lineWidth = 2.7;
+              ctx.lineCap = 'round';
+              ctx.lineJoin = 'round';
+              // Draw left circle
+              ctx.beginPath();
+              ctx.arc(iconX - 5, iconY - 2, 5, 0, 2 * Math.PI);
+              ctx.stroke();
+              // Draw right circle
+              ctx.beginPath();
+              ctx.arc(iconX + 5, iconY - 2, 5, 0, 2 * Math.PI);
+              ctx.stroke();
+              // Draw connecting bar
+              ctx.beginPath();
+              ctx.moveTo(iconX - 2, iconY - 2);
+              ctx.lineTo(iconX + 2, iconY - 2);
+              ctx.stroke();
+              ctx.restore();
+            }
+            
+            // Restore the context state
+            ctx.restore();
           }
-          
-          if (node.data.hasLinks && node.data.linkCount > 0) {
-            ctx.fillStyle = '#10b981';
-            ctx.font = `${iconSize}px -apple-system`;
-            ctx.fillText('🔗', iconX, centerY + 30);
-          }
-          
-          // Removed variation text overlay as requested
         }
       } else {
         // Performance mode rendering (existing code)
@@ -1128,29 +1176,45 @@ const CanvasPerformanceGraph = ({
         const nodeColor = perfData.bg;
         const nodeBorder = perfData.border;
         
-        // Glow effect for special states
-        if (isCurrentNode || isHoveredNextMove) {
-          const glowColor = isCurrentNode ? '#22c55e' : '#fb923c';
-          ctx.shadowColor = glowColor;
-          ctx.shadowBlur = isCurrentNode ? 20 : 15;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 0;
-        } else {
-          ctx.shadowBlur = 0;
-        }
-
         // Node background with proper styling
         ctx.fillStyle = nodeColor;
         ctx.strokeStyle = nodeBorder;
         ctx.lineWidth = isCurrentNode || isHoveredNextMove ? 8 : (isHovered ? 6 : 4);
         
-        ctx.beginPath();
-        ctx.roundRect(x, y, node.width, node.height, 12);
-        ctx.fill();
-        ctx.stroke();
-
-        // Reset shadow
-        ctx.shadowBlur = 0;
+        if (isCurrentNode) {
+          // INTENSE GLOW: Draw multiple layers with shadow for selected node
+          ctx.shadowColor = 'rgba(34, 197, 94, 1.0)'; // Green glow
+          ctx.shadowBlur = 25;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+          
+          // Draw 8 layers for very intense glow
+          for (let i = 0; i < 8; i++) {
+            ctx.beginPath();
+            ctx.roundRect(x, y, node.width, node.height, 12);
+            ctx.fill();
+          }
+          ctx.stroke();
+          ctx.shadowBlur = 0; // Reset shadow
+        } else if (isHoveredNextMove) {
+          // Lighter glow for hovered nodes
+          ctx.shadowColor = 'rgba(251, 146, 60, 1.0)'; // Orange glow
+          ctx.shadowBlur = 15;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+          
+          ctx.beginPath();
+          ctx.roundRect(x, y, node.width, node.height, 12);
+          ctx.fill();
+          ctx.stroke();
+          ctx.shadowBlur = 0; // Reset shadow
+        } else {
+          // Normal node - no glow
+          ctx.beginPath();
+          ctx.roundRect(x, y, node.width, node.height, 12);
+          ctx.fill();
+          ctx.stroke();
+        }
         
         // Clean rendering without debug clutter
 

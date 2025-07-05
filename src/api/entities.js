@@ -88,8 +88,7 @@ class OpeningNodeModel extends BaseModel {
 class UserOpeningModel extends BaseModel {
   constructor() {
     super('user_openings', [
-      'username', 'name', 'color', 'initial_fen', 'initial_moves', 
-      'description', 'tags'
+      'username', 'name', 'color', 'initial_fen', 'initial_moves'
     ]);
   }
   
@@ -97,8 +96,7 @@ class UserOpeningModel extends BaseModel {
     // Transform arrays to JSON strings
     const transformedData = {
       ...data,
-      initial_moves: JSON.stringify(data.initial_moves || []),
-      tags: JSON.stringify(data.tags || [])
+      initial_moves: JSON.stringify(data.initial_moves || [])
     };
     return super.create(transformedData);
   }
@@ -107,8 +105,7 @@ class UserOpeningModel extends BaseModel {
     // Transform arrays to JSON strings
     const transformedData = {
       ...data,
-      initial_moves: JSON.stringify(data.initial_moves || []),
-      tags: JSON.stringify(data.tags || [])
+      initial_moves: JSON.stringify(data.initial_moves || [])
     };
     return super.update(id, transformedData);
   }
@@ -117,8 +114,7 @@ class UserOpeningModel extends BaseModel {
     // Transform JSON strings back to arrays
     return {
       ...row,
-      initial_moves: typeof row.initial_moves === 'string' ? JSON.parse(row.initial_moves) : row.initial_moves,
-      tags: typeof row.tags === 'string' ? JSON.parse(row.tags) : row.tags
+      initial_moves: typeof row.initial_moves === 'string' ? JSON.parse(row.initial_moves) : row.initial_moves
     };
   }
 }

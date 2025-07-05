@@ -1056,16 +1056,23 @@ const fetchChessComGames = async (username, importSettings = {}, onProgress = nu
       onProgress({ phase: 'download', progress: 0, status: 'Fetching archive list from Chess.com...' });
     }
     
-    // Calculate how many months back to fetch based on selectedDateRange
-    let monthsToFetch = 3; // default
+    // Calculate date range for Chess.com API (similar to Lichess)
+    let targetStartDate = null;
+    let targetEndDate = null;
+    
     if (selectedDateRange === "custom") {
       if (customDateRange.from && customDateRange.to) {
-        const fromDate = new Date(customDateRange.from);
-        const toDate = new Date(customDateRange.to);
-        monthsToFetch = Math.ceil((toDate - fromDate) / (1000 * 60 * 60 * 24 * 30)); // approximate months
+        targetStartDate = new Date(customDateRange.from);
+        targetEndDate = new Date(customDateRange.to);
       }
     } else {
-      monthsToFetch = parseInt(selectedDateRange);
+      // For preset ranges (1, 2, 3, 6 months), calculate the actual date range
+      const monthsBack = parseInt(selectedDateRange);
+      if (!isNaN(monthsBack) && monthsBack > 0) {
+        targetStartDate = new Date();
+        targetStartDate.setMonth(currentDate.getMonth() - monthsBack);
+        targetEndDate = new Date(); // Up to current date
+      }
     }
     
     // First, get the archives list
@@ -1077,8 +1084,45 @@ const fetchChessComGames = async (username, importSettings = {}, onProgress = nu
     const archivesData = await archivesResponse.json();
     const allArchives = archivesData.archives || [];
     
-    // Get the most recent archives based on months to fetch
-    const recentArchives = allArchives.slice(-monthsToFetch);
+    // Filter archives based on actual date range instead of just taking the most recent
+    let archivesToFetch = allArchives;
+    
+    if (targetStartDate && targetEndDate) {
+      // Parse archive URLs to get year/month and filter by date range
+      archivesToFetch = allArchives.filter(archiveUrl => {
+        // Chess.com archive URLs are in format: https://api.chess.com/pub/player/{username}/games/YYYY/MM
+        const urlParts = archiveUrl.split('/');
+        const year = parseInt(urlParts[urlParts.length - 2]);
+        const month = parseInt(urlParts[urlParts.length - 1]);
+        
+        if (isNaN(year) || isNaN(month)) return false;
+        
+        // Create date for first day of the archive month
+        const archiveDate = new Date(year, month - 1, 1); // month is 0-indexed in Date constructor
+        
+        // Check if archive month overlaps with our target date range
+        // Archive month start should be before target end date
+        // Archive month end should be after target start date
+        const archiveMonthEnd = new Date(year, month, 0); // Last day of the archive month
+        
+        return archiveDate <= targetEndDate && archiveMonthEnd >= targetStartDate;
+      });
+      
+      console.log(`📅 Chess.com date filtering: ${targetStartDate.toISOString().split('T')[0]} to ${targetEndDate.toISOString().split('T')[0]}`);
+      console.log(`📦 Filtered archives: ${archivesToFetch.length}/${allArchives.length} archives match date range`);
+    } else {
+      // If no date range specified, take all archives but limit to reasonable amount
+      archivesToFetch = allArchives.slice(-12); // Last 12 months max
+    }
+    
+    // Sort archives by date (most recent first) for better UX
+    archivesToFetch.sort((a, b) => {
+      const aDate = a.split('/').slice(-2).join('/');
+      const bDate = b.split('/').slice(-2).join('/');
+      return bDate.localeCompare(aDate);
+    });
+    
+    const recentArchives = archivesToFetch;
     
     if (onProgress) {
       onProgress({ 
@@ -1109,13 +1153,21 @@ const fetchChessComGames = async (username, importSettings = {}, onProgress = nu
           const gamesData = await gamesResponse.json();
           const monthGames = gamesData.games || [];
           
-          // Filter games by selected time controls as we fetch
+          // Filter games by selected time controls and date range as we fetch
           const filteredMonthGames = monthGames
             .filter(game => game.rules === "chess")
             .filter(game => {
               const timeControl = game.time_control;
               const gameType = getGameType(timeControl);
               return selectedTimeControls.includes(gameType);
+            })
+            .filter(game => {
+              // Additional date filtering within the archive
+              if (targetStartDate && targetEndDate) {
+                const gameDate = new Date(game.end_time * 1000); // Convert from Unix timestamp
+                return gameDate >= targetStartDate && gameDate <= targetEndDate;
+              }
+              return true; // No date filtering if no range specified
             });
           
           games = [...games, ...filteredMonthGames];
@@ -1123,10 +1175,13 @@ const fetchChessComGames = async (username, importSettings = {}, onProgress = nu
           archivesProcessed++;
           
           if (onProgress) {
+            const dateRangeText = targetStartDate && targetEndDate ? 
+              ` (${targetStartDate.toISOString().split('T')[0]} to ${targetEndDate.toISOString().split('T')[0]})` : 
+              '';
             onProgress({ 
               phase: 'download', 
               progress: 5 + (archivesProcessed / recentArchives.length) * 35,
-              status: `Found ${games.length} ${selectedTimeControls.join('/')} games so far...`
+              status: `Found ${games.length} ${selectedTimeControls.join('/')} games${dateRangeText}...`
             });
           }
           

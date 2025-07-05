@@ -5,7 +5,7 @@ export class UserOpening extends BaseModel {
   constructor() {
     super('user_openings', [
       'username', 'name', 'color', 'initial_fen', 
-      'initial_moves', 'description', 'tags'
+      'initial_moves'
     ]);
   }
 
@@ -13,9 +13,6 @@ export class UserOpening extends BaseModel {
     // Ensure initial_moves is stored as JSON string
     if (Array.isArray(data.initial_moves)) {
       data.initial_moves = JSON.stringify(data.initial_moves);
-    }
-    if (Array.isArray(data.tags)) {
-      data.tags = JSON.stringify(data.tags);
     }
     return super.create(data);
   }
@@ -38,14 +35,6 @@ export class UserOpening extends BaseModel {
         transformed.initial_moves = JSON.parse(transformed.initial_moves);
       } catch (e) {
         transformed.initial_moves = [];
-      }
-    }
-    
-    if (transformed.tags && typeof transformed.tags === 'string') {
-      try {
-        transformed.tags = JSON.parse(transformed.tags);
-      } catch (e) {
-        transformed.tags = [];
       }
     }
     

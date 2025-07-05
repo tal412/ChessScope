@@ -76,8 +76,7 @@ export default function OpeningsBook() {
 
   // Filter openings based on search and color
   const filteredOpenings = openings.filter(opening => {
-    const matchesSearch = opening.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         opening.description?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = opening.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesColor = filterColor === 'all' || opening.color === filterColor;
     
     return matchesSearch && matchesColor;
@@ -260,11 +259,6 @@ export default function OpeningsBook() {
                         )}
                         {opening.color}
                       </Badge>
-                      {opening.tags && opening.tags.length > 0 && (
-                        <Badge variant="outline" className="text-xs">
-                          {opening.tags.length} tags
-                        </Badge>
-                      )}
                     </div>
                   </div>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -305,11 +299,7 @@ export default function OpeningsBook() {
                   />
                 </div>
                 
-                {opening.description && (
-                  <p className="text-sm text-slate-400 line-clamp-2 mb-2">
-                    {opening.description}
-                  </p>
-                )}
+
                 
                 <div className="flex items-center justify-between text-xs text-slate-500">
                   <span>{opening.initial_moves?.length || 0} moves</span>

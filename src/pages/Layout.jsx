@@ -832,46 +832,21 @@ export default function Layout() {
               </Alert>
             )}
 
-            {/* Loading / Success indicator – always shown at the bottom */}
-            {isImporting ? (
+            <DialogFooter className="min-h-[72px] flex items-center">
               <SettingsLoading 
                 isLoading={isImporting}
                 progress={importProgress}
                 status={importStatus}
                 onComplete={handleSettingsLoadingComplete}
-                className="border-t border-b border-slate-700/50 my-4"
+                className="w-full"
+                showButtons={!isImporting}
+                buttonText="Save & Re-import Games"
+                loadingText="Updating..."
+                onButtonClick={handleSettingsSave}
+                buttonDisabled={(tempSettings.selectedTimeControls || []).length === 0 || 
+                              (tempSettings.selectedDateRange === "custom" && (!tempSettings.customDateRange?.from || !tempSettings.customDateRange?.to))}
+                successMessage="Settings Updated Successfully!"
               />
-            ) : (
-              <div className="border-t border-b border-slate-700/50 my-4 min-h-[60px]" />
-            )}
-
-            <DialogFooter>
-              <Button 
-                variant="outline" 
-                onClick={() => setIsSettingsOpen(false)}
-                disabled={isImporting}
-                className="border-slate-600 text-slate-300 hover:bg-slate-700 disabled:opacity-50"
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleSettingsSave}
-                disabled={isImporting || (tempSettings.selectedTimeControls || []).length === 0 || 
-                         (tempSettings.selectedDateRange === "custom" && (!tempSettings.customDateRange?.from || !tempSettings.customDateRange?.to))}
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white disabled:opacity-50"
-              >
-                {(isImporting || settingsSaveStarted) ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Updating...
-                  </>
-                ) : (
-                  <>
-                    <Settings className="w-4 h-4 mr-2" />
-                    Save & Re-import Games
-                  </>
-                )}
-              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

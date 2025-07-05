@@ -33,7 +33,8 @@ import {
   Network,
   Edit,
   AlertTriangle,
-  Edit3
+  Edit3,
+  Star
 } from 'lucide-react';
 import InteractiveChessboard from '@/components/chess/InteractiveChessboard';
 import { UserOpening, UserOpeningMove, MoveAnnotation } from '@/api/entities';
@@ -139,10 +140,7 @@ export default function OpeningEditor() {
   
   // Form state
   const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
   const [color, setColor] = useState('white');
-  const [tags, setTags] = useState([]);
-  const [tagInput, setTagInput] = useState('');
   
   // Move tree state
   const [moveTree, setMoveTree] = useState(new MoveNode('Start', 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'));
@@ -272,22 +270,18 @@ export default function OpeningEditor() {
     if (!loading && !initialState) {
       setInitialState({
         name,
-        description,
         color,
-        tags: [...tags],
         moveTreeId: moveTree.id
       });
     }
-  }, [loading, name, description, color, tags, moveTree.id, initialState]);
+  }, [loading, name, color, moveTree.id, initialState]);
 
   // Set initial state immediately for new openings
   useEffect(() => {
     if (isNewOpening && !initialState && !loading) {
       setInitialState({
         name: '',
-        description: '',
         color: 'white',
-        tags: [],
         moveTreeId: moveTree.id
       });
     }
@@ -299,21 +293,17 @@ export default function OpeningEditor() {
     
     const currentState = {
       name,
-      description,
       color,
-      tags: [...tags],
       moveTreeId: moveTree.id
     };
     
     const hasChanges = 
       currentState.name !== initialState.name ||
-      currentState.description !== initialState.description ||
       currentState.color !== initialState.color ||
-      JSON.stringify(currentState.tags) !== JSON.stringify(initialState.tags) ||
       currentState.moveTreeId !== initialState.moveTreeId;
     
     setHasUnsavedChanges(hasChanges);
-  }, [name, description, color, tags, moveTree.id, initialState]);
+  }, [name, color, moveTree.id, initialState]);
 
   // Prevent navigation with unsaved changes
   useEffect(() => {
@@ -516,7 +506,7 @@ export default function OpeningEditor() {
   useEffect(() => {
     // Always update the underlying opening tree data when the tree changes
     updateGraphData();
-  }, [moveTree?.id]); // Only trigger on tree changes
+  }, [moveTree]); // Trigger on any tree changes (structure or content)
   
   // Handle performance mode overlay when graphData is updated
   useEffect(() => {
@@ -623,9 +613,7 @@ export default function OpeningEditor() {
       
       const opening = openings[0];
       setName(opening.name);
-      setDescription(opening.description || '');
       setColor(opening.color);
-      setTags(opening.tags || []);
       
       // Load moves
       const moves = await UserOpeningMove.getByOpeningId(parseInt(openingId));
@@ -814,13 +802,13 @@ export default function OpeningEditor() {
               isSelected: node === selectedNode,
               isMainLine: node.isMainLine,
               hasComment: !!node.comment,
-              hasLinks: node.links && node.links.length > 0,
-              linkCount: node.links ? node.links.length : 0,
+              hasLinks: node.links && node.links.some(link => link.title || link.url),
+              linkCount: node.links ? node.links.filter(link => link.title || link.url).length : 0,
               annotation: {
                 hasComment: !!node.comment,
-                hasLinks: node.links && node.links.length > 0,
+                hasLinks: node.links && node.links.some(link => link.title || link.url),
                 commentCount: node.comment ? 1 : 0,
-                linkCount: node.links ? node.links.length : 0
+                linkCount: node.links ? node.links.filter(link => link.title || link.url).length : 0
               },
               isRoot: node.san === 'Start',
               moveSequence: moveSequence, // Add move sequence for move color determination
@@ -844,13 +832,13 @@ export default function OpeningEditor() {
               isSelected: node === selectedNode,
               isMainLine: node.isMainLine,
               hasComment: !!node.comment,
-              hasLinks: node.links && node.links.length > 0,
-              linkCount: node.links ? node.links.length : 0,
+              hasLinks: node.links && node.links.some(link => link.title || link.url),
+              linkCount: node.links ? node.links.filter(link => link.title || link.url).length : 0,
               annotation: {
                 hasComment: !!node.comment,
-                hasLinks: node.links && node.links.length > 0,
+                hasLinks: node.links && node.links.some(link => link.title || link.url),
                 commentCount: node.comment ? 1 : 0,
-                linkCount: node.links ? node.links.length : 0
+                linkCount: node.links ? node.links.filter(link => link.title || link.url).length : 0
               },
               isRoot: node.san === 'Start',
               moveSequence: moveSequence, // Add move sequence for move color determination
@@ -937,11 +925,9 @@ export default function OpeningEditor() {
       const openingData = {
         username,
         name: name.trim(),
-        description: description.trim(),
         color,
         initial_fen: moveTree.fen,
-        initial_moves: getMainLine(moveTree),
-        tags
+        initial_moves: getMainLine(moveTree)
       };
       
       let savedOpening;
@@ -1008,9 +994,7 @@ export default function OpeningEditor() {
       setHasUnsavedChanges(false);
       setInitialState({
         name: name.trim(),
-        description: description.trim(),
         color,
-        tags: [...tags],
         moveTreeId: moveTree.id
       });
       
@@ -1023,7 +1007,7 @@ export default function OpeningEditor() {
     } finally {
       setSaving(false);
     }
-  }, [isNewOpening, openingId, name, description, color, tags, moveTree, navigate]);
+  }, [isNewOpening, openingId, name, color, moveTree, navigate]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -1139,16 +1123,7 @@ export default function OpeningEditor() {
     }
   };
 
-  const handleAddTag = () => {
-    if (tagInput.trim() && !tags.includes(tagInput.trim())) {
-      setTags([...tags, tagInput.trim()]);
-      setTagInput('');
-    }
-  };
 
-  const handleRemoveTag = (tagToRemove) => {
-    setTags(tags.filter(tag => tag !== tagToRemove));
-  };
 
   // Memoized node click handler to prevent infinite re-renders
   const handleCanvasNodeClick = useCallback((e, node) => {
@@ -1490,28 +1465,19 @@ export default function OpeningEditor() {
           </Button>
         }
         rightControls={
-          <>
-            <Button
-              variant="outline"
-              onClick={handleCancel}
-              className="border-slate-600 text-slate-300"
-            >
-              <X className="w-4 h-4 mr-2" />
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
-            >
-              {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <Save className="w-4 h-4 mr-2" />
-              )}
-              Save Opening
-            </Button>
-          </>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            size="sm"
+            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+          >
+            {saving ? (
+              <Loader2 className="w-4 h-4 animate-spin mr-2" />
+            ) : (
+              <Save className="w-4 h-4 mr-2" />
+            )}
+            Save Opening
+          </Button>
         }
         components={componentVisibility}
         componentConfig={ComponentConfigs.openingEditor}
@@ -1524,8 +1490,8 @@ export default function OpeningEditor() {
             <LayoutSection
               key="details"
             >
-              <div className="space-y-4">
-                <Card className="bg-slate-800 border-slate-700">
+              <div className="h-full flex flex-col gap-2 pb-2">
+                <Card className="bg-slate-800 border-slate-700 flex-shrink-0">
                   <CardHeader>
                     <CardTitle className="text-slate-100">Opening Details</CardTitle>
                   </CardHeader>
@@ -1541,24 +1507,13 @@ export default function OpeningEditor() {
                     </div>
 
                     <div>
-                      <Label className="text-slate-300">Description</Label>
-                      <Textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        placeholder="Describe your opening..."
-                        className="bg-slate-700 border-slate-600 text-slate-100"
-                        rows={3}
-                      />
-                    </div>
-
-                    <div>
                       <Label className="text-slate-300">Color</Label>
                       <div className="flex gap-2 mt-2">
                         <Button
                           variant={color === 'white' ? 'default' : 'outline'}
                           size="sm"
                           onClick={() => setColor('white')}
-                          className={color === 'white' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}
+                          className={color === 'white' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700/20'}
                         >
                           <Crown className="w-4 h-4 mr-1 text-amber-400" />
                           White
@@ -1567,7 +1522,7 @@ export default function OpeningEditor() {
                           variant={color === 'black' ? 'default' : 'outline'}
                           size="sm"
                           onClick={() => setColor('black')}
-                          className={color === 'black' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30'}
+                          className={color === 'black' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700/20'}
                         >
                           <Shield className="w-4 h-4 mr-1 text-slate-400" />
                           Black
@@ -1575,56 +1530,56 @@ export default function OpeningEditor() {
                       </div>
                     </div>
 
-                    <div>
-                      <Label className="text-slate-300">Tags</Label>
-                      <div className="flex gap-2 mt-2">
-                        <Input
-                          value={tagInput}
-                          onChange={(e) => setTagInput(e.target.value)}
-                          onKeyPress={(e) => e.key === 'Enter' && handleAddTag()}
-                          placeholder="Add tag..."
-                          className="bg-slate-700 border-slate-600 text-slate-100"
-                        />
-                        <Button
-                          onClick={handleAddTag}
-                          size="sm"
-                          className="bg-slate-600 hover:bg-slate-700"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </Button>
-                      </div>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        {tags.map((tag) => (
-                          <Badge
-                            key={tag}
-                            variant="secondary"
-                            className="bg-slate-700 text-slate-300"
-                          >
-                            {tag}
-                            <button
-                              onClick={() => handleRemoveTag(tag)}
-                              className="ml-2 hover:text-red-400"
-                            >
-                              ×
-                            </button>
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
+
                   </CardContent>
                 </Card>
 
                 {/* Move Annotations */}
                 {selectedNode && selectedNode.san !== 'Start' && (
-                  <Card className="bg-slate-800 border-slate-700">
-                    <CardHeader>
-                      <CardTitle className="text-slate-100 text-lg">
-                        Move: {selectedNode.san}
+                  <Card className="bg-slate-800 border-slate-700 flex-1 flex flex-col min-h-0">
+                    <CardHeader className="flex-shrink-0">
+                      <CardTitle className="text-slate-100 text-lg flex items-center justify-between">
+                        <span>Move: {selectedNode.san}</span>
+                        <div className="relative group">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            disabled={selectedNode.isMainLine}
+                            onClick={() => {
+                              // Set the main line to go through the selected node
+                              MoveNode.setMainLineToNode(moveTree, selectedNode);
+                              
+                              // Force tree update with new ID to trigger graph regeneration
+                              const updatedTree = { ...moveTree };
+                              updatedTree.id = `${moveTree.id}-${Date.now()}`;
+                              setMoveTree(updatedTree);
+                            }}
+                            className={cn(
+                              "h-8 w-8 p-0 transition-colors",
+                              selectedNode.isMainLine 
+                                ? "text-amber-400 bg-amber-400/10" 
+                                : "text-slate-400 hover:text-amber-400 hover:bg-amber-400/10"
+                            )}
+                          >
+                            <Star className={cn(
+                              "w-4 h-4 transition-all",
+                              selectedNode.isMainLine ? "fill-amber-400" : "fill-none"
+                            )} />
+                          </Button>
+                          
+                          {/* Custom tooltip */}
+                          <div className="absolute right-0 bottom-full mb-2 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-slate-200 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-lg">
+                            {selectedNode.isMainLine 
+                              ? 'Already on main line' 
+                              : 'Set as main line'}
+                            <div className="absolute -bottom-1 right-3 w-2 h-2 bg-slate-800 border-r border-b border-slate-600 transform rotate-45"></div>
+                          </div>
+                        </div>
                       </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div>
-                        <Label className="text-slate-300">
+                    <CardContent className="flex-1 overflow-hidden flex flex-col">
+                      <div className="flex-1 flex flex-col min-h-0 mb-4">
+                        <Label className="text-slate-300 flex-shrink-0">
                           <MessageSquare className="w-4 h-4 inline mr-1" />
                           Comment
                         </Label>
@@ -1635,17 +1590,16 @@ export default function OpeningEditor() {
                             setMoveTree({ ...moveTree }); // Force re-render
                           }}
                           placeholder="Add notes about this move..."
-                          className="bg-slate-700 border-slate-600 text-slate-100 mt-2"
-                          rows={3}
+                          className="bg-slate-700 border-slate-600 text-slate-100 mt-2 flex-1 resize-none"
                         />
                       </div>
 
-                      <div>
+                      <div className="flex-shrink-0 h-32 mb-4">
                         <Label className="text-slate-300">
                           <LinkIcon className="w-4 h-4 inline mr-1" />
                           Links
                         </Label>
-                        <div className="space-y-2 mt-2">
+                        <div className="h-24 overflow-y-auto mt-2 space-y-2">
                           {selectedNode.links?.map((link, index) => (
                             <div key={index} className="flex gap-2">
                               <Input
@@ -1693,28 +1647,6 @@ export default function OpeningEditor() {
                             Add Link
                           </Button>
                         </div>
-                      </div>
-
-                      <div>
-                        <Label className="text-slate-300">
-                          Main Line Status
-                        </Label>
-                        <Button
-                          size="sm"
-                          className="w-full mt-2 bg-slate-600 hover:bg-slate-700"
-                          disabled={selectedNode.isMainLine}
-                          onClick={() => {
-                            // Set the main line to go through the selected node
-                            MoveNode.setMainLineToNode(moveTree, selectedNode);
-                            
-                            // Force tree update with new ID to trigger graph regeneration
-                            const updatedTree = { ...moveTree };
-                            updatedTree.id = `${moveTree.id}-${Date.now()}`;
-                            setMoveTree(updatedTree);
-                          }}
-                        >
-                          {selectedNode.isMainLine ? 'Already Main Line' : 'Set as Main Line'}
-                        </Button>
                       </div>
                     </CardContent>
                   </Card>
