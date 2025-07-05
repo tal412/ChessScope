@@ -171,6 +171,7 @@ export default function OpeningView() {
                       isWhiteTree={opening.color === 'white'}
                       openingGraph={openingGraph}
                       className="w-full"
+                      showPositionMessage={false}
                     />
                   </CardContent>
                 </Card>

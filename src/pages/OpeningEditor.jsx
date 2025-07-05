@@ -1758,6 +1758,7 @@ export default function OpeningEditor() {
                   isWhiteTree={color === 'white'}
                   hoveredMove={movesHoveredMove || hoveredMove}
                   className="w-full max-w-none"
+                  showPositionMessage={false}
                 />
               </div>
             </LayoutSection>
