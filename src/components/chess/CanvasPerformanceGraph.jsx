@@ -2005,7 +2005,7 @@ const CanvasPerformanceGraph = ({
             <span className="text-slate-500">
               <kbd className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 font-mono text-xs">R</kbd>
               <span className="mx-1">or</span>
-              <span className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 text-xs">Middle&nbsp;Mouse&nbsp;Button</span>
+              <span className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 text-xs">MMB</span>
               <span className="mx-1">–</span>
               Fit
             </span>
