@@ -41,7 +41,7 @@ export default function LoginPage() {
     to: null
   });
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
-  const [autoSyncFrequency, setAutoSyncFrequency] = useState('5min');
+  const [autoSyncFrequency, setAutoSyncFrequency] = useState('1hour');
 
   // Entrance animation effect
   useEffect(() => {

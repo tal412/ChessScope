@@ -452,7 +452,7 @@ export default function Layout() {
                         href="https://github.com/tal412/ChessScope"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`absolute w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-all duration-300 ease-in-out flex items-center justify-center group ${
+                        className={`absolute w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-all duration-300 ease-in-out flex items-center justify-center group z-10 ${
                           showGithubInPosition 
                             ? 'left-1/2 bottom-3 -translate-x-[calc(100%+6px)]' 
                             : 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-[22px]'
@@ -477,7 +477,7 @@ export default function Layout() {
                         href="https://www.linkedin.com/in/tal-barda412/"
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`absolute w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-all duration-300 ease-in-out flex items-center justify-center group ${
+                        className={`absolute w-8 h-8 rounded-lg bg-slate-700/50 hover:bg-slate-600/50 transition-all duration-300 ease-in-out flex items-center justify-center group z-10 ${
                           showLinkedinInPosition 
                             ? 'left-1/2 bottom-3 translate-x-[6px]' 
                             : 'left-1/2 top-1/2 -translate-x-1/2 translate-y-[22px]'
@@ -756,7 +756,7 @@ export default function Layout() {
                       <p className="text-slate-400 text-xs">How often to check for and import new games</p>
                     </div>
                     <Select 
-                      value={tempSettings.autoSyncFrequency || '5min'} 
+                      value={tempSettings.autoSyncFrequency || '1hour'} 
                       onValueChange={(value) => setTempSettings(prev => ({...prev, autoSyncFrequency: value}))}
                       disabled={isImporting}
                     >
@@ -792,7 +792,7 @@ export default function Layout() {
                         </p>
                         <p className="text-slate-400 text-xs">
                           Auto-sync: {(() => {
-                            const freq = tempSettings.autoSyncFrequency || '5min';
+                            const freq = tempSettings.autoSyncFrequency || '1hour';
                             const freqLabels = {
                               'never': 'Disabled',
                               'visit': 'Every visit',
