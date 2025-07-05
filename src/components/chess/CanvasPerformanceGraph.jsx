@@ -2013,6 +2013,19 @@ const CanvasPerformanceGraph = ({
         </div>
       )}
 
+      {/* Context menu indicator - only show when context menu actions are available and not in performance mode */}
+      {!isInitializing && positionedNodes.length > 0 && contextMenuActions && contextMenuActions.length > 0 && mode !== 'performance' && (
+        <div className="absolute bottom-4 right-4 bg-slate-800/90 border border-slate-700 text-slate-200 px-3 py-2 rounded text-xs pointer-events-none backdrop-blur-sm shadow-lg">
+          <div className="flex items-center gap-2">
+            <span className="text-slate-500">
+              <span className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 text-xs">Right&nbsp;Click</span>
+              <span className="mx-1">–</span>
+              Delete Move
+            </span>
+          </div>
+        </div>
+      )}
+
 
 
       {/* Opening Cluster Name Tooltip - Bottom Center */}

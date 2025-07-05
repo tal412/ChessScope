@@ -47,7 +47,8 @@ export default function InteractiveChessboard({
   hoveredMove = null,
   openingGraph = null, // Add openingGraph prop for position info
   graphNodes = [], // Performance graph nodes to check position existence
-  onFlip = null // External flip handler (optional)
+  onFlip = null, // External flip handler (optional)
+  showPositionMessage = true // Control whether to show "Position not in performance graph" message
 }) {
   const containerRef = useRef(null);
   const isInternalMoveRef = useRef(false); // Track if move change is internal
@@ -872,7 +873,7 @@ export default function InteractiveChessboard({
               </div>
               {/* Reserved space for Position Status Indicator - prevents layout shifts */}
               <div className="h-4">
-                {!positionExistsInGraph && currentMoves.length > 0 && (
+                {!positionExistsInGraph && currentMoves.length > 0 && showPositionMessage && (
                   <div className="flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3 text-amber-400" />
                     <span className="text-xs text-amber-400">Position not in performance graph</span>
