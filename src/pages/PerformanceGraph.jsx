@@ -43,6 +43,8 @@ import { useChessboardSync } from '../hooks/useChessboardSync';
 import { loadOpeningGraph } from '../api/graphStorage';
 import { checkPositionInOpenings } from '../api/openingEntities';
 import { useAuth } from '../contexts/AuthContext';
+import { usePerformanceGraphState } from '../hooks/useCanvasState';
+import { createOpeningClusters, createPositionClusters, enrichNodesWithOpeningClusters } from '../utils/clusteringAnalysis';
 
 
 
@@ -375,215 +377,7 @@ const createClusterBackgroundNodes = (nodes, clusters, handleClusterHover, handl
   return backgroundNodes;
 };
 
-// Function to create position-based clusters for current position and ALL its descendants
-const createPositionClusters = (nodes, currentFen) => {
-  if (!nodes || nodes.length === 0 || !currentFen) return [];
-
-  const clusters = [];
-  
-  // Find all nodes with the current FEN (transpositions) - EXCLUDE ROOT NODES
-  const currentPositionNodes = nodes.filter(node => 
-    node.data.fen === currentFen && !node.data.isRoot
-  );
-  
-  if (currentPositionNodes.length === 0) return [];
-
-  // For each instance of the current position, create a cluster with ALL its descendants
-  currentPositionNodes.forEach((parentNode, clusterIndex) => {
-    
-    // Recursively find ALL descendants of this parent node
-    const findAllDescendants = (ancestorNode, allNodes) => {
-      const descendants = [];
-      const ancestorMoves = ancestorNode.data.moveSequence || [];
-      
-      // Find all nodes that are descendants of this ancestor
-      allNodes.forEach(candidateNode => {
-        const candidateMoves = candidateNode.data.moveSequence || [];
-        
-        // Check if candidate is a descendant (longer sequence that starts with ancestor's moves)
-        if (candidateMoves.length > ancestorMoves.length &&
-            ancestorMoves.every((move, index) => move === candidateMoves[index])) {
-          descendants.push(candidateNode);
-        }
-      });
-      
-      return descendants;
-    };
-
-    const descendantNodes = findAllDescendants(parentNode, nodes);
-
-    // Create cluster whether there are descendants or not (for single leaf nodes too)
-    const clusterNodes = [parentNode, ...descendantNodes];
-    
-    // Count immediate children for display
-    const immediateChildren = descendantNodes.filter(childNode => {
-      const parentMoves = parentNode.data.moveSequence || [];
-      const childMoves = childNode.data.moveSequence || [];
-      return childMoves.length === parentMoves.length + 1;
-    });
-    
-    // Create appropriate cluster name based on whether it has descendants
-    let clusterName;
-    if (descendantNodes.length > 0) {
-      clusterName = `Position ${clusterIndex + 1} (${immediateChildren.length} moves, ${descendantNodes.length} total nodes)`;
-    } else {
-      // Single leaf node - create cluster around just this position
-      clusterName = `Leaf Position ${clusterIndex + 1} (single position)`;
-    }
-    
-    clusters.push({
-      id: `position-cluster-${clusterIndex}`,
-      name: clusterName,
-      parentNode: parentNode,
-      childNodes: immediateChildren, // Immediate children for reference (empty for leaf nodes)
-      descendantNodes: descendantNodes, // ALL descendants (empty for leaf nodes)
-      allNodes: clusterNodes, // Just the parent node for leaf positions
-      nodeCount: clusterNodes.length,
-      type: 'position',
-      isLeafCluster: descendantNodes.length === 0, // Flag to identify leaf clusters
-      colorIndex: clusterIndex % 3 // Cycle through 3 colors for different transpositions
-    });
-  });
-
-  return clusters;
-};
-
-// Helper function to find connected components in opening subgraphs
-const findConnectedComponents = (nodes, nodeMap, childrenMap) => {
-  const visited = new Set();
-  const components = [];
-  
-  // DFS to find all nodes reachable from startNode through same-opening connections
-  const dfs = (nodeId, component, targetOpening) => {
-    if (visited.has(nodeId)) return;
-    
-    const node = nodeMap.get(nodeId);
-    if (!node || (node.data.ecoOpeningName || 'Unknown Opening') !== targetOpening) return;
-    
-    visited.add(nodeId);
-    component.push(node);
-    
-    // Visit children that have the same opening
-    const children = childrenMap.get(nodeId) || [];
-    children.forEach(childId => {
-      const childNode = nodeMap.get(childId);
-      if (childNode && (childNode.data.ecoOpeningName || 'Unknown Opening') === targetOpening) {
-        dfs(childId, component, targetOpening);
-      }
-    });
-    
-    // Visit parent if it has the same opening
-    const parentId = [...childrenMap.entries()].find(([_, children]) => children.includes(nodeId))?.[0];
-    if (parentId) {
-      const parentNode = nodeMap.get(parentId);
-      if (parentNode && (parentNode.data.ecoOpeningName || 'Unknown Opening') === targetOpening) {
-        dfs(parentId, component, targetOpening);
-      }
-    }
-  };
-  
-  // Find connected components for each opening
-  nodes.forEach(node => {
-    if (visited.has(node.id)) return;
-    
-    const opening = node.data.ecoOpeningName || 'Unknown Opening';
-    const component = [];
-    dfs(node.id, component, opening);
-    
-    if (component.length > 0) {
-      components.push(component);
-    }
-  });
-  
-  return components;
-};
-
-// Function to create opening-based node clusters using connected components
-const createOpeningClusters = (nodes) => {
-  if (!nodes || nodes.length === 0) return [];
-  
-  // Filter out root nodes
-  const nonRootNodes = nodes.filter(node => !node.data.isRoot);
-  if (nonRootNodes.length === 0) return [];
-  
-  // Build tree structure maps
-  const nodeMap = new Map();
-  const childrenMap = new Map();
-  
-  // Build node map and initialize children map
-  nonRootNodes.forEach(node => {
-    nodeMap.set(node.id, node);
-    childrenMap.set(node.id, []);
-  });
-  
-  // Build parent-child relationships
-  nonRootNodes.forEach(node => {
-    const nodeSequence = node.data.moveSequence || [];
-    if (nodeSequence.length > 0) {
-      const parentSequence = nodeSequence.slice(0, -1);
-      
-      // Find parent node
-      const parentNode = nonRootNodes.find(n => {
-        const parentSeq = n.data.moveSequence || [];
-        return parentSeq.length === parentSequence.length &&
-               parentSeq.every((move, index) => move === parentSequence[index]);
-      });
-      
-      if (parentNode) {
-        const parentChildren = childrenMap.get(parentNode.id) || [];
-        parentChildren.push(node.id);
-        childrenMap.set(parentNode.id, parentChildren);
-      }
-    }
-  });
-  
-  // Find connected components where nodes can only be connected if they share the same opening
-  // AND there's a direct tree path between them through nodes of the same opening
-  const connectedComponents = findConnectedComponents(nonRootNodes, nodeMap, childrenMap);
-  
-  const clusters = [];
-  let clusterIdCounter = 0;
-  
-  // Convert connected components to clusters
-  connectedComponents.forEach(component => {
-    if (component.length === 0) return;
-    
-    const opening = component[0].data.ecoOpeningName || 'Unknown Opening';
-    
-    // Group components by opening name to add branch numbers if needed
-    const existingClustersForOpening = clusters.filter(c => c.openingName === opening);
-    
-    let clusterName = opening;
-    if (existingClustersForOpening.length > 0) {
-      clusterName += ` (Branch ${existingClustersForOpening.length + 1})`;
-    }
-    
-    clusters.push({
-      id: clusterIdCounter,
-      name: clusterName,
-      nodes: component,
-      nodeCount: component.length,
-      totalGames: component.reduce((sum, node) => sum + (node.data.gameCount || 0), 0),
-      avgWinRate: component.reduce((sum, node) => sum + (node.data.winRate || 0), 0) / component.length,
-      colorIndex: clusterIdCounter, // Each cluster gets its own color
-      openingName: opening // Store original opening name
-    });
-    
-    clusterIdCounter++;
-  });
-  
-  // Sort clusters by node count (descending), then alphabetically
-  clusters.sort((a, b) => {
-    // First by node count (descending)
-    if (b.nodeCount !== a.nodeCount) {
-      return b.nodeCount - a.nodeCount;
-    }
-    // Then alphabetically by name
-    return a.name.localeCompare(b.name);
-  });
-  
-  return clusters;
-};
+// Duplicate functions removed - now imported from shared utilities
 
 // Main Performance Graph Component
 function PerformanceGraphContent() {
@@ -604,43 +398,37 @@ function PerformanceGraphContent() {
   const [edges, setEdges] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedPlayer, setSelectedPlayer] = useState('white');
-  const [maxDepth, setMaxDepth] = useState(20); // Default 20 moves depth
-  const [minGameCount, setMinGameCount] = useState(20); // Default 20+ games
   const [performanceZones, setPerformanceZones] = useState([]);
   const [criticalPaths, setCriticalPaths] = useState({ nodes: [], edges: [] });
   const [selectedNode, setSelectedNode] = useState(null); // For position info dialog
   const [graphLoaded, setGraphLoaded] = useState(false); // Track when graph is loaded
-  const [winRateFilter, setWinRateFilter] = useState([0, 100]); // [min, max] win rate filter (applied)
-  const [tempWinRateFilter, setTempWinRateFilter] = useState([0, 100]); // [min, max] win rate filter (temporary)
-  const [isGenerating, setIsGenerating] = useState(false); // Track graph generation
   const [initialLoad, setInitialLoad] = useState(true); // Track initial page load
   
-  // Opening clustering state
-  const [openingClusteringEnabled, setOpeningClusteringEnabled] = useState(false);
-  const [openingClusters, setOpeningClusters] = useState([]);
-  const [hoveredOpeningName, setHoveredOpeningName] = useState(null); // Hover state for ECO opening names
-  const [hoveredClusterColor, setHoveredClusterColor] = useState(null); // Store the cluster color for hover tooltip
+  // Ref must be declared before using in hooks
+  const openingGraphRef = useRef(null);
+  
+  // Use shared performance graph state management
+  const performanceState = usePerformanceGraphState({
+    openingGraph: openingGraphRef.current,
+    selectedPlayer,
+    enableClustering: true,
+    enablePositionClusters: true,
+    enableAutoZoom: true
+  });
   
   // Saved openings state
   const [nodeOpeningsMap, setNodeOpeningsMap] = useState(new Map()); // Map of FEN -> openings containing it
   
   // Chessboard integration state
   const [hoveredMove, setHoveredMove] = useState(null); // Track hovered move for arrows
-  const [currentNodeId, setCurrentNodeId] = useState(null); // Track currently selected node
   // const [enableHoverArrows, setEnableHoverArrows] = useState(true); // Always enabled now
   const enableHoverArrows = true; // Always enabled
   
-  // Position clustering state
-  const [positionClusters, setPositionClusters] = useState([]); // Clusters for current position and its children
-  const [currentPositionFen, setCurrentPositionFen] = useState(null); // Track current position FEN
-  
   // UI visibility state - individual toggles for each component
-  const [showPerformanceLegend, setShowPerformanceLegend] = useState(false);
-  const [showPerformanceControls, setShowPerformanceControls] = useState(false);
+  // Performance controls and clustering now handled by performanceState
   
   // Clustering UI state
   const [showClusteringControls, setShowClusteringControls] = useState(false); // Hide clustering controls by default
-  const [showPositionClusters, setShowPositionClusters] = useState(true); // Show position clusters by default
   
   // Flexible Layout State - allows independent control of each component
   const [showOpeningMoves, setShowOpeningMoves] = useState(true); // Show opening moves
@@ -663,27 +451,12 @@ function PerformanceGraphContent() {
     nodes,
     onNodeSelect: (node) => {
       setSelectedNode(node);
-      setCurrentNodeId(node?.id); // Update current position when chessboard changes
-      setCurrentPositionFen(node?.data?.fen); // Update current position FEN for clustering
+      performanceState.updateCurrentPosition(node?.id, node?.data?.fen); // Update current position using shared state
     },
     setNodes
   });
 
-  const openingGraphRef = useRef(null);
-  
-  // Canvas fitView function reference
-  const [canvasFitView, setCanvasFitView] = useState(null);
-  
-  // Canvas zoomToClusters function reference
-  const [canvasZoomToClusters, setCanvasZoomToClusters] = useState(null);
-  
-  // Track canvas resize state
-  const [isCanvasResizing, setIsCanvasResizing] = useState(false);
-  
-  // Track zoom function availability
-  useEffect(() => {
-    // Auto-zoom function ready when available
-  }, [canvasZoomToClusters]);
+  // Canvas zoom functionality now handled by shared performance state
   
 
 
@@ -796,16 +569,16 @@ function PerformanceGraphContent() {
       setGraphData({ nodes: [], edges: [], maxGameCount: 0 });
       setNodes([]);
       setEdges([]);
-      setOpeningClusters([]);
-      setPositionClusters([]);
+      performanceState.setOpeningClusters([]);
+      performanceState.setPositionClusters([]);
       setInitialLoad(true);
       setGraphLoaded(false);
-      setIsGenerating(false);
+      performanceState.setIsGenerating(false);
       
       // Reset UI states
       setHoveredMove(null);
-      setHoveredOpeningName(null);
-      setHoveredClusterColor(null);
+      performanceState.setHoveredOpeningName(null);
+      performanceState.setHoveredClusterColor(null);
       setSelectedNode(null);
       
       // Reset chessboard state - using the ref directly if available
@@ -814,9 +587,8 @@ function PerformanceGraphContent() {
       }
       
       // Reset view states
-      setCurrentNodeId(null);
-      setHoveredNextMoveNodeId(null);
-      setCurrentPositionFen(null);
+      performanceState.updateCurrentPosition(null, null);
+      performanceState.setHoveredNextMoveNodeId(null);
       setMovesHoveredMove(null);
       setMovesCurrentPath([]);
       
@@ -863,94 +635,23 @@ function PerformanceGraphContent() {
   // Immediately set loading state when parameters change (before graph generation)
   useEffect(() => {
     if (openingGraphRef.current && !loading && !initialLoad) {
-      setIsGenerating(true);
+      performanceState.setIsGenerating(true);
     }
-  }, [selectedPlayer, maxDepth, minGameCount, winRateFilter]);
+  }, [selectedPlayer, performanceState.maxDepth, performanceState.minGameCount, performanceState.winRateFilter]);
   
-  // Function to enrich nodes with opening cluster information and current position
-  const enrichNodesWithOpeningClusters = (nodes, clusters) => {
-    const baseEnrichedNodes = nodes.map(node => {
-      const savedOpenings = nodeOpeningsMap.get(node.data.fen) || [];
-      return {
-        ...node,
-        data: {
-          ...node.data,
-          isCurrentPosition: node.id === currentNodeId, // Add current position info
-          isHoveredNextMove: node.id === hoveredNextMoveNodeId, // Add hovered next move info
-          openingClusteringEnabled: openingClusteringEnabled && clusters.length > 0,
-          openingClusterId: undefined,
-          savedOpenings: savedOpenings, // Add saved openings info
-          inSavedOpening: savedOpenings.length > 0
-        }
-      };
-    });
-
-    if (!openingClusteringEnabled || clusters.length === 0) {
-      return baseEnrichedNodes;
-    }
-    
-    // Create node-to-cluster mapping
-    const nodeToClusterMap = new Map();
-    
-    clusters.forEach((cluster, clusterIndex) => {
-      cluster.nodes.forEach(node => {
-        nodeToClusterMap.set(node.id, clusterIndex);
-      });
-    });
-    
-    // Enrich nodes with cluster information (for background shapes)
-    return baseEnrichedNodes.map(node => ({
-      ...node,
-      data: {
-        ...node.data,
-        openingClusteringEnabled: true,
-        openingClusterId: nodeToClusterMap.get(node.id) ?? -1 // -1 for unclustered
-      }
-    }));
-  };
+  // enrichNodesWithOpeningClusters now imported from shared utilities
   
   // Update position clusters when current position changes
   useEffect(() => {
-    if (graphData.nodes.length > 0 && currentPositionFen) {
-      const clusters = createPositionClusters(graphData.nodes, currentPositionFen);
-      setPositionClusters(clusters);
+    if (graphData.nodes.length > 0 && performanceState.currentPositionFen) {
+      const clusters = createPositionClusters(graphData.nodes, performanceState.currentPositionFen);
+      performanceState.setPositionClusters(clusters);
     } else {
-      setPositionClusters([]);
+      performanceState.setPositionClusters([]);
     }
-  }, [graphData.nodes, currentPositionFen]);
+  }, [graphData.nodes, performanceState.currentPositionFen]);
 
-  // Enhanced debounced auto-zoom with better error handling
-  const autoZoomTimeoutRef = useRef(null);
-  const [showZoomDebounceOverlay, setShowZoomDebounceOverlay] = useState(false);
-  const lastPositionFenRef = useRef(null);
-
-  // TEST: NO DEBOUNCE - immediate auto-zoom to test if root cause is truly fixed
-  useEffect(() => {
-    const positionChanged = currentPositionFen !== lastPositionFenRef.current;
-    
-    if (positionChanged) {
-      // Update position tracking
-      lastPositionFenRef.current = currentPositionFen;
-    }
-    
-    // Check if canvas is ready and not resizing
-    const canvasIsReady = canvasZoomToClusters && !isGenerating && !isCanvasResizing;
-    
-    // Immediate zoom - no debounce, no delay
-    if (positionClusters.length > 0 && canvasIsReady && showPerformanceGraph && positionChanged) {
-      // Small delay to ensure canvas has settled after any dimension changes
-      setTimeout(() => {
-        try {
-          canvasZoomToClusters();
-        } catch (error) {
-          console.error('❌ Error executing immediate auto-zoom:', error);
-        }
-      }, 50); // 50ms delay to let any dimension changes settle
-    }
-    
-    // Always hide overlay since we're not using debounce
-    setShowZoomDebounceOverlay(false);
-  }, [positionClusters, canvasZoomToClusters, showPerformanceGraph, currentPositionFen, isGenerating, isCanvasResizing]);
+  // Auto-zoom is now handled by usePerformanceGraphState hook - removed duplicate logic
 
   // Sync moves with chessboard moves
   useEffect(() => {
@@ -992,34 +693,41 @@ function PerformanceGraphContent() {
   useEffect(() => {
     if (graphData.nodes.length > 0) {
       const clusters = createOpeningClusters(graphData.nodes);
-      setOpeningClusters(clusters);
+      performanceState.setOpeningClusters(clusters);
       
       // Update nodes with clustering information and current position
-      const enrichedNodes = enrichNodesWithOpeningClusters(graphData.nodes, clusters);
+      const enrichedNodes = enrichNodesWithOpeningClusters(
+        graphData.nodes, 
+        clusters, 
+        performanceState.currentNodeId, 
+        performanceState.hoveredNextMoveNodeId, 
+        performanceState.openingClusteringEnabled,
+        nodeOpeningsMap
+      );
       
       // Combine background nodes from both opening clusters and position clusters
       let allBackgroundNodes = [];
       
       // Add opening cluster backgrounds if enabled
-      if (openingClusteringEnabled) {
+      if (performanceState.openingClusteringEnabled) {
         const openingBackgroundNodes = createClusterBackgroundNodes(
           enrichedNodes, 
           clusters,
-          handleClusterHover,
-          handleClusterHoverEnd
+          performanceState.handleClusterHover,
+          performanceState.handleClusterHoverEnd
         );
         allBackgroundNodes = [...allBackgroundNodes, ...openingBackgroundNodes];
       }
       
       // Add position cluster backgrounds (when enabled and available)
-      if (showPositionClusters && positionClusters.length > 0) {
-        const positionBackgroundNodes = createPositionClusterBackgroundNodes(positionClusters);
+      if (performanceState.showPositionClusters && performanceState.positionClusters.length > 0) {
+        const positionBackgroundNodes = createPositionClusterBackgroundNodes(performanceState.positionClusters);
         allBackgroundNodes = [...allBackgroundNodes, ...positionBackgroundNodes];
       }
       
       setNodes([...allBackgroundNodes, ...enrichedNodes]);
     }
-  }, [graphData, openingClusteringEnabled, currentNodeId, hoveredNextMoveNodeId, positionClusters, showPositionClusters, nodeOpeningsMap, setNodes]);
+  }, [graphData, performanceState.openingClusteringEnabled, performanceState.currentNodeId, performanceState.hoveredNextMoveNodeId, performanceState.positionClusters, performanceState.showPositionClusters, nodeOpeningsMap, setNodes]);
   
   // Async graph generation to prevent UI blocking
   useEffect(() => {
@@ -1050,7 +758,7 @@ function PerformanceGraphContent() {
           }
         };
         setGraphData({ nodes: [noDataNode], edges: [], maxGameCount: 0 });
-        setIsGenerating(false);
+        performanceState.setIsGenerating(false);
         return;
       }
       
@@ -1120,9 +828,9 @@ function PerformanceGraphContent() {
       const filteredRootMoves = rootMoves.filter(move => {
         const gameCount = move.gameCount || 0;
         const winRate = move.details?.winRate || move.winRate || 0;
-        return gameCount >= minGameCount && 
-               winRate >= winRateFilter[0] && 
-               winRate <= winRateFilter[1];
+        return gameCount >= performanceState.minGameCount && 
+               winRate >= performanceState.winRateFilter[0] && 
+               winRate <= performanceState.winRateFilter[1];
       });
       
       // Apply fallback logic that respects win rate filter and dataset size
@@ -1136,10 +844,10 @@ function PerformanceGraphContent() {
         // - High filters (10+ games): Only show if dataset is reasonable
         let shouldApplyFallback = false;
         
-        if (minGameCount <= 5) {
+        if (performanceState.minGameCount <= 5) {
           // Low filter - always apply fallback for game count (user wants to see data)
           shouldApplyFallback = true;
-        } else if (minGameCount <= 20) {
+        } else if (performanceState.minGameCount <= 20) {
           // Medium filter - apply fallback if there's reasonable data
           shouldApplyFallback = totalGames >= 50 || maxGamesInAnyMove >= 10;
         } else {
@@ -1151,7 +859,7 @@ function PerformanceGraphContent() {
           // Check if it's a win rate filter issue vs game count issue
           const winRateFilteredRootMoves = rootMoves.filter(move => {
             const winRate = move.details?.winRate || move.winRate || 0;
-            return winRate >= winRateFilter[0] && winRate <= winRateFilter[1];
+            return winRate >= performanceState.winRateFilter[0] && winRate <= performanceState.winRateFilter[1];
           });
           
           if (winRateFilteredRootMoves.length === 0) {
@@ -1167,7 +875,7 @@ function PerformanceGraphContent() {
           }
         } else {
           // High filter on small dataset - respect the user's explicit filter choice
-          console.log(`🔍 Small dataset (${totalGames} total games, max ${maxGamesInAnyMove} per move) - respecting ${minGameCount}+ games filter`);
+          console.log(`🔍 Small dataset (${totalGames} total games, max ${maxGamesInAnyMove} per move) - respecting ${performanceState.minGameCount}+ games filter`);
           finalRootMoves = [];
         }
       }
@@ -1183,7 +891,7 @@ function PerformanceGraphContent() {
         };
         
         setGraphData(finalGraphData);
-        setIsGenerating(false);
+        performanceState.setIsGenerating(false);
         return;
       }
       
@@ -1193,7 +901,7 @@ function PerformanceGraphContent() {
       
       // Build the tree structure level by level - WORKING EXACTLY LIKE OPENING TREE
       const buildTreeLevel = (parentNodes, currentLevel) => {
-        if (currentLevel >= maxDepth || parentNodes.length === 0) {
+        if (currentLevel >= performanceState.maxDepth || parentNodes.length === 0) {
           return [];
         }
         
@@ -1221,15 +929,15 @@ function PerformanceGraphContent() {
             }
             
             // Apply filtering - but be more generous to go deeper
-            const levelAdjustedMinGames = Math.max(1, Math.floor(minGameCount / Math.pow(1.5, currentLevel - 1)));
+            const levelAdjustedMinGames = Math.max(1, Math.floor(performanceState.minGameCount / Math.pow(1.5, currentLevel - 1)));
             
             // Filter moves by game count AND win rate
             let validMoves = movesToGet.filter(move => {
               const gameCount = move.gameCount || 0;
               const winRate = move.details?.winRate || move.winRate || 0;
               return gameCount >= levelAdjustedMinGames && 
-                     winRate >= winRateFilter[0] && 
-                     winRate <= winRateFilter[1];
+                     winRate >= performanceState.winRateFilter[0] && 
+                     winRate <= performanceState.winRateFilter[1];
             });
             
             // Only apply fallback for game count filtering, NOT win rate filtering
@@ -1243,10 +951,10 @@ function PerformanceGraphContent() {
               // - High filters (10+ games): Only show if dataset is reasonable
               let shouldApplyFallback = false;
               
-              if (minGameCount <= 5) {
+              if (performanceState.minGameCount <= 5) {
                 // Low filter - always apply fallback for game count (user wants to see data)
                 shouldApplyFallback = true;
-              } else if (minGameCount <= 20) {
+              } else if (performanceState.minGameCount <= 20) {
                 // Medium filter - apply fallback if there's reasonable data at this level
                 shouldApplyFallback = totalGamesAtLevel >= 20 || maxGamesInAnyMove >= 5;
               } else {
@@ -1258,7 +966,7 @@ function PerformanceGraphContent() {
                 // Check if it's a win rate filter issue vs game count issue
                 const winRateFilteredMoves = movesToGet.filter(move => {
                   const winRate = move.details?.winRate || move.winRate || 0;
-                  return winRate >= winRateFilter[0] && winRate <= winRateFilter[1];
+                  return winRate >= performanceState.winRateFilter[0] && winRate <= performanceState.winRateFilter[1];
                 });
                 
                 if (winRateFilteredMoves.length === 0) {
@@ -1388,7 +1096,7 @@ function PerformanceGraphContent() {
         data: { moveSequence: [] }
       }];
       
-      for (let level = 1; level <= maxDepth; level++) {
+      for (let level = 1; level <= performanceState.maxDepth; level++) {
         const nextLevelNodes = buildTreeLevel(currentLevelNodes, level);
         
         if (nextLevelNodes.length === 0) {
@@ -1689,17 +1397,17 @@ function PerformanceGraphContent() {
       
       // Set the graph data and clear generating state
       setGraphData(finalGraphData);
-      setIsGenerating(false);
+      performanceState.setIsGenerating(false);
       
     } catch (error) {
       console.error('Error generating graph data:', error);
       setGraphData({ nodes: [], edges: [], maxGameCount: 0 });
-      setIsGenerating(false);
+      performanceState.setIsGenerating(false);
     }
   };
   
   generateGraph();
-}, [selectedPlayer, maxDepth, minGameCount, winRateFilter, loading, graphLoaded, initialLoad]);
+}, [selectedPlayer, performanceState.maxDepth, performanceState.minGameCount, performanceState.winRateFilter, loading, graphLoaded, initialLoad]);
 
   // Update nodes and edges when data changes
   useEffect(() => {
@@ -1708,11 +1416,10 @@ function PerformanceGraphContent() {
       setEdges(graphData.edges);
       
       // Set initial current node to root if not already set
-      if (!currentNodeId) {
+      if (!performanceState.currentNodeId) {
         const rootNode = graphData.nodes.find(node => node.data.isRoot);
         if (rootNode) {
-          setCurrentNodeId(rootNode.id);
-          setCurrentPositionFen(rootNode.data.fen); // Set initial position FEN for clustering
+          performanceState.updateCurrentPosition(rootNode.id, rootNode.data.fen);
         }
       }
       
@@ -1751,8 +1458,7 @@ function PerformanceGraphContent() {
     chessboardSync.syncMovesToChessboard(moveSequence);
     
     // Track currently selected node and position
-    setCurrentNodeId(node.id);
-    setCurrentPositionFen(node.data.fen); // Update position FEN for clustering
+    performanceState.updateCurrentPosition(node.id, node.data.fen);
     
     // Don't open position dialog - it clashes with the chessboard
     // setSelectedNode(node);
@@ -1760,9 +1466,9 @@ function PerformanceGraphContent() {
 
   // Optimized hover handlers with throttling
   const onNodeMouseEnter = useCallback((event, node) => {
-    if (!enableHoverArrows || !currentNodeId) return; // Only show arrows if enabled and we have a current position
+    if (!enableHoverArrows || !performanceState.currentNodeId) return; // Only show arrows if enabled and we have a current position
     
-    const currentNode = nodes.find(n => n.id === currentNodeId);
+    const currentNode = nodes.find(n => n.id === performanceState.currentNodeId);
     if (!currentNode) return;
     
     const currentMoves = currentNode.data.moveSequence || [];
@@ -1787,7 +1493,7 @@ function PerformanceGraphContent() {
       
       setHoveredMove(moveData);
     }
-  }, [enableHoverArrows, currentNodeId, nodes, graphData.maxGameCount]);
+  }, [enableHoverArrows, performanceState.currentNodeId, nodes, graphData.maxGameCount]);
 
   // Handle node hover end
   const onNodeMouseLeave = useCallback((event, node) => {
@@ -1795,7 +1501,7 @@ function PerformanceGraphContent() {
   }, []);
 
   const handleReset = () => {
-    canvasFitView?.();
+    performanceState.canvasState.fitView();
   };
 
   // Position dialog removed - function kept for potential future use
@@ -1803,26 +1509,9 @@ function PerformanceGraphContent() {
   //   setSelectedNode(null);
   // };
 
-  const applyWinRateFilter = () => {
-    setWinRateFilter([...tempWinRateFilter]);
-  };
+  // Apply win rate filter - now handled by shared performance state
 
-  // Canvas control handlers
-  const handleMaxDepthChange = (newDepth) => {
-    setMaxDepth(newDepth);
-  };
-
-  const handleMinGameCountChange = (newMinCount) => {
-    setMinGameCount(newMinCount);
-  };
-
-  const handleWinRateFilterChange = (newFilter) => {
-    setWinRateFilter(newFilter);
-  };
-
-  const handleTempWinRateFilterChange = (newTempFilter) => {
-    setTempWinRateFilter(newTempFilter);
-  };
+  // Canvas control handlers - now handled by shared performance state
 
   // Trigger layout updates for components when layout changes
   const triggerCanvasResize = () => {
@@ -1853,14 +1542,7 @@ function PerformanceGraphContent() {
   // Legacy functions for backward compatibility
   const toggleChessboard = togglePositionAnalysis;
 
-  // Toggle clustering features
-  const toggleOpeningClustering = () => {
-    setOpeningClusteringEnabled(!openingClusteringEnabled);
-  };
-
-  const togglePositionClusters = () => {
-    setShowPositionClusters(!showPositionClusters);
-  };
+  // Toggle clustering features - now handled by shared performance state
 
 
 
@@ -1889,8 +1571,7 @@ function PerformanceGraphContent() {
     });
     
     if (targetNode) {
-      setCurrentNodeId(targetNode.id);
-      setCurrentPositionFen(targetNode.data.fen);
+      performanceState.updateCurrentPosition(targetNode.id, targetNode.data.fen);
     }
   };
 
@@ -1964,18 +1645,18 @@ function PerformanceGraphContent() {
       
       if (hoveredNode) {
         // Set a state to track which node should glow
-        setHoveredNextMoveNodeId(hoveredNode.id);
+        performanceState.setHoveredNextMoveNodeId(hoveredNode.id);
       } else {
-        setHoveredNextMoveNodeId(null);
+        performanceState.setHoveredNextMoveNodeId(null);
       }
     } else {
-      setHoveredNextMoveNodeId(null);
+      performanceState.setHoveredNextMoveNodeId(null);
     }
   };
 
   const handleMovesMoveHoverEnd = () => {
     setMovesHoveredMove(null);
-    setHoveredNextMoveNodeId(null);
+    performanceState.setHoveredNextMoveNodeId(null);
   };
 
   // Layout state - using flexible layout system
@@ -2144,9 +1825,9 @@ function PerformanceGraphContent() {
                     onMoveHoverEnd={handleMovesMoveHoverEnd}
                     onDirectScroll={handleMovesDirectScroll}
                     initialPath={movesCurrentPath}
-                    maxDepth={maxDepth}
-                    minGameCount={minGameCount}
-                    winRateFilter={winRateFilter}
+                    maxDepth={performanceState.maxDepth}
+                    minGameCount={performanceState.minGameCount}
+                    winRateFilter={performanceState.winRateFilter}
                   />
                 </div>
               ) : (
@@ -2191,55 +1872,45 @@ function PerformanceGraphContent() {
               className="bg-slate-900 border-r-0"
             >
               <div className="relative h-full w-full">
-                {/* Zoom Debounce Overlay */}
-                {showZoomDebounceOverlay && (
-                  <div className="absolute inset-0 bg-blue-500/20 backdrop-blur-sm flex items-center justify-center z-40 pointer-events-none">
-                    <div className="bg-blue-600 text-white px-6 py-3 rounded-lg shadow-lg border border-blue-500">
-                      <div className="flex items-center gap-3">
-                        <div className="w-3 h-3 bg-blue-300 rounded-full animate-pulse"></div>
-                        <span className="font-medium">Auto-zoom scheduled</span>
-                      </div>
-                      <p className="text-blue-200 text-sm mt-1">Will zoom to position in 1.2s (waiting for clicks to stop)</p>
-                    </div>
-                  </div>
-                )}
                 
                 <CanvasPerformanceGraph
                   graphData={graphData}
                   onNodeClick={onNodeClick}
                   onNodeHover={onNodeMouseEnter}
                   onNodeHoverEnd={onNodeMouseLeave}
-                  currentNodeId={currentNodeId}
-                  hoveredNextMoveNodeId={hoveredNextMoveNodeId}
-                  openingClusters={openingClusters}
-                  positionClusters={positionClusters}
-                  showOpeningClusters={openingClusteringEnabled}
-                  showPositionClusters={showPositionClusters}
-                  onToggleOpeningClusters={toggleOpeningClustering}
-                  onTogglePositionClusters={togglePositionClusters}
-                  onClusterHover={handleClusterHover}
-                  onClusterHoverEnd={handleClusterHoverEnd}
-                  hoveredOpeningName={hoveredOpeningName}
-                  hoveredClusterColor={hoveredClusterColor}
-                  onFitView={setCanvasFitView}
-                  onZoomToClusters={setCanvasZoomToClusters}
-                  onResizeStateChange={setIsCanvasResizing}
-                  maxDepth={maxDepth}
-                  minGameCount={minGameCount}
-                  winRateFilter={winRateFilter}
-                  tempWinRateFilter={tempWinRateFilter}
-                  onMaxDepthChange={handleMaxDepthChange}
-                  onMinGameCountChange={handleMinGameCountChange}
-                  onWinRateFilterChange={handleWinRateFilterChange}
-                  onTempWinRateFilterChange={handleTempWinRateFilterChange}
-                  onApplyWinRateFilter={applyWinRateFilter}
+                  currentNodeId={performanceState.currentNodeId}
+                  hoveredNextMoveNodeId={performanceState.hoveredNextMoveNodeId}
+                  openingClusters={performanceState.openingClusters}
+                  positionClusters={performanceState.positionClusters}
+                  showOpeningClusters={performanceState.openingClusteringEnabled}
+                  showPositionClusters={performanceState.showPositionClusters}
+                  onToggleOpeningClusters={performanceState.toggleOpeningClustering}
+                  onTogglePositionClusters={performanceState.togglePositionClusters}
+                  onClusterHover={performanceState.handleClusterHover}
+                  onClusterHoverEnd={performanceState.handleClusterHoverEnd}
+                  hoveredOpeningName={performanceState.hoveredOpeningName}
+                  hoveredClusterColor={performanceState.hoveredClusterColor}
+                  onFitView={performanceState.canvasState.onFitView}
+                  onZoomToClusters={performanceState.canvasState.onZoomToClusters}
+                  onZoomTo={performanceState.canvasState.onZoomTo}
+                  onResizeStateChange={performanceState.canvasState.onResizeStateChange}
+                  onInitializingStateChange={performanceState.canvasState.onInitializingStateChange}
+                  maxDepth={performanceState.maxDepth}
+                  minGameCount={performanceState.minGameCount}
+                  winRateFilter={performanceState.winRateFilter}
+                  tempWinRateFilter={performanceState.tempWinRateFilter}
+                  onMaxDepthChange={performanceState.handleMaxDepthChange}
+                  onMinGameCountChange={performanceState.handleMinGameCountChange}
+                  onWinRateFilterChange={performanceState.handleWinRateFilterChange}
+                  onTempWinRateFilterChange={performanceState.handleTempWinRateFilterChange}
+                  onApplyWinRateFilter={performanceState.applyWinRateFilter}
                   selectedPlayer={selectedPlayer}
                   onPlayerChange={setSelectedPlayer}
-                  isGenerating={isGenerating}
-                  showPerformanceLegend={showPerformanceLegend}
-                  showPerformanceControls={showPerformanceControls}
-                  onShowPerformanceLegend={setShowPerformanceLegend}
-                  onShowPerformanceControls={setShowPerformanceControls}
+                  isGenerating={performanceState.isGenerating}
+                  showPerformanceLegend={performanceState.showPerformanceLegend}
+                  showPerformanceControls={performanceState.showPerformanceControls}
+                  onShowPerformanceLegend={performanceState.setShowPerformanceLegend}
+                  onShowPerformanceControls={performanceState.setShowPerformanceControls}
                   isClusteringLoading={false}
                   className="w-full h-full"
                 />
@@ -2265,7 +1936,7 @@ function PerformanceGraphContent() {
       </FlexibleLayout>
       
       {/* Global Loading Overlay */}
-      {isGenerating && (
+      {performanceState.isGenerating && (
         <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500 mx-auto mb-6"></div>

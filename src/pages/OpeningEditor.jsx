@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useCanvasState, usePerformanceGraphState } from '../hooks/useCanvasState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,6 +40,7 @@ import { Chess } from 'chess.js';
 import CanvasPerformanceGraph from '@/components/chess/CanvasPerformanceGraph';
 import { cn } from '@/lib/utils';
 import { loadOpeningGraph } from '@/api/graphStorage';
+import { createPositionClusters } from '../utils/clusteringAnalysis';
 
 // Move tree node structure
 class MoveNode {
@@ -56,20 +58,76 @@ class MoveNode {
   
   addChild(san, fen) {
     const child = new MoveNode(san, fen, this);
-    // If this is not the first child, it's a variation
-    if (this.children.length > 0) {
-      child.isMainLine = false;
-    }
+    // Don't automatically set main line here - will be calculated later
+    child.isMainLine = false;
     this.children.push(child);
     return child;
   }
   
   removeChild(childId) {
     this.children = this.children.filter(child => child.id !== childId);
-    // If we removed the main line, make the first remaining child the main line
-    if (this.children.length > 0 && !this.children.some(c => c.isMainLine)) {
-      this.children[0].isMainLine = true;
+    // After removing a child, recalculate the main line for the entire tree
+    // This will be handled by the parent component
+  }
+
+  // Method to calculate and set the main line for the entire tree
+  static calculateMainLine(rootNode) {
+    // First, reset all nodes to not be main line
+    const resetMainLine = (node) => {
+      node.isMainLine = false;
+      node.children.forEach(child => resetMainLine(child));
+    };
+    resetMainLine(rootNode);
+    
+    // Find the longest path or the path with the most "important" moves
+    // For now, we'll use the first child at each level (can be enhanced later)
+    const setMainLinePath = (node) => {
+      node.isMainLine = true;
+      
+      // If this node has children, continue the main line through the first child
+      if (node.children.length > 0) {
+        // Choose the first child as main line (this can be enhanced with better logic)
+        setMainLinePath(node.children[0]);
+      }
+    };
+    
+    // Start from root
+    setMainLinePath(rootNode);
+  }
+
+  // Method to set the main line to go through a specific node
+  static setMainLineToNode(rootNode, targetNode) {
+    // First, reset all nodes to not be main line
+    const resetMainLine = (node) => {
+      node.isMainLine = false;
+      node.children.forEach(child => resetMainLine(child));
+    };
+    resetMainLine(rootNode);
+    
+    // Build the path from root to target node
+    const pathToTarget = [];
+    let current = targetNode;
+    while (current.parent) {
+      pathToTarget.unshift(current);
+      current = current.parent;
     }
+    pathToTarget.unshift(current); // Add root
+    
+    // Mark all nodes in the path as main line
+    pathToTarget.forEach(node => {
+      node.isMainLine = true;
+    });
+    
+    // Continue the main line from target node through its first child (if any)
+    const continueMainLine = (node) => {
+      if (node.children.length > 0) {
+        const firstChild = node.children[0];
+        firstChild.isMainLine = true;
+        continueMainLine(firstChild);
+      }
+    };
+    
+    continueMainLine(targetNode);
   }
 }
 
@@ -110,6 +168,23 @@ export default function OpeningEditor() {
   // Graph data for canvas view
   const [graphData, setGraphData] = useState({ nodes: [], edges: [] });
   
+  // Shared canvas state management with auto-fit enabled
+  const canvasState = useCanvasState({
+    enableAutoFit: true,
+    autoFitOnResize: true,
+    autoFitOnGraphChange: true,
+    autoFitDelay: 200 // Slightly longer delay for opening editor
+  });
+  
+  // Shared performance graph state for auto-zoom and position cluster functionality
+  const performanceState = usePerformanceGraphState({
+    openingGraph: openingGraph,
+    selectedPlayer: color,
+    enableClustering: false, // Disable opening clustering for opening editor
+    enablePositionClusters: true, // Enable position clusters
+    enableAutoZoom: canvasMode === 'performance' // Only auto-zoom in performance mode
+  });
+  
   // Load existing opening
   useEffect(() => {
     if (!isNewOpening) {
@@ -117,28 +192,51 @@ export default function OpeningEditor() {
     }
   }, [openingId]);
   
+  // Cleanup canvas state on unmount
+  useEffect(() => {
+    return () => {
+      canvasState.cleanup();
+    };
+  }, [canvasState.cleanup]);
+  
   // Update graph data when tree changes or mode changes
   useEffect(() => {
     if (canvasMode === 'opening') {
       updateGraphData();
     } else if (canvasMode === 'performance' && openingGraph) {
-      generatePerformanceGraph();
+      // Overlay performance data onto the opening tree
+      navigateToPerformancePosition();
     }
-  }, [moveTree?.id, selectedNode?.id, canvasMode, openingGraph]); // Use stable IDs instead of full objects
+  }, [moveTree?.id, selectedNode?.id, canvasMode, openingGraph, graphData.nodes.length]); // Use stable IDs instead of full objects
+  
+  // Trigger auto-fit when graph data changes (only when nodes actually change)
+  useEffect(() => {
+    if (graphData.nodes.length > 0) {
+      canvasState.handleGraphChange(graphData);
+    }
+  }, [graphData.nodes.length, canvasState.handleGraphChange]); // Only trigger on node count change
 
-  // Load performance graph data
+  // Generate position clusters when in performance mode and position changes
+  useEffect(() => {
+    if (canvasMode === 'performance' && performanceGraphData.nodes.length > 0 && performanceState.currentPositionFen) {
+      const clusters = createPositionClusters(performanceGraphData.nodes, performanceState.currentPositionFen);
+      performanceState.setPositionClusters(clusters);
+    } else {
+      performanceState.setPositionClusters([]);
+    }
+  }, [canvasMode, performanceGraphData.nodes, performanceState.currentPositionFen, performanceState.setPositionClusters]);
+
+  // Load performance graph data once
   useEffect(() => {
     const loadPerformanceData = async () => {
-      if (canvasMode === 'performance') {
-        const username = localStorage.getItem('chesscope_username');
-        if (username) {
-          const graph = await loadOpeningGraph(username);
-          setOpeningGraph(graph);
-        }
+      const username = localStorage.getItem('chesscope_username');
+      if (username) {
+        const graph = await loadOpeningGraph(username);
+        setOpeningGraph(graph);
       }
     };
     loadPerformanceData();
-  }, [canvasMode]);
+  }, []); // Load once on mount
 
   const loadOpening = async () => {
     try {
@@ -196,6 +294,9 @@ export default function OpeningEditor() {
         }
       }
       
+      // Calculate the main line after building the tree
+      MoveNode.calculateMainLine(root);
+      
       setMoveTree(root);
       setCurrentNode(root);
       setSelectedNode(root);
@@ -216,160 +317,350 @@ export default function OpeningEditor() {
     
     const nodeWidth = 180;
     const nodeHeight = 180;
-    const horizontalSpacing = 250;
-    const verticalSpacing = 250;
+    const horizontalSpacing = 240; // Reduced from 250 to match performance graph
+    const verticalSpacing = 350; // Increased from 250 to match performance graph
     
-    const traverseTree = (node, depth = 0, parentId = null, xOffset = 0) => {
+    // Build tree structure map for proper layout calculation
+    const treeStructure = new Map();
+    
+    const buildTreeStructure = (node, depth = 0, parentId = null) => {
       const nodeId = node.id;
       
-      // Calculate position
-      const x = xOffset * horizontalSpacing;
-      const y = depth * verticalSpacing;
-      
-      // Add node with all necessary data
-      nodes.push({
-        id: nodeId,
-        type: 'custom',
-        position: { x, y },
-        data: {
-          label: node.san,
-          san: node.san,
-          fen: node.fen,
-          isSelected: node === selectedNode,
-          isMainLine: node.isMainLine,
-          hasComment: !!node.comment,
-          hasLinks: node.links && node.links.length > 0,
-          linkCount: node.links ? node.links.length : 0,
-          annotation: {
-            hasComment: !!node.comment,
-            hasLinks: node.links && node.links.length > 0,
-            commentCount: node.comment ? 1 : 0,
-            linkCount: node.links ? node.links.length : 0
-          },
-          isRoot: node.san === 'Start',
-          // For compatibility with performance mode
-          winRate: null,
-          totalGames: null,
-          gameCount: null,
-          performanceData: null
-        }
+      // Initialize tree structure for this node
+      treeStructure.set(nodeId, {
+        children: [],
+        parent: parentId,
+        level: depth,
+        width: 0,
+        node: node // Store reference to original node
       });
       
-      // Add edge from parent
+      // Add to parent's children list
       if (parentId) {
-        edges.push({
-          id: `edge-${parentId}-${nodeId}`,
-          source: parentId,
-          target: nodeId,
-          sourceHandle: 'bottom',
-          targetHandle: 'top',
-          type: 'smoothstep',
-          animated: false,
-          data: {
-            isMainLine: node.isMainLine
-          }
-        });
+        const parentTreeNode = treeStructure.get(parentId);
+        if (parentTreeNode) {
+          parentTreeNode.children.push(nodeId);
+        }
       }
       
-      // Process children
-      const childCount = node.children.length;
-      const startOffset = -(childCount - 1) / 2;
-      
-      node.children.forEach((child, index) => {
-        traverseTree(child, depth + 1, nodeId, xOffset + startOffset + index);
+      // Process children recursively
+      node.children.forEach(child => {
+        buildTreeStructure(child, depth + 1, nodeId);
       });
     };
     
-    // Start traversal from root
-    traverseTree(moveTree);
+    // Build the tree structure
+    buildTreeStructure(moveTree);
+    
+    // Calculate tree layout using sophisticated algorithm
+    const calculateTreeLayout = () => {
+      // Bottom-up width calculation - each node's width is the sum of its children's widths
+      const calculateWidths = (nodeId) => {
+        const treeNode = treeStructure.get(nodeId);
+        if (!treeNode) return 0;
+        
+        if (treeNode.children.length === 0) {
+          // Leaf node has width of 1
+          treeNode.width = 1;
+          return 1;
+        }
+        
+        // Internal node's width is the sum of all children's widths
+        let totalWidth = 0;
+        for (const childId of treeNode.children) {
+          totalWidth += calculateWidths(childId);
+        }
+        treeNode.width = Math.max(1, totalWidth);
+        return treeNode.width;
+      };
+      
+      // Helper function to build move sequence for a node
+      const buildMoveSequence = (targetNodeId) => {
+        const sequence = [];
+        let currentId = targetNodeId;
+        
+        while (currentId) {
+          const treeNode = treeStructure.get(currentId);
+          if (!treeNode || !treeNode.node || treeNode.node.san === 'Start') break;
+          
+          sequence.unshift(treeNode.node.san);
+          currentId = treeNode.parent;
+        }
+        
+        return sequence;
+      };
+
+      // Top-down position assignment
+      const assignPositions = (nodeId, x, y, availableWidth) => {
+        const treeNode = treeStructure.get(nodeId);
+        const node = treeNode?.node;
+        
+        if (!treeNode || !node) return;
+        
+        // Build move sequence for this node
+        const moveSequence = buildMoveSequence(nodeId);
+        
+        if (node.san === 'Start' && treeNode.children.length > 0) {
+          // Special handling for root node - center it above its children
+          const childY = y + verticalSpacing;
+          let currentX = -(availableWidth * horizontalSpacing) / 2;
+          let childXs = [];
+          
+          // First pass: position children to get their bounds
+          for (const childId of treeNode.children) {
+            const childTreeNode = treeStructure.get(childId);
+            if (childTreeNode) {
+              const childWidth = childTreeNode.width * horizontalSpacing;
+              const childCenterX = currentX + childWidth / 2;
+              childXs.push(childCenterX);
+              
+              // Recursively position this child and its subtree
+              assignPositions(childId, childCenterX, childY, childTreeNode.width);
+              currentX += childWidth;
+            }
+          }
+          
+          // Center root node above its children
+          let rootCenterX = 0;
+          if (childXs.length === 1) {
+            rootCenterX = childXs[0];
+          } else if (childXs.length > 1) {
+            rootCenterX = childXs.reduce((a, b) => a + b, 0) / childXs.length;
+          }
+          
+          // Add node with calculated position
+          nodes.push({
+            id: nodeId,
+            type: 'custom',
+            position: { x: rootCenterX - nodeWidth / 2, y },
+            data: {
+              label: node.san,
+              san: node.san,
+              fen: node.fen,
+              isSelected: node === selectedNode,
+              isMainLine: node.isMainLine,
+              hasComment: !!node.comment,
+              hasLinks: node.links && node.links.length > 0,
+              linkCount: node.links ? node.links.length : 0,
+              annotation: {
+                hasComment: !!node.comment,
+                hasLinks: node.links && node.links.length > 0,
+                commentCount: node.comment ? 1 : 0,
+                linkCount: node.links ? node.links.length : 0
+              },
+              isRoot: node.san === 'Start',
+              moveSequence: moveSequence, // Add move sequence for move color determination
+              // For compatibility with performance mode
+              winRate: null,
+              totalGames: null,
+              gameCount: null,
+              performanceData: null
+            }
+          });
+        } else {
+          // Regular node positioning
+          nodes.push({
+            id: nodeId,
+            type: 'custom',
+            position: { x: x - nodeWidth / 2, y },
+            data: {
+              label: node.san,
+              san: node.san,
+              fen: node.fen,
+              isSelected: node === selectedNode,
+              isMainLine: node.isMainLine,
+              hasComment: !!node.comment,
+              hasLinks: node.links && node.links.length > 0,
+              linkCount: node.links ? node.links.length : 0,
+              annotation: {
+                hasComment: !!node.comment,
+                hasLinks: node.links && node.links.length > 0,
+                commentCount: node.comment ? 1 : 0,
+                linkCount: node.links ? node.links.length : 0
+              },
+              isRoot: node.san === 'Start',
+              moveSequence: moveSequence, // Add move sequence for move color determination
+              // For compatibility with performance mode
+              winRate: null,
+              totalGames: null,
+              gameCount: null,
+              performanceData: null
+            }
+          });
+          
+          // Position children if any
+          if (treeNode.children.length > 0) {
+            const childY = y + verticalSpacing;
+            let currentX = x - (availableWidth * horizontalSpacing) / 2;
+            
+            for (const childId of treeNode.children) {
+              const childTreeNode = treeStructure.get(childId);
+              if (childTreeNode) {
+                const childWidth = childTreeNode.width * horizontalSpacing;
+                const childCenterX = currentX + childWidth / 2;
+                
+                assignPositions(childId, childCenterX, childY, childTreeNode.width);
+                currentX += childWidth;
+              }
+            }
+          }
+        }
+        
+        // Add edges from this node to its children
+        if (treeNode.parent) {
+          edges.push({
+            id: `edge-${treeNode.parent}-${nodeId}`,
+            source: treeNode.parent,
+            target: nodeId,
+            sourceHandle: 'bottom',
+            targetHandle: 'top',
+            type: 'smoothstep',
+            animated: false,
+            data: {
+              isMainLine: node.isMainLine
+            }
+          });
+        }
+      };
+      
+      // Calculate widths bottom-up
+      calculateWidths(moveTree.id);
+      
+      // Assign positions top-down
+      const rootWidth = treeStructure.get(moveTree.id)?.width || 1;
+      assignPositions(moveTree.id, 0, 0, rootWidth);
+    };
+    
+    // Execute the layout calculation
+    calculateTreeLayout();
     
     setGraphData({ nodes, edges });
   };
 
-  const generatePerformanceGraph = () => {
+  const navigateToPerformancePosition = () => {
     if (!openingGraph) return;
     
-    // Get moves from the current opening tree path
-    const mainLineMoves = [];
-    let current = moveTree;
-    while (current.children.length > 0) {
-      const mainChild = current.children.find(c => c.isMainLine) || current.children[0];
-      mainLineMoves.push(mainChild.san);
-      current = mainChild;
-    }
-    
-    // Generate performance data based on the opening moves
-    const nodes = [];
-    const edges = [];
-    let maxGameCount = 0;
-    
-    // Tree layout configuration
-    const LEVEL_HEIGHT = 350;
-    const NODE_SPACING = 240;
-    
-    // Add root node
-    const rootFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-    nodes.push({
-      id: rootFen,
-      type: 'chessPosition',
-      position: { x: 0, y: 0 },
-      data: {
-        fen: rootFen,
-        winRate: 50,
-        gameCount: 100, // Placeholder
-        san: null,
-        openingName: 'Starting Position',
-        isRoot: true,
-        depth: 0,
-        moveSequence: []
+    // Instead of building a separate performance graph, overlay performance data onto the opening tree
+    const overlayPerformanceData = () => {
+      const enhancedNodes = [];
+      const enhancedEdges = [];
+      
+      // Get the current opening tree data
+      const currentGraphData = graphData;
+      if (!currentGraphData.nodes || currentGraphData.nodes.length === 0) {
+        return { nodes: [], edges: [], maxGameCount: 0 };
       }
-    });
-    
-    // Add some sample performance nodes based on the opening
-    // In real implementation, this would pull from the opening graph
-    let parentId = rootFen;
-    let currentFen = rootFen;
-    
-    mainLineMoves.slice(0, 5).forEach((move, index) => {
-      const nodeId = `${currentFen}-${move}`;
-      const x = (index - 2) * NODE_SPACING;
-      const y = (index + 1) * LEVEL_HEIGHT;
       
-      nodes.push({
-        id: nodeId,
-        type: 'chessPosition',
-        position: { x, y },
-        data: {
-          fen: nodeId, // Simplified for demo
-          winRate: 50 + Math.random() * 20,
-          gameCount: Math.floor(80 - index * 15),
-          san: move,
-          openingName: name,
-          isRoot: false,
-          depth: index + 1,
-          moveSequence: mainLineMoves.slice(0, index + 1)
+      let maxGameCount = 0;
+      
+      // Process each node in the opening tree
+      currentGraphData.nodes.forEach(node => {
+        const nodeData = { ...node.data };
+        
+        if (nodeData.isRoot) {
+          // Root node - keep as is but add some performance styling
+          enhancedNodes.push({
+            ...node,
+            data: {
+              ...nodeData,
+              winRate: 50,
+              gameCount: 0,
+              performanceData: {
+                hasData: true,
+                winRate: 50,
+                gameCount: 0
+              }
+            }
+          });
+        } else {
+          // Try to get performance data for this node
+          let performanceData = null;
+          let hasPerformanceData = false;
+          
+          try {
+            // Build the move sequence for this node by traversing up the tree
+            const getMoveSequence = (nodeId) => {
+              const sequence = [];
+              let current = currentGraphData.nodes.find(n => n.id === nodeId);
+              
+              // Find the path by looking at edges
+              while (current && !current.data.isRoot) {
+                const parentEdge = currentGraphData.edges.find(e => e.target === current.id);
+                if (parentEdge) {
+                  sequence.unshift(current.data.san);
+                  current = currentGraphData.nodes.find(n => n.id === parentEdge.source);
+                } else {
+                  break;
+                }
+              }
+              
+              return sequence;
+            };
+            
+            const moveSequence = getMoveSequence(node.id);
+            
+            if (moveSequence.length > 0) {
+              // Get moves from the performance graph for the parent position
+              const parentSequence = moveSequence.slice(0, -1);
+              const moves = openingGraph.getMovesFromPosition(parentSequence, color === 'white');
+              
+              if (moves && moves.length > 0) {
+                // Find the move that matches this node's move
+                const matchingMove = moves.find(m => m.san === moveSequence[moveSequence.length - 1]);
+                
+                if (matchingMove) {
+                  hasPerformanceData = true;
+                  performanceData = {
+                    winRate: matchingMove.details?.winRate || matchingMove.winRate || 50,
+                    gameCount: matchingMove.gameCount || 0,
+                    hasData: true
+                  };
+                  maxGameCount = Math.max(maxGameCount, performanceData.gameCount);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error getting performance data for node:', error);
+          }
+          
+          // Create enhanced node with performance data or mark as missing
+          enhancedNodes.push({
+            ...node,
+            data: {
+              ...nodeData,
+              winRate: performanceData?.winRate || null,
+              gameCount: performanceData?.gameCount || 0,
+              performanceData: performanceData || { hasData: false, winRate: null, gameCount: 0 },
+              isMissing: !hasPerformanceData // Flag for gray styling
+            }
+          });
         }
       });
       
-      edges.push({
-        id: `${parentId}-${nodeId}`,
-        source: parentId,
-        target: nodeId,
-        sourceHandle: 'bottom',
-        targetHandle: 'top',
-        type: 'chessMove',
-        data: {
-          san: move,
-          winRate: 50 + Math.random() * 20,
-          gameCount: Math.floor(80 - index * 15)
+      // Process edges - add performance data to edges as well
+      currentGraphData.edges.forEach(edge => {
+        const sourceNode = enhancedNodes.find(n => n.id === edge.source);
+        const targetNode = enhancedNodes.find(n => n.id === edge.target);
+        
+        if (sourceNode && targetNode) {
+          enhancedEdges.push({
+            ...edge,
+            data: {
+              ...edge.data,
+              winRate: targetNode.data.winRate,
+              gameCount: targetNode.data.gameCount,
+              isMissing: targetNode.data.isMissing
+            }
+          });
         }
       });
       
-      parentId = nodeId;
-      maxGameCount = Math.max(maxGameCount, Math.floor(80 - index * 15));
-    });
+      return { nodes: enhancedNodes, edges: enhancedEdges, maxGameCount };
+    };
     
-    setPerformanceGraphData({ nodes, edges, maxGameCount });
+    // Generate the enhanced graph with performance data
+    const enhancedGraph = overlayPerformanceData();
+    setPerformanceGraphData(enhancedGraph);
   };
 
   const handleSave = async () => {
@@ -518,8 +809,18 @@ export default function OpeningEditor() {
     }
     setCurrentPath(path);
     
-    // Force re-render of tree
-    setMoveTree({ ...moveTree });
+    // Recalculate main line after adding moves
+    MoveNode.calculateMainLine(moveTree);
+    
+    // Force re-render of tree with new ID to trigger graph regeneration
+    const updatedTree = { ...moveTree };
+    updatedTree.id = `${moveTree.id}-${Date.now()}`;
+    setMoveTree(updatedTree);
+    
+    // Schedule auto-fit after tree update (longer delay to ensure graph is updated)
+    setTimeout(() => {
+      canvasState.scheduleAutoFit('new-move-added', 100);
+    }, 200);
   };
   
   const handleNodeSelect = (node) => {
@@ -534,6 +835,9 @@ export default function OpeningEditor() {
       current = current.parent;
     }
     setCurrentPath(path);
+    
+    // Don't auto-fit on node selection - let user control the view
+    // This prevents the view from jumping when user clicks nodes
   };
   
   const handleNodeDelete = (node) => {
@@ -544,8 +848,14 @@ export default function OpeningEditor() {
         setCurrentNode(node.parent);
         setSelectedNode(node.parent);
       }
-      // Force re-render
-      setMoveTree({ ...moveTree });
+      
+      // Recalculate main line after deletion
+      MoveNode.calculateMainLine(moveTree);
+      
+      // Force re-render with new ID to trigger graph regeneration
+      const updatedTree = { ...moveTree };
+      updatedTree.id = `${moveTree.id}-${Date.now()}`;
+      setMoveTree(updatedTree);
     }
   };
 
@@ -577,24 +887,44 @@ export default function OpeningEditor() {
       if (treeNode) {
         handleNodeSelect(treeNode);
       }
+    } else if (canvasMode === 'performance' && node.data) {
+      // Update performance state position for auto-zoom functionality
+      performanceState.updateCurrentPosition(node.id, node.data.fen);
     }
-  }, [canvasMode, handleNodeSelect]); // handleNodeSelect is stable, moveTree accessed via closure
+  }, [canvasMode, handleNodeSelect, performanceState.updateCurrentPosition]); // handleNodeSelect is stable, moveTree accessed via closure
 
   // Layout control handlers - memoized to prevent infinite re-renders
   const handleLayoutChange = useCallback((layoutData) => {
     setLayoutInfo(layoutData);
-  }, []);
+    
+    // Schedule auto-fit when layout changes (after a delay to let layout settle)
+    setTimeout(() => {
+      canvasState.scheduleAutoFit('layout-change', 200);
+    }, 300);
+  }, [canvasState.scheduleAutoFit]);
 
   const toggleDetails = () => {
     setShowDetails(!showDetails);
+    // Schedule auto-fit after layout change
+    setTimeout(() => {
+      canvasState.scheduleAutoFit('details-toggle', 200);
+    }, 300);
   };
 
   const toggleEditor = () => {
     setShowEditor(!showEditor);
+    // Schedule auto-fit after layout change
+    setTimeout(() => {
+      canvasState.scheduleAutoFit('editor-toggle', 200);
+    }, 300);
   };
 
   const toggleTree = () => {
     setShowTree(!showTree);
+    // Schedule auto-fit after layout change
+    setTimeout(() => {
+      canvasState.scheduleAutoFit('tree-toggle', 200);
+    }, 300);
   };
 
   // Component visibility state for flexible layout
@@ -881,14 +1211,13 @@ export default function OpeningEditor() {
                           className="w-full mt-2 bg-slate-600 hover:bg-slate-700"
                           disabled={selectedNode.isMainLine}
                           onClick={() => {
-                            // Make this variation the main line
-                            const parent = selectedNode.parent;
-                            if (parent) {
-                              parent.children.forEach(child => {
-                                child.isMainLine = child === selectedNode;
-                              });
-                              setMoveTree({ ...moveTree });
-                            }
+                            // Set the main line to go through the selected node
+                            MoveNode.setMainLineToNode(moveTree, selectedNode);
+                            
+                            // Force tree update with new ID to trigger graph regeneration
+                            const updatedTree = { ...moveTree };
+                            updatedTree.id = `${moveTree.id}-${Date.now()}`;
+                            setMoveTree(updatedTree);
                           }}
                         >
                           {selectedNode.isMainLine ? 'Already Main Line' : 'Set as Main Line'}
@@ -928,12 +1257,29 @@ export default function OpeningEditor() {
               className="bg-slate-900 border-r-0"
             >
               <div className="relative h-full w-full">
-                {/* Performance Mode Toggle Button - Overlaid on top right */}
-                <div className="absolute top-4 right-4 z-10">
+                {/* Canvas Controls - Overlaid on top right */}
+                <div className="absolute top-4 right-4 z-10 flex gap-2">
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => setCanvasMode(canvasMode === 'opening' ? 'performance' : 'opening')}
+                    onClick={() => canvasState.fitView()}
+                    className="bg-slate-800/90 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white backdrop-blur-sm shadow-lg"
+                    title="Fit tree to view"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setCanvasMode(canvasMode === 'opening' ? 'performance' : 'opening');
+                      // Schedule auto-fit after mode change
+                      setTimeout(() => {
+                        canvasState.scheduleAutoFit('mode-change', 200);
+                      }, 300);
+                    }}
                     className="bg-slate-800/90 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white backdrop-blur-sm shadow-lg"
                   >
                     <BarChart3 className="w-4 h-4 mr-2" />
@@ -945,10 +1291,20 @@ export default function OpeningEditor() {
                   graphData={canvasMode === 'opening' ? graphData : performanceGraphData}
                   mode={canvasMode}
                   onNodeClick={handleCanvasNodeClick}
-                  currentNodeId={selectedNode?.id}
+                  currentNodeId={canvasMode === 'opening' ? selectedNode?.id : performanceState.currentNodeId}
                   isGenerating={false}
                   showPerformanceLegend={false}
                   showPerformanceControls={false}
+                  // Use performance state for auto-zoom when in performance mode
+                  onFitView={canvasMode === 'performance' ? performanceState.canvasState.onFitView : canvasState.onFitView}
+                  onZoomToClusters={canvasMode === 'performance' ? performanceState.canvasState.onZoomToClusters : canvasState.onZoomToClusters}
+                  onZoomTo={canvasMode === 'performance' ? performanceState.canvasState.onZoomTo : canvasState.onZoomTo}
+                  onResizeStateChange={canvasMode === 'performance' ? performanceState.canvasState.onResizeStateChange : canvasState.onResizeStateChange}
+                  onInitializingStateChange={canvasMode === 'performance' ? performanceState.canvasState.onInitializingStateChange : canvasState.onInitializingStateChange}
+                  // Position cluster props for performance mode
+                  positionClusters={canvasMode === 'performance' ? performanceState.positionClusters : []}
+                  showPositionClusters={canvasMode === 'performance' ? performanceState.showPositionClusters : false}
+                  onTogglePositionClusters={performanceState.togglePositionClusters}
                   className="w-full h-full"
                 />
               </div>
