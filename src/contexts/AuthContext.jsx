@@ -16,7 +16,7 @@ const AuthContext = createContext();
 const shouldAutoSync = (user) => {
   if (!user || !user.importSettings) return false;
   
-  const frequency = user.importSettings.autoSyncFrequency || '5min';
+  const frequency = user.importSettings.autoSyncFrequency || '1hour';
   
   // Never sync
   if (frequency === 'never') return false;
@@ -103,7 +103,7 @@ export const AuthProvider = ({ children }) => {
             ['rapid', 'blitz', 'bullet'],
           selectedDateRange: '3',
           customDateRange: { from: null, to: null },
-          autoSyncFrequency: '5min'
+          autoSyncFrequency: '1hour'
         }
           };
           
@@ -168,7 +168,7 @@ export const AuthProvider = ({ children }) => {
             ['rapid', 'blitz', 'bullet'],
           selectedDateRange: '3',
           customDateRange: { from: null, to: null },
-          autoSyncFrequency: '5min'
+          autoSyncFrequency: '1hour'
         },
         loginTime: new Date().toISOString(),
         lastSync: null
@@ -340,7 +340,7 @@ export const AuthProvider = ({ children }) => {
             ['rapid', 'blitz', 'bullet'],
           selectedDateRange: '3',
           customDateRange: { from: null, to: null },
-          autoSyncFrequency: '5min'
+          autoSyncFrequency: '1hour'
         }
       };
       
