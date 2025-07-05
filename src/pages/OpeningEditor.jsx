@@ -925,34 +925,33 @@ export default function OpeningEditor() {
             <LayoutSection
               key="tree"
               noPadding={true}
-              className="border-r-0"
+              className="bg-slate-900 border-r-0"
             >
-              <Card className="bg-slate-800 border-slate-700 h-full m-4">
-                <CardHeader className="flex flex-row items-center justify-between py-3">
-                  <CardTitle className="text-slate-100 text-lg">Opening Tree</CardTitle>
+              <div className="relative h-full w-full">
+                {/* Performance Mode Toggle Button - Overlaid on top right */}
+                <div className="absolute top-4 right-4 z-10">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => setCanvasMode(canvasMode === 'opening' ? 'performance' : 'opening')}
-                    className="border-slate-600 text-slate-300 hover:bg-slate-700"
+                    className="bg-slate-800/90 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white backdrop-blur-sm shadow-lg"
                   >
                     <BarChart3 className="w-4 h-4 mr-2" />
                     {canvasMode === 'opening' ? 'Performance' : 'Tree'}
                   </Button>
-                </CardHeader>
-                <CardContent className="p-4 h-[calc(100%-5rem)]">
-                  <CanvasPerformanceGraph
-                    graphData={canvasMode === 'opening' ? graphData : performanceGraphData}
-                    mode={canvasMode}
-                    onNodeClick={handleCanvasNodeClick}
-                    currentNodeId={selectedNode?.id}
-                    isGenerating={false}
-                    showPerformanceLegend={false}
-                    showPerformanceControls={false}
-                    className="w-full h-full"
-                  />
-                </CardContent>
-              </Card>
+                </div>
+                
+                <CanvasPerformanceGraph
+                  graphData={canvasMode === 'opening' ? graphData : performanceGraphData}
+                  mode={canvasMode}
+                  onNodeClick={handleCanvasNodeClick}
+                  currentNodeId={selectedNode?.id}
+                  isGenerating={false}
+                  showPerformanceLegend={false}
+                  showPerformanceControls={false}
+                  className="w-full h-full"
+                />
+              </div>
             </LayoutSection>
           )
         }}
