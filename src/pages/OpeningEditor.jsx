@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useCanvasState, usePerformanceGraphState } from '../hooks/useCanvasState';
+import { useCanvasState } from '../hooks/useCanvasState';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,7 +41,7 @@ import { Chess } from 'chess.js';
 import CanvasPerformanceGraph from '@/components/chess/CanvasPerformanceGraph';
 import { cn } from '@/lib/utils';
 import { loadOpeningGraph } from '@/api/graphStorage';
-import { createPositionClusters } from '../utils/clusteringAnalysis';
+import { createPositionClusters, createOpeningClusters } from '../utils/clusteringAnalysis';
 
 // Move tree node structure
 class MoveNode {
@@ -132,8 +132,6 @@ class MoveNode {
   }
 }
 
-
-
 export default function OpeningEditor() {
   const navigate = useNavigate();
   const { openingId } = useParams();
@@ -149,7 +147,6 @@ export default function OpeningEditor() {
   // Move tree state
   const [moveTree, setMoveTree] = useState(new MoveNode('Start', 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'));
   const [currentNode, setCurrentNode] = useState(moveTree);
-  const [selectedNode, setSelectedNode] = useState(moveTree);
   const [currentPath, setCurrentPath] = useState([]);
   
   // UI state
@@ -168,6 +165,7 @@ export default function OpeningEditor() {
   
   // Hover state for chessboard arrows
   const [hoveredMove, setHoveredMove] = useState(null);
+  const [movesHoveredMove, setMovesHoveredMove] = useState(null);
   
   // Layout state - using flexible layout system
   const [layoutInfo, setLayoutInfo] = useState({});
@@ -183,22 +181,30 @@ export default function OpeningEditor() {
   // Graph data for canvas view
   const [graphData, setGraphData] = useState({ nodes: [], edges: [] });
   
-  // Shared canvas state management with auto-fit enabled
-  const canvasState = useCanvasState({
-    enableAutoFit: true,
-    autoFitOnResize: true,
-    autoFitOnGraphChange: true,
-    autoFitDelay: 200 // Slightly longer delay for opening editor
-  });
+  // Helper function to find node by ID in tree
+  const findNodeById = useCallback((root, targetId) => {
+    if (root.id === targetId) return root;
+    for (const child of root.children) {
+      const found = findNodeById(child, targetId);
+      if (found) return found;
+    }
+    return null;
+  }, []);
   
-  // Shared performance graph state for auto-zoom and position cluster functionality
-  const performanceState = usePerformanceGraphState({
+  // Shared performance graph state for all canvas functionality (unified for both modes)
+  const performanceState = useCanvasState({
     openingGraph: openingGraph,
     selectedPlayer: color,
-    enableClustering: false, // Disable opening clustering for opening editor
-    enablePositionClusters: true, // Enable position clusters
-    enableAutoZoom: canvasMode === 'performance' // Only auto-zoom in performance mode
+    enableClustering: false, // Disable opening clustering in opening editor
+    enablePositionClusters: canvasMode === 'performance', // Only enable position clusters in performance mode
+    enableAutoZoom: false // Disable auto-zoom in opening editor - only manual fit to all
   });
+  
+  // Derived selected node state from unified performance state
+  const selectedNode = useMemo(() => {
+    if (!performanceState.currentNodeId) return null;
+    return findNodeById(moveTree, performanceState.currentNodeId);
+  }, [performanceState.currentNodeId, moveTree, findNodeById]);
   
   // Override the navigate function to check for unsaved changes
   const navigateWithCheck = useCallback((to, options = {}) => {
@@ -251,6 +257,9 @@ export default function OpeningEditor() {
   useEffect(() => {
     if (!isNewOpening) {
       loadOpening();
+    } else {
+      // Initialize performance state position for new opening
+      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen);
     }
   }, [openingId]);
 
@@ -339,44 +348,10 @@ export default function OpeningEditor() {
   // Cleanup canvas state on unmount
   useEffect(() => {
     return () => {
-      canvasState.cleanup();
+      performanceState.cleanup();
     };
-  }, [canvasState.cleanup]);
+  }, [performanceState.cleanup]);
   
-  // Update graph data when tree changes or mode changes
-  useEffect(() => {
-    // Always update the underlying opening tree data when the tree changes
-    updateGraphData();
-  }, [moveTree?.id, selectedNode?.id]); // Update opening tree data when tree changes
-  
-  // Handle performance mode overlay separately
-  useEffect(() => {
-    if (canvasMode === 'performance' && openingGraph && graphData.nodes.length > 0) {
-      // Overlay performance data onto the opening tree
-      navigateToPerformancePosition();
-      
-      // Don't schedule auto-fit here - let the mode switch button handle it
-      // This prevents conflicts between different canvas states
-    }
-  }, [canvasMode, openingGraph, graphData.nodes.length]); // Trigger when mode changes or opening data updates
-  
-  // Trigger auto-fit when graph data changes (only when nodes actually change)
-  useEffect(() => {
-    if (graphData.nodes.length > 0) {
-      canvasState.handleGraphChange(graphData);
-    }
-  }, [graphData.nodes.length, canvasState.handleGraphChange]); // Only trigger on node count change
-
-  // Generate position clusters when in performance mode and position changes
-  useEffect(() => {
-    if (canvasMode === 'performance' && performanceGraphData.nodes.length > 0 && performanceState.currentPositionFen) {
-      const clusters = createPositionClusters(performanceGraphData.nodes, performanceState.currentPositionFen);
-      performanceState.setPositionClusters(clusters);
-    } else {
-      performanceState.setPositionClusters([]);
-    }
-  }, [canvasMode, performanceGraphData.nodes, performanceState.currentPositionFen, performanceState.setPositionClusters]);
-
   // Load performance graph data once
   useEffect(() => {
     const loadPerformanceData = async () => {
@@ -388,6 +363,248 @@ export default function OpeningEditor() {
     };
     loadPerformanceData();
   }, []); // Load once on mount
+
+  const navigateToPerformancePosition = useCallback(() => {
+    if (!openingGraph || graphData.nodes.length === 0) return;
+    
+    // Check if we only have the start position (no moves)
+    const hasOnlyStartPosition = graphData.nodes.length === 1 && 
+                                graphData.nodes[0].data.isRoot &&
+                                graphData.edges.length === 0;
+    
+    // Instead of building a separate performance graph, overlay performance data onto the opening tree
+    const overlayPerformanceData = () => {
+      const enhancedNodes = [];
+      const enhancedEdges = [];
+      
+      let maxGameCount = 0;
+      
+      // Process each node in the opening tree
+      graphData.nodes.forEach(node => {
+        const nodeData = { ...node.data };
+        
+        if (nodeData.isRoot) {
+          // Root node - handle differently based on whether we have moves or not
+          if (hasOnlyStartPosition) {
+            // For start-only position, keep it simple and clean like opening mode
+            enhancedNodes.push({
+              ...node,
+              data: {
+                ...nodeData,
+                // Don't add performance data for start-only case to avoid styling issues
+                winRate: null,
+                gameCount: null,
+                performanceData: null,
+                isMissing: false // Don't mark as missing to avoid gray styling
+              }
+            });
+          } else {
+            // For root with moves, add neutral performance styling
+            enhancedNodes.push({
+              ...node,
+              data: {
+                ...nodeData,
+                winRate: 50,
+                gameCount: 0,
+                performanceData: {
+                  hasData: true,
+                  winRate: 50,
+                  gameCount: 0
+                },
+                isMissing: false
+              }
+            });
+          }
+        } else {
+          // Try to get performance data for this node
+          let performanceData = null;
+          let hasPerformanceData = false;
+          
+          try {
+            // Build the move sequence for this node by traversing up the tree
+            const getMoveSequence = (nodeId) => {
+              const sequence = [];
+              let current = graphData.nodes.find(n => n.id === nodeId);
+              
+              // Find the path by looking at edges
+              while (current && !current.data.isRoot) {
+                const parentEdge = graphData.edges.find(e => e.target === current.id);
+                if (parentEdge) {
+                  sequence.unshift(current.data.san);
+                  current = graphData.nodes.find(n => n.id === parentEdge.source);
+                } else {
+                  break;
+                }
+              }
+              
+              return sequence;
+            };
+            
+            const moveSequence = getMoveSequence(node.id);
+            
+            if (moveSequence.length > 0) {
+              // Get moves from the performance graph for the parent position
+              const parentSequence = moveSequence.slice(0, -1);
+              const moves = openingGraph.getMovesFromPosition(parentSequence, color === 'white');
+              
+              if (moves && moves.length > 0) {
+                // Find the move that matches this node's move
+                const matchingMove = moves.find(m => m.san === moveSequence[moveSequence.length - 1]);
+                
+                if (matchingMove) {
+                  hasPerformanceData = true;
+                  performanceData = {
+                    winRate: matchingMove.details?.winRate || matchingMove.winRate || 50,
+                    gameCount: matchingMove.gameCount || 0,
+                    hasData: true
+                  };
+                  maxGameCount = Math.max(maxGameCount, performanceData.gameCount);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error getting performance data for node:', error);
+          }
+          
+          // Create enhanced node with performance data or mark as missing
+          enhancedNodes.push({
+            ...node,
+            data: {
+              ...nodeData,
+              winRate: performanceData?.winRate || null,
+              gameCount: performanceData?.gameCount || 0,
+              performanceData: performanceData || { hasData: false, winRate: null, gameCount: 0 },
+              isMissing: !hasPerformanceData // Flag for gray styling
+            }
+          });
+        }
+      });
+      
+      // Process edges - add performance data to edges as well
+      graphData.edges.forEach(edge => {
+        const sourceNode = enhancedNodes.find(n => n.id === edge.source);
+        const targetNode = enhancedNodes.find(n => n.id === edge.target);
+        
+        if (sourceNode && targetNode) {
+          enhancedEdges.push({
+            ...edge,
+            data: {
+              ...edge.data,
+              winRate: targetNode.data.winRate,
+              gameCount: targetNode.data.gameCount,
+              isMissing: targetNode.data.isMissing
+            }
+          });
+        }
+      });
+      
+      return { nodes: enhancedNodes, edges: enhancedEdges, maxGameCount };
+    };
+    
+    // Generate the enhanced graph with performance data
+    const enhancedGraph = overlayPerformanceData();
+    
+    // Always update - remove the comparison that was causing the infinite loop
+    setPerformanceGraphData(enhancedGraph);
+  }, [openingGraph, graphData, color]); // Removed performanceGraphData dependency
+
+  // Update graph data when tree changes
+  useEffect(() => {
+    // Always update the underlying opening tree data when the tree changes
+    updateGraphData();
+  }, [moveTree?.id]); // Only trigger on tree changes
+  
+  // Handle performance mode overlay when graphData is updated
+  useEffect(() => {
+    if (canvasMode === 'performance' && openingGraph && graphData.nodes.length > 0) {
+      // Call immediately since graphData is now updated
+      navigateToPerformancePosition();
+    }
+  }, [graphData.nodes.length, canvasMode, openingGraph]); // Trigger when graphData is actually updated
+  
+  // Trigger canvas graph change handling only when nodes actually change
+  useEffect(() => {
+    if (graphData.nodes.length > 0) {
+      performanceState.handleGraphChange(graphData);
+    }
+  }, [graphData.nodes.length]); // Removed performanceState.handleGraphChange to prevent infinite loops
+
+  // Generate clusters (both opening and position) in a single effect
+  useEffect(() => {
+    const currentGraphData = canvasMode === 'opening' ? graphData : performanceGraphData;
+    
+    if (currentGraphData.nodes.length === 0) {
+      // Clear clusters if no nodes
+      performanceState.setOpeningClusters([]);
+      performanceState.setPositionClusters([]);
+      return;
+    }
+    
+    // Generate opening clusters for the current graph data (only if clustering is enabled)
+    if (performanceState.openingClusteringEnabled) {
+      const openingClusters = createOpeningClusters(currentGraphData.nodes);
+      performanceState.setOpeningClusters(openingClusters);
+    } else {
+      performanceState.setOpeningClusters([]);
+    }
+    
+    // Generate position clusters ONLY in performance mode
+    if (canvasMode === 'performance') {
+      const currentFen = performanceState.currentPositionFen;
+      if (currentFen) {
+        const positionClusters = createPositionClusters(currentGraphData.nodes, currentFen);
+        performanceState.setPositionClusters(positionClusters);
+      } else {
+        performanceState.setPositionClusters([]);
+      }
+    } else {
+      // Clear position clusters in opening mode
+      performanceState.setPositionClusters([]);
+    }
+  }, [
+    // Only trigger when these actually change - removed function dependencies to prevent infinite loops
+    graphData.nodes.length, 
+    performanceGraphData.nodes.length, 
+    performanceState.currentPositionFen, 
+    canvasMode
+    // Removed performanceState.setOpeningClusters and performanceState.setPositionClusters to prevent infinite loops
+  ]);
+
+  // Handle mode switching - ensure current position is valid in the new mode
+  useEffect(() => {
+    if (!currentNode) return;
+    
+    const currentGraphData = canvasMode === 'opening' ? graphData : performanceGraphData;
+    if (currentGraphData.nodes.length === 0) return;
+    
+    // Find the node in the current mode's graph that matches the current tree node
+    let targetNodeId = null;
+    
+    if (canvasMode === 'opening') {
+      // In opening mode, use the tree node ID directly
+      targetNodeId = currentNode.id;
+    } else {
+      // In performance mode, find the node with matching move sequence
+      const currentMoveSequence = currentPath || [];
+      const matchingNode = currentGraphData.nodes.find(node => {
+        const nodeMoveSequence = node.data.moveSequence || [];
+        return nodeMoveSequence.length === currentMoveSequence.length &&
+               nodeMoveSequence.every((move, index) => move === currentMoveSequence[index]);
+      });
+      targetNodeId = matchingNode?.id || null;
+    }
+    
+    // Update the performance state if we found a matching node
+    if (targetNodeId && targetNodeId !== performanceState.currentNodeId) {
+      const targetNode = currentGraphData.nodes.find(n => n.id === targetNodeId);
+      if (targetNode) {
+        performanceState.updateCurrentPosition(targetNodeId, targetNode.data.fen);
+      }
+    } else if (!targetNodeId && performanceState.currentNodeId) {
+      // Clear the current position if no matching node found
+      performanceState.updateCurrentPosition(null, null);
+    }
+  }, [canvasMode, currentNode, currentPath, graphData.nodes, performanceGraphData.nodes]);
 
   const loadOpening = async () => {
     try {
@@ -450,7 +667,9 @@ export default function OpeningEditor() {
       
       setMoveTree(root);
       setCurrentNode(root);
-      setSelectedNode(root);
+      
+      // Initialize unified performance state position
+      performanceState.updateCurrentPosition(root.id, root.fen);
       
     } catch (error) {
       console.error('Error loading opening:', error);
@@ -688,154 +907,6 @@ export default function OpeningEditor() {
     setGraphData({ nodes, edges });
   };
 
-  const navigateToPerformancePosition = () => {
-    if (!openingGraph) return;
-    
-    // Instead of building a separate performance graph, overlay performance data onto the opening tree
-    const overlayPerformanceData = () => {
-      const enhancedNodes = [];
-      const enhancedEdges = [];
-      
-      // Get the current opening tree data
-      const currentGraphData = graphData;
-      if (!currentGraphData.nodes || currentGraphData.nodes.length === 0) {
-        return { nodes: [], edges: [], maxGameCount: 0 };
-      }
-      
-      // Check if we only have the start position (no moves)
-      const hasOnlyStartPosition = currentGraphData.nodes.length === 1 && 
-                                  currentGraphData.nodes[0].data.isRoot &&
-                                  currentGraphData.edges.length === 0;
-      
-      let maxGameCount = 0;
-      
-      // Process each node in the opening tree
-      currentGraphData.nodes.forEach(node => {
-        const nodeData = { ...node.data };
-        
-        if (nodeData.isRoot) {
-          // Root node - handle differently based on whether we have moves or not
-          if (hasOnlyStartPosition) {
-            // For start-only position, keep it simple and clean like opening mode
-            enhancedNodes.push({
-              ...node,
-              data: {
-                ...nodeData,
-                // Don't add performance data for start-only case to avoid styling issues
-                winRate: null,
-                gameCount: null,
-                performanceData: null,
-                isMissing: false // Don't mark as missing to avoid gray styling
-              }
-            });
-          } else {
-            // For root with moves, add neutral performance styling
-            enhancedNodes.push({
-              ...node,
-              data: {
-                ...nodeData,
-                winRate: 50,
-                gameCount: 0,
-                performanceData: {
-                  hasData: true,
-                  winRate: 50,
-                  gameCount: 0
-                },
-                isMissing: false
-              }
-            });
-          }
-        } else {
-          // Try to get performance data for this node
-          let performanceData = null;
-          let hasPerformanceData = false;
-          
-          try {
-            // Build the move sequence for this node by traversing up the tree
-            const getMoveSequence = (nodeId) => {
-              const sequence = [];
-              let current = currentGraphData.nodes.find(n => n.id === nodeId);
-              
-              // Find the path by looking at edges
-              while (current && !current.data.isRoot) {
-                const parentEdge = currentGraphData.edges.find(e => e.target === current.id);
-                if (parentEdge) {
-                  sequence.unshift(current.data.san);
-                  current = currentGraphData.nodes.find(n => n.id === parentEdge.source);
-                } else {
-                  break;
-                }
-              }
-              
-              return sequence;
-            };
-            
-            const moveSequence = getMoveSequence(node.id);
-            
-            if (moveSequence.length > 0) {
-              // Get moves from the performance graph for the parent position
-              const parentSequence = moveSequence.slice(0, -1);
-              const moves = openingGraph.getMovesFromPosition(parentSequence, color === 'white');
-              
-              if (moves && moves.length > 0) {
-                // Find the move that matches this node's move
-                const matchingMove = moves.find(m => m.san === moveSequence[moveSequence.length - 1]);
-                
-                if (matchingMove) {
-                  hasPerformanceData = true;
-                  performanceData = {
-                    winRate: matchingMove.details?.winRate || matchingMove.winRate || 50,
-                    gameCount: matchingMove.gameCount || 0,
-                    hasData: true
-                  };
-                  maxGameCount = Math.max(maxGameCount, performanceData.gameCount);
-                }
-              }
-            }
-          } catch (error) {
-            console.error('Error getting performance data for node:', error);
-          }
-          
-          // Create enhanced node with performance data or mark as missing
-          enhancedNodes.push({
-            ...node,
-            data: {
-              ...nodeData,
-              winRate: performanceData?.winRate || null,
-              gameCount: performanceData?.gameCount || 0,
-              performanceData: performanceData || { hasData: false, winRate: null, gameCount: 0 },
-              isMissing: !hasPerformanceData // Flag for gray styling
-            }
-          });
-        }
-      });
-      
-      // Process edges - add performance data to edges as well
-      currentGraphData.edges.forEach(edge => {
-        const sourceNode = enhancedNodes.find(n => n.id === edge.source);
-        const targetNode = enhancedNodes.find(n => n.id === edge.target);
-        
-        if (sourceNode && targetNode) {
-          enhancedEdges.push({
-            ...edge,
-            data: {
-              ...edge.data,
-              winRate: targetNode.data.winRate,
-              gameCount: targetNode.data.gameCount,
-              isMissing: targetNode.data.isMissing
-            }
-          });
-        }
-      });
-      
-      return { nodes: enhancedNodes, edges: enhancedEdges, maxGameCount };
-    };
-    
-    // Generate the enhanced graph with performance data
-    const enhancedGraph = overlayPerformanceData();
-    setPerformanceGraphData(enhancedGraph);
-  };
-
   const handleSave = useCallback(async () => {
     if (!name.trim()) {
       setError('Opening name is required');
@@ -997,7 +1068,6 @@ export default function OpeningEditor() {
     
     // Update current position
     setCurrentNode(node);
-    setSelectedNode(node);
     
     // Update path
     const path = [];
@@ -1008,6 +1078,9 @@ export default function OpeningEditor() {
     }
     setCurrentPath(path);
     
+    // Update unified performance state position
+    performanceState.updateCurrentPosition(node.id, node.fen);
+    
     // Recalculate main line after adding moves
     MoveNode.calculateMainLine(moveTree);
     
@@ -1017,15 +1090,13 @@ export default function OpeningEditor() {
     setMoveTree(updatedTree);
     
     // Schedule auto-fit after tree update (longer delay to ensure graph is updated)
-    // Use the appropriate canvas state based on current mode
-    const activeCanvasState = canvasMode === 'performance' ? performanceState.canvasState : canvasState;
+    // Use the unified canvas state for both modes
     setTimeout(() => {
-      activeCanvasState.scheduleAutoFit('new-move-added', 200);
+      performanceState.scheduleAutoFit('new-move-added', 200);
     }, 300);
   };
   
   const handleNodeSelect = (node) => {
-    setSelectedNode(node);
     setCurrentNode(node);
     
     // Build path from root to selected node
@@ -1037,6 +1108,9 @@ export default function OpeningEditor() {
     }
     setCurrentPath(path);
     
+    // Update unified performance state position
+    performanceState.updateCurrentPosition(node.id, node.fen);
+    
     // Don't auto-fit on node selection - let user control the view
     // This prevents the view from jumping when user clicks nodes
   };
@@ -1045,9 +1119,10 @@ export default function OpeningEditor() {
     if (node.parent) {
       node.parent.removeChild(node.id);
       // If deleted node was current, move to parent
-      if (currentNode === node || selectedNode === node) {
+      if (currentNode === node) {
         setCurrentNode(node.parent);
-        setSelectedNode(node.parent);
+        // Update unified performance state position
+        performanceState.updateCurrentPosition(node.parent.id, node.parent.fen);
       }
       
       // Recalculate main line after deletion
@@ -1071,27 +1146,18 @@ export default function OpeningEditor() {
     setTags(tags.filter(tag => tag !== tagToRemove));
   };
 
-  // Helper function to find node by ID in tree
-  const findNodeById = (root, targetId) => {
-    if (root.id === targetId) return root;
-    for (const child of root.children) {
-      const found = findNodeById(child, targetId);
-      if (found) return found;
-    }
-    return null;
-  };
-
   // Memoized node click handler to prevent infinite re-renders
   const handleCanvasNodeClick = useCallback((e, node) => {
     if (canvasMode === 'opening' && node.data && !node.data.isRoot) {
       const treeNode = findNodeById(moveTree, node.id);
       if (treeNode) {
         // Check if clicking on currently selected node - if so, deselect it
-        if (selectedNode && selectedNode.id === treeNode.id) {
+        if (performanceState.currentNodeId === treeNode.id) {
           // Deselect the current node
-          setSelectedNode(null);
           setCurrentNode(null);
           setCurrentPath([]);
+          // Clear performance state position
+          performanceState.updateCurrentPosition(null, null);
           return;
         }
         handleNodeSelect(treeNode);
@@ -1105,14 +1171,43 @@ export default function OpeningEditor() {
       }
       // Update performance state position for auto-zoom functionality
       performanceState.updateCurrentPosition(node.id, node.data.fen);
+      
+      // Also update the local tree state to match the selected performance node
+      // Find the corresponding tree node by move sequence
+      const moveSequence = node.data.moveSequence || [];
+      if (moveSequence.length === 0) {
+        // Root node
+        setCurrentNode(moveTree);
+        setCurrentPath([]);
+      } else {
+        // Find the tree node with matching move sequence
+        let treeNode = moveTree;
+        for (const move of moveSequence) {
+          const childNode = treeNode.children.find(c => c.san === move);
+          if (childNode) {
+            treeNode = childNode;
+          } else {
+            break;
+          }
+        }
+        setCurrentNode(treeNode);
+        setCurrentPath([...moveSequence]);
+      }
     }
-  }, [canvasMode, handleNodeSelect, performanceState.updateCurrentPosition, selectedNode, performanceState.currentNodeId]); // handleNodeSelect is stable, moveTree accessed via closure
+  }, [canvasMode, handleNodeSelect, performanceState.updateCurrentPosition, performanceState.currentNodeId, moveTree]);
 
   // Hover handlers for showing arrows on chessboard
   const handleCanvasNodeHover = useCallback((e, node) => {
-    if (!node.data || !currentNode) return;
+    if (!node.data || !performanceState.currentNodeId) return;
     
-    const currentMoves = currentPath || [];
+    // Use the correct graph data based on canvas mode
+    const currentGraphData = canvasMode === 'opening' ? graphData : performanceGraphData;
+    
+    // Find the current node in the graph data using the unified performance state
+    const currentGraphNode = currentGraphData.nodes.find(n => n.id === performanceState.currentNodeId);
+    if (!currentGraphNode) return;
+    
+    const currentMoves = currentGraphNode.data.moveSequence || [];
     const hoveredMoves = node.data.moveSequence || [];
     
     // Check if the hovered node is exactly one move ahead of current position
@@ -1132,7 +1227,7 @@ export default function OpeningEditor() {
       const moveData = {
         san: nextMove,
         gameCount: node.data.gameCount || 0,
-        maxGameCount: graphData.nodes.reduce((max, n) => Math.max(max, n.data?.gameCount || 0), 0),
+        maxGameCount: currentGraphData.nodes.reduce((max, n) => Math.max(max, n.data?.gameCount || 0), 0),
         details: {
           winRate: node.data.winRate || null
         },
@@ -1143,7 +1238,7 @@ export default function OpeningEditor() {
       
       setHoveredMove(moveData);
     }
-  }, [currentNode, currentPath, graphData.nodes, canvasMode]);
+  }, [performanceState.currentNodeId, graphData.nodes, performanceGraphData.nodes, canvasMode]);
 
   const handleCanvasNodeHoverEnd = useCallback(() => {
     setHoveredMove(null);
@@ -1155,15 +1250,15 @@ export default function OpeningEditor() {
     
     // Schedule auto-fit when layout changes (after a delay to let layout settle)
     setTimeout(() => {
-      canvasState.scheduleAutoFit('layout-change', 200);
+      performanceState.scheduleAutoFit('layout-change', 200);
     }, 300);
-  }, [canvasState.scheduleAutoFit]);
+  }, [performanceState.scheduleAutoFit]);
 
   const toggleDetails = () => {
     setShowDetails(!showDetails);
     // Schedule auto-fit after layout change
     setTimeout(() => {
-      canvasState.scheduleAutoFit('details-toggle', 200);
+      performanceState.scheduleAutoFit('details-toggle', 200);
     }, 300);
   };
 
@@ -1171,7 +1266,7 @@ export default function OpeningEditor() {
     setShowEditor(!showEditor);
     // Schedule auto-fit after layout change
     setTimeout(() => {
-      canvasState.scheduleAutoFit('editor-toggle', 200);
+      performanceState.scheduleAutoFit('editor-toggle', 200);
     }, 300);
   };
 
@@ -1179,7 +1274,7 @@ export default function OpeningEditor() {
     setShowTree(!showTree);
     // Schedule auto-fit after layout change
     setTimeout(() => {
-      canvasState.scheduleAutoFit('tree-toggle', 200);
+      performanceState.scheduleAutoFit('tree-toggle', 200);
     }, 300);
   };
 
@@ -1575,7 +1670,7 @@ export default function OpeningEditor() {
                     handleNewMove(moves);
                   }}
                   isWhiteTree={color === 'white'}
-                  hoveredMove={hoveredMove}
+                  hoveredMove={movesHoveredMove || hoveredMove}
                   className="w-full max-w-none"
                 />
               </div>
@@ -1589,41 +1684,25 @@ export default function OpeningEditor() {
               className="bg-slate-900 border-r-0"
             >
               <div className="relative h-full w-full">
-                {/* Canvas Controls - Overlaid on top right */}
-                <div className="absolute top-4 right-4 z-10 flex gap-2">
+                {/* Canvas Mode Toggle - Top Right */}
+                <div className="absolute top-4 right-4 z-20 flex gap-2">
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => canvasState.fitView()}
-                    className="bg-slate-800/90 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white backdrop-blur-sm shadow-lg"
-                    title="Fit tree to view"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
-                    </svg>
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      const newMode = canvasMode === 'opening' ? 'performance' : 'opening';
-                      setCanvasMode(newMode);
+                                          onClick={() => {
+                        const newMode = canvasMode === 'opening' ? 'performance' : 'opening';
+                        setCanvasMode(newMode);
                       
-                      // Schedule auto-fit using the correct canvas state for the new mode
+                      // Schedule auto-fit using the unified canvas state
                       setTimeout(() => {
-                        if (newMode === 'performance') {
-                          // When switching TO performance mode, use performance canvas state
-                          performanceState.canvasState.scheduleAutoFit('mode-change', 200);
-                        } else {
-                          // When switching TO opening mode, use opening canvas state
-                          canvasState.scheduleAutoFit('mode-change', 200);
-                        }
+                        performanceState.scheduleAutoFit('mode-change', 200);
                       }, 300);
                     }}
-                    className="bg-slate-800/90 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white backdrop-blur-sm shadow-lg"
+                    className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600"
+                    title={`Switch to ${canvasMode === 'opening' ? 'Performance' : 'Opening'} view`}
                   >
-                    <BarChart3 className="w-4 h-4 mr-2" />
-                    {canvasMode === 'opening' ? 'Performance' : 'Tree'}
+                    <Network className="w-4 h-4 mr-2" />
+                    {canvasMode === 'opening' ? 'Performance' : 'Opening'}
                   </Button>
                 </div>
                 
@@ -1633,20 +1712,40 @@ export default function OpeningEditor() {
                   onNodeClick={handleCanvasNodeClick}
                   onNodeHover={handleCanvasNodeHover}
                   onNodeHoverEnd={handleCanvasNodeHoverEnd}
-                  currentNodeId={canvasMode === 'opening' ? selectedNode?.id : performanceState.currentNodeId}
+                  currentNodeId={performanceState.currentNodeId}
                   isGenerating={false}
-                  showPerformanceLegend={false}
-                  showPerformanceControls={false}
-                  // Use performance state for auto-zoom when in performance mode
-                  onFitView={canvasMode === 'performance' ? performanceState.canvasState.onFitView : canvasState.onFitView}
-                  onZoomToClusters={canvasMode === 'performance' ? performanceState.canvasState.onZoomToClusters : canvasState.onZoomToClusters}
-                  onZoomTo={canvasMode === 'performance' ? performanceState.canvasState.onZoomTo : canvasState.onZoomTo}
-                  onResizeStateChange={canvasMode === 'performance' ? performanceState.canvasState.onResizeStateChange : canvasState.onResizeStateChange}
-                  onInitializingStateChange={canvasMode === 'performance' ? performanceState.canvasState.onInitializingStateChange : canvasState.onInitializingStateChange}
-                  // Position cluster props for performance mode
-                  positionClusters={canvasMode === 'performance' ? performanceState.positionClusters : []}
-                  showPositionClusters={canvasMode === 'performance' ? performanceState.showPositionClusters : false}
+
+                  showPerformanceControls={performanceState.showPerformanceControls}
+                  onShowPerformanceControls={performanceState.setShowPerformanceControls}
+                  openingClusters={performanceState.openingClusters}
+                  positionClusters={performanceState.positionClusters}
+                  showOpeningClusters={performanceState.openingClusteringEnabled}
+                  showPositionClusters={performanceState.showPositionClusters}
+                  onToggleOpeningClusters={performanceState.toggleOpeningClustering}
                   onTogglePositionClusters={performanceState.togglePositionClusters}
+                  onClusterHover={performanceState.handleClusterHover}
+                  onClusterHoverEnd={performanceState.handleClusterHoverEnd}
+                  hoveredOpeningName={performanceState.hoveredOpeningName}
+                  hoveredClusterColor={performanceState.hoveredClusterColor}
+                  onFitView={performanceState.onFitView}
+                  onZoomToClusters={performanceState.onZoomToClusters}
+                  onZoomTo={performanceState.onZoomTo}
+                  onResizeStateChange={performanceState.onResizeStateChange}
+                  onInitializingStateChange={performanceState.onInitializingStateChange}
+                  // Performance control props
+                  maxDepth={performanceState.maxDepth}
+                  minGameCount={performanceState.minGameCount}
+                  winRateFilter={performanceState.winRateFilter}
+                  tempWinRateFilter={performanceState.tempWinRateFilter}
+                  onMaxDepthChange={performanceState.handleMaxDepthChange}
+                  onMinGameCountChange={performanceState.handleMinGameCountChange}
+                  onWinRateFilterChange={performanceState.handleWinRateFilterChange}
+                  onTempWinRateFilterChange={performanceState.handleTempWinRateFilterChange}
+                  onApplyWinRateFilter={performanceState.applyWinRateFilter}
+                  selectedPlayer={color}
+                  onPlayerChange={setColor}
+                  isClusteringLoading={false}
+                  enableOpeningClusters={false}
                   className="w-full h-full"
                 />
               </div>

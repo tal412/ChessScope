@@ -1,14 +1,28 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 
 /**
- * Shared canvas state management hook
- * Manages zoom, fit view, and auto-fit functionality for canvas components
+ * Unified canvas state management hook
+ * Handles all canvas functionality: zoom, clustering, performance controls, position tracking
+ * Can be used by both PerformanceGraph and OpeningEditor for consistent experience
  */
 export const useCanvasState = ({
-  enableAutoFit = false,
-  autoFitOnResize = false,
-  autoFitOnGraphChange = false,
-  autoFitDelay = 100
+  // Canvas options
+  enableAutoFit = true,
+  autoFitOnResize = true,
+  autoFitOnGraphChange = true,
+  autoFitDelay = 200,
+  
+  // Performance graph options
+  openingGraph = null,
+  selectedPlayer = 'white',
+  enableClustering = true,
+  enablePositionClusters = true,
+  enableAutoZoom = false,
+  
+  // Default control values
+  defaultMaxDepth = 20,
+  defaultMinGameCount = 20,
+  defaultWinRateFilter = [0, 100]
 } = {}) => {
   // Canvas function references - use refs for stable access
   const canvasFitViewRef = useRef(null);
@@ -19,29 +33,67 @@ export const useCanvasState = ({
   const [isCanvasResizing, setIsCanvasResizing] = useState(false);
   const [isCanvasInitializing, setIsCanvasInitializing] = useState(false);
   
+  // Performance controls state
+  const [maxDepth, setMaxDepth] = useState(defaultMaxDepth);
+  const [minGameCount, setMinGameCount] = useState(defaultMinGameCount);
+  const [winRateFilter, setWinRateFilter] = useState(defaultWinRateFilter);
+  const [tempWinRateFilter, setTempWinRateFilter] = useState(defaultWinRateFilter);
+  
+  // Clustering state
+  const [openingClusteringEnabled, setOpeningClusteringEnabled] = useState(enableClustering);
+  const [openingClusters, setOpeningClusters] = useState([]);
+  const [positionClusters, setPositionClusters] = useState([]);
+  const [showPositionClusters, setShowPositionClusters] = useState(true);
+  
+  // Hover state
+  const [hoveredOpeningName, setHoveredOpeningName] = useState(null);
+  const [hoveredClusterColor, setHoveredClusterColor] = useState(null);
+  const [hoveredNextMoveNodeId, setHoveredNextMoveNodeId] = useState(null);
+  
+  // UI state
+  const [showPerformanceControls, setShowPerformanceControls] = useState(false);
+  const [showPerformanceLegend, setShowPerformanceLegend] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  
+  // Position tracking
+  const [currentNodeId, setCurrentNodeId] = useState(null);
+  const [currentPositionFen, setCurrentPositionFen] = useState(null);
+  
   // Auto-fit state
   const autoFitTimeoutRef = useRef(null);
   const lastGraphChangeRef = useRef(null);
+  
+  // Auto-zoom state
+  const [showZoomDebounceOverlay, setShowZoomDebounceOverlay] = useState(false);
+  const autoZoomTimeoutRef = useRef(null);
+  const lastPositionFenRef = useRef(null);
   
   // Refs for stable state access
   const isCanvasResizingRef = useRef(false);
   const isCanvasInitializingRef = useRef(false);
   
-  // Fit view function
+  // Update refs when state changes
+  useEffect(() => {
+    isCanvasResizingRef.current = isCanvasResizing;
+  }, [isCanvasResizing]);
+  
+  useEffect(() => {
+    isCanvasInitializingRef.current = isCanvasInitializing;
+  }, [isCanvasInitializing]);
+  
+  // Canvas control functions
   const fitView = useCallback(() => {
     if (canvasFitViewRef.current) {
       canvasFitViewRef.current();
     }
   }, []);
   
-  // Zoom to clusters function
   const zoomToClusters = useCallback(() => {
     if (canvasZoomToClustersRef.current) {
       canvasZoomToClustersRef.current();
     }
   }, []);
   
-  // Generic zoom function
   const zoomTo = useCallback((target) => {
     if (canvasZoomToRef.current) {
       canvasZoomToRef.current(target);
@@ -65,7 +117,7 @@ export const useCanvasState = ({
       }
       autoFitTimeoutRef.current = null;
     }, delay);
-  }, [enableAutoFit, autoFitDelay]); // Remove canvasFitView dependency to prevent infinite loops
+  }, [enableAutoFit, autoFitDelay]);
   
   // Handle graph changes
   const handleGraphChange = useCallback((graphData) => {
@@ -76,157 +128,14 @@ export const useCanvasState = ({
       edgeCount: graphData?.edges?.length || 0
     });
     
-    // Check if this is a significant change (don't include timestamp to prevent infinite loops)
+    // Check if this is a significant change
     if (currentGraphSignature !== lastGraphChangeRef.current) {
       lastGraphChangeRef.current = currentGraphSignature;
       scheduleAutoFit('graph-change');
     }
   }, [autoFitOnGraphChange, scheduleAutoFit]);
   
-
-  
-  // Canvas callback handlers
-  const handleCanvasFitView = useCallback((fitViewFn) => {
-    canvasFitViewRef.current = fitViewFn;
-  }, []);
-  
-  const handleCanvasZoomToClusters = useCallback((zoomToClustersFn) => {
-    canvasZoomToClustersRef.current = zoomToClustersFn;
-  }, []);
-  
-  const handleCanvasZoomTo = useCallback((zoomToFn) => {
-    canvasZoomToRef.current = zoomToFn;
-  }, []);
-  
-  const handleCanvasResizeStateChange = useCallback((isResizing) => {
-    setIsCanvasResizing(isResizing);
-    isCanvasResizingRef.current = isResizing; // Update ref for stable access
-    
-    // Schedule auto-fit when resize completes
-    if (!isResizing && autoFitOnResize) {
-      setTimeout(() => {
-        scheduleAutoFit('resize-complete', 300);
-      }, 200);
-    }
-  }, [autoFitOnResize, scheduleAutoFit]);
-  
-  const handleCanvasInitializingStateChange = useCallback((isInitializing) => {
-    setIsCanvasInitializing(isInitializing);
-    isCanvasInitializingRef.current = isInitializing; // Update ref for stable access
-  }, []);
-  
-  // Cleanup function
-  const cleanup = useCallback(() => {
-    if (autoFitTimeoutRef.current) {
-      clearTimeout(autoFitTimeoutRef.current);
-      autoFitTimeoutRef.current = null;
-    }
-  }, []);
-  
-  return {
-    // State
-    isCanvasResizing,
-    isCanvasInitializing,
-    
-    // Functions
-    fitView,
-    zoomToClusters,
-    zoomTo,
-    scheduleAutoFit,
-    handleGraphChange,
-    cleanup,
-    
-    // Canvas callback handlers (pass these to CanvasPerformanceGraph)
-    onFitView: handleCanvasFitView,
-    onZoomToClusters: handleCanvasZoomToClusters,
-    onZoomTo: handleCanvasZoomTo,
-    onResizeStateChange: handleCanvasResizeStateChange,
-    onInitializingStateChange: handleCanvasInitializingStateChange,
-  };
-};
-
-/**
- * Shared performance graph state management hook
- * Handles all performance graph functionality including clustering, controls, position tracking
- * Can be used by both PerformanceGraph and OpeningEditor
- */
-export const usePerformanceGraphState = ({
-  openingGraph = null,
-  selectedPlayer = 'white',
-  enableClustering = true,
-  enablePositionClusters = true,
-  enableAutoZoom = true
-} = {}) => {
-  // Performance controls state
-  const [maxDepth, setMaxDepth] = useState(20);
-  const [minGameCount, setMinGameCount] = useState(20);
-  const [winRateFilter, setWinRateFilter] = useState([0, 100]);
-  const [tempWinRateFilter, setTempWinRateFilter] = useState([0, 100]);
-  
-  // Clustering state
-  const [openingClusteringEnabled, setOpeningClusteringEnabled] = useState(false);
-  const [openingClusters, setOpeningClusters] = useState([]);
-  const [positionClusters, setPositionClusters] = useState([]);
-  const [showPositionClusters, setShowPositionClusters] = useState(true);
-  
-  // Hover state
-  const [hoveredOpeningName, setHoveredOpeningName] = useState(null);
-  const [hoveredClusterColor, setHoveredClusterColor] = useState(null);
-  const [hoveredNextMoveNodeId, setHoveredNextMoveNodeId] = useState(null);
-  
-  // UI state
-  const [showPerformanceControls, setShowPerformanceControls] = useState(false);
-  const [showPerformanceLegend, setShowPerformanceLegend] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
-  
-  // Position tracking
-  const [currentNodeId, setCurrentNodeId] = useState(null);
-  const [currentPositionFen, setCurrentPositionFen] = useState(null);
-  
-  // Auto-zoom state
-  const [showZoomDebounceOverlay, setShowZoomDebounceOverlay] = useState(false);
-  const autoZoomTimeoutRef = useRef(null);
-  const lastPositionFenRef = useRef(null);
-  
-  // Canvas state hook - disable auto-fit on resize when auto-zoom is enabled to prevent conflicts
-  const canvasState = useCanvasState({
-    enableAutoFit: true,
-    autoFitOnResize: !enableAutoZoom, // Disable auto-fit on resize when auto-zoom is enabled
-    autoFitOnGraphChange: false, // We'll handle this manually for performance mode
-    autoFitDelay: 200
-  });
-  
-  // Handle resize-specific auto-fit when auto-zoom is enabled
-  useEffect(() => {
-    if (!enableAutoZoom) return; // Only handle this when auto-zoom is enabled
-    
-    // When canvas finishes resizing and auto-zoom is enabled, we need to handle fit ourselves
-    if (!canvasState.isCanvasResizing && canvasState.fitView && !isGenerating) {
-      // Clear any existing auto-zoom timeout to prevent conflicts
-      if (autoZoomTimeoutRef.current) {
-        clearTimeout(autoZoomTimeoutRef.current);
-        autoZoomTimeoutRef.current = null;
-      }
-      
-      // After resize, fit appropriately based on whether we have position clusters
-      autoZoomTimeoutRef.current = setTimeout(() => {
-        try {
-          if (positionClusters.length > 0 && canvasState.zoomToClusters) {
-            // If we have position clusters, zoom to them
-            canvasState.zoomToClusters();
-          } else if (canvasState.fitView) {
-            // Otherwise, fit to all nodes
-            canvasState.fitView();
-          }
-        } catch (error) {
-          console.error('❌ Error executing post-resize auto-fit:', error);
-        }
-        autoZoomTimeoutRef.current = null;
-      }, 300); // Use a longer delay for resize to ensure canvas is stable
-    }
-  }, [canvasState.isCanvasResizing, canvasState.fitView, canvasState.zoomToClusters, positionClusters.length, isGenerating, enableAutoZoom]);
-  
-  // Control handlers
+  // Performance control handlers
   const handleMaxDepthChange = useCallback((newDepth) => {
     setMaxDepth(newDepth);
   }, []);
@@ -279,7 +188,17 @@ export const usePerformanceGraphState = ({
   
   // Auto-zoom functionality with debouncing
   useEffect(() => {
-    if (!enableAutoZoom || (!canvasState.zoomToClusters && !canvasState.fitView)) return;
+    // COMPLETELY DISABLE auto-zoom if not enabled
+    if (!enableAutoZoom) {
+      // Clear any existing auto-zoom timeout when disabled
+      if (autoZoomTimeoutRef.current) {
+        clearTimeout(autoZoomTimeoutRef.current);
+        autoZoomTimeoutRef.current = null;
+      }
+      return;
+    }
+    
+    if (!canvasZoomToClustersRef.current && !canvasFitViewRef.current) return;
     
     // Clear any existing auto-zoom timeout
     if (autoZoomTimeoutRef.current) {
@@ -294,44 +213,111 @@ export const usePerformanceGraphState = ({
     }
     
     // Check if canvas is ready and not resizing
-    const canvasIsReady = (canvasState.zoomToClusters || canvasState.fitView) && !isGenerating && !canvasState.isCanvasResizing;
+    const canvasIsReady = (canvasZoomToClustersRef.current || canvasFitViewRef.current) && !isGenerating && !isCanvasResizing;
+    
+    // Only auto-zoom on actual position changes, not on cluster updates during resize
+    // This prevents conflicts with resize handling
+    if (!positionChanged || !canvasIsReady) return;
     
     // Auto-zoom logic: 
-    // - If we have position clusters and a current position, zoom to clusters
-    // - If we have a current position but no position clusters, fit to all nodes
-    // This will trigger both when position changes AND when clusters are generated/cleared
-    const shouldZoomToClusters = positionClusters.length > 0 && canvasIsReady && currentPositionFen;
-    const shouldFitToAll = positionClusters.length === 0 && canvasIsReady && currentPositionFen;
+    // - If we have position clusters enabled and a current position, zoom to clusters
+    // - If we have a current position but no position clusters enabled, fit to all nodes
+    const shouldZoomToClusters = enablePositionClusters && positionClusters.length > 0 && currentPositionFen;
+    const shouldFitToAll = (!enablePositionClusters || positionClusters.length === 0) && currentPositionFen;
     
     if (shouldZoomToClusters || shouldFitToAll) {
       // Debounce auto-zoom calls to prevent conflicts
       autoZoomTimeoutRef.current = setTimeout(() => {
         try {
-          if (shouldZoomToClusters) {
-            canvasState.zoomToClusters();
-          } else if (shouldFitToAll) {
-            canvasState.fitView();
+          if (shouldZoomToClusters && canvasZoomToClustersRef.current) {
+            canvasZoomToClustersRef.current();
+          } else if (shouldFitToAll && canvasFitViewRef.current) {
+            canvasFitViewRef.current();
           }
         } catch (error) {
           console.error('❌ Error executing auto-zoom:', error);
         }
         autoZoomTimeoutRef.current = null;
-      }, 150); // Slightly longer delay to prevent conflicts
+      }, 150);
     }
     
     setShowZoomDebounceOverlay(false);
-  }, [positionClusters, canvasState.zoomToClusters, canvasState.fitView, currentPositionFen, isGenerating, canvasState.isCanvasResizing, enableAutoZoom]);
+  }, [positionClusters, currentPositionFen, isGenerating, isCanvasResizing, enableAutoZoom, enablePositionClusters]);
+  
+  // Canvas callback handlers
+  const handleCanvasFitView = useCallback((fitViewFn) => {
+    canvasFitViewRef.current = fitViewFn;
+  }, []);
+  
+  const handleCanvasZoomToClusters = useCallback((zoomToClustersFn) => {
+    canvasZoomToClustersRef.current = zoomToClustersFn;
+  }, []);
+  
+  const handleCanvasZoomTo = useCallback((zoomToFn) => {
+    canvasZoomToRef.current = zoomToFn;
+  }, []);
+  
+  const handleCanvasResizeStateChange = useCallback((isResizing) => {
+    setIsCanvasResizing(isResizing);
+    isCanvasResizingRef.current = isResizing;
+    
+    // Schedule appropriate zoom when resize completes - but respect enableAutoZoom setting
+    if (!isResizing && autoFitOnResize) {
+      setTimeout(() => {
+        // Only auto-zoom if enableAutoZoom is true
+        if (enableAutoZoom) {
+          // If we have position clusters enabled and a current position, zoom to clusters
+          // Otherwise, fit to all nodes
+          if (enablePositionClusters && positionClusters.length > 0 && currentPositionFen && canvasZoomToClustersRef.current) {
+            canvasZoomToClustersRef.current();
+          } else if (canvasFitViewRef.current) {
+            canvasFitViewRef.current();
+          }
+        } else {
+          // If auto-zoom is disabled, just fit to all nodes on resize
+          if (canvasFitViewRef.current) {
+            canvasFitViewRef.current();
+          }
+        }
+      }, 300); // Use longer delay for resize to ensure canvas is stable
+    }
+  }, [autoFitOnResize, enableAutoZoom, enablePositionClusters, positionClusters.length, currentPositionFen]);
+  
+  const handleCanvasInitializingStateChange = useCallback((isInitializing) => {
+    setIsCanvasInitializing(isInitializing);
+    isCanvasInitializingRef.current = isInitializing;
+  }, []);
   
   // Cleanup function
-  useEffect(() => {
-    return () => {
-      if (autoZoomTimeoutRef.current) {
-        clearTimeout(autoZoomTimeoutRef.current);
-      }
-    };
+  const cleanup = useCallback(() => {
+    if (autoFitTimeoutRef.current) {
+      clearTimeout(autoFitTimeoutRef.current);
+      autoFitTimeoutRef.current = null;
+    }
+    if (autoZoomTimeoutRef.current) {
+      clearTimeout(autoZoomTimeoutRef.current);
+      autoZoomTimeoutRef.current = null;
+    }
   }, []);
-
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return cleanup;
+  }, [cleanup]);
+  
   return {
+    // Canvas state
+    isCanvasResizing,
+    isCanvasInitializing,
+    
+    // Canvas functions
+    fitView,
+    zoomToClusters,
+    zoomTo,
+    scheduleAutoFit,
+    handleGraphChange,
+    cleanup,
+    
     // Performance controls
     maxDepth,
     minGameCount,
@@ -377,7 +363,14 @@ export const usePerformanceGraphState = ({
     // Auto-zoom
     showZoomDebounceOverlay,
     
-    // Canvas state
-    canvasState,
+    // Canvas callback handlers (pass these to CanvasPerformanceGraph)
+    onFitView: handleCanvasFitView,
+    onZoomToClusters: handleCanvasZoomToClusters,
+    onZoomTo: handleCanvasZoomTo,
+    onResizeStateChange: handleCanvasResizeStateChange,
+    onInitializingStateChange: handleCanvasInitializingStateChange,
   };
-}; 
+};
+
+// Export the unified hook as both names for backward compatibility during transition
+export const usePerformanceGraphState = useCanvasState; 
