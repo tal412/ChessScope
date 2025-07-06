@@ -1020,16 +1020,19 @@ const CanvasPerformanceGraph = ({
           ctx.stroke();
           ctx.shadowBlur = 0; // Reset shadow
         } else if (isHoveredNextMove || node.data.isMainLine) {
-          // Lighter glow for hovered or main line nodes
+          // INTENSE GLOW for hovered next moves - match selected node intensity
           const glowColor = isHoveredNextMove ? '#8b5cf6' : '#8b5cf6'; // Purple glow
           ctx.shadowColor = glowColor;
-          ctx.shadowBlur = 15;
+          ctx.shadowBlur = 20; // Match selected node blur
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = 0;
           
-          ctx.beginPath();
-          ctx.roundRect(x, y, node.width, node.height, 12);
-          ctx.fill();
+          // Draw 8 layers for very intense glow - match selected node intensity
+          for (let i = 0; i < 8; i++) {
+            ctx.beginPath();
+            ctx.roundRect(x, y, node.width, node.height, 12);
+            ctx.fill();
+          }
           ctx.stroke();
           ctx.shadowBlur = 0; // Reset shadow
         } else {
@@ -1226,15 +1229,18 @@ const CanvasPerformanceGraph = ({
           ctx.stroke();
           ctx.shadowBlur = 0; // Reset shadow
         } else if (isHoveredNextMove) {
-          // Lighter glow for hovered nodes
+          // INTENSE GLOW for hovered next moves - match selected node intensity
           ctx.shadowColor = 'rgba(251, 146, 60, 1.0)'; // Orange glow
-          ctx.shadowBlur = 15;
+          ctx.shadowBlur = 20; // Match selected node blur
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = 0;
           
-          ctx.beginPath();
-          ctx.roundRect(x, y, node.width, node.height, 12);
-          ctx.fill();
+          // Draw 8 layers for very intense glow - match selected node intensity
+          for (let i = 0; i < 8; i++) {
+            ctx.beginPath();
+            ctx.roundRect(x, y, node.width, node.height, 12);
+            ctx.fill();
+          }
           ctx.stroke();
           ctx.shadowBlur = 0; // Reset shadow
         } else {
