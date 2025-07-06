@@ -1068,6 +1068,35 @@ const CanvasPerformanceGraph = ({
           ctx.strokeText(node.data.label || node.data.san || '?', centerX, centerY);
           ctx.fillText(node.data.label || node.data.san || '?', centerX, centerY);
           
+          // Show arrow color circles at top of node
+          const arrows = node.data.arrows || [];
+          if (arrows.length > 0) {
+            // Get unique arrow colors
+            const uniqueColors = [...new Set(arrows.map(arrow => arrow.color))];
+            
+            // Calculate circle positioning
+            const circleSize = 16;
+            const circleSpacing = 22;
+            const totalWidth = (uniqueColors.length - 1) * circleSpacing;
+            let circleX = centerX - totalWidth / 2;
+            const circleY = centerY - 65; // Above the node
+            
+            uniqueColors.forEach((color, index) => {
+              // Draw circle
+              ctx.save();
+              ctx.fillStyle = color;
+              ctx.strokeStyle = '#ffffff';
+              ctx.lineWidth = 2;
+              ctx.beginPath();
+              ctx.arc(circleX, circleY, circleSize / 2, 0, 2 * Math.PI);
+              ctx.fill();
+              ctx.stroke();
+              ctx.restore();
+              
+              circleX += circleSpacing;
+            });
+          }
+          
           // Show annotation indicators at bottom of node using reversed colors
           const hasComment = node.data.hasComment;
           const hasLinks = node.data.hasLinks && node.data.linkCount > 0;

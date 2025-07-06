@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from '../contexts/AuthContext';
+import OpeningDetailsDialog from '@/components/opening-moves/OpeningDetailsDialog';
 
 
 export default function OpeningsBook() {
@@ -82,9 +83,13 @@ export default function OpeningsBook() {
     return matchesSearch && matchesColor;
   });
 
-  // Handle creating a new opening
-  const handleCreateOpening = () => {
-    navigate('/openings-book/editor/new');
+  // Handle creating a new opening - now handled by the dialog
+  const handleCreateOpening = (openingDetails) => {
+    const params = new URLSearchParams({
+      name: openingDetails.name,
+      color: openingDetails.color
+    });
+    navigate(`/openings-book/editor/new?${params.toString()}`);
   };
 
   // Handle opening click - go to analysis view
@@ -157,14 +162,15 @@ export default function OpeningsBook() {
         }
         rightControls={
           <>
-            <Button 
-              onClick={handleCreateOpening}
-              size="sm"
-              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Opening
-            </Button>
+            <OpeningDetailsDialog onConfirm={handleCreateOpening}>
+              <Button 
+                size="sm"
+                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Opening
+              </Button>
+            </OpeningDetailsDialog>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white">
@@ -228,10 +234,16 @@ export default function OpeningsBook() {
                 : 'Create your first opening to get started'}
             </p>
             {!searchTerm && filterColor === 'all' && (
-              <Button onClick={handleCreateOpening} className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white">
-                <Plus className="w-4 h-4 mr-2" />
-                Create Your First Opening
-              </Button>
+              <OpeningDetailsDialog 
+                onConfirm={handleCreateOpening}
+                title="Create Your First Opening"
+                confirmText="Create Opening"
+              >
+                <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create Your First Opening
+                </Button>
+              </OpeningDetailsDialog>
             )}
           </div>
         )}

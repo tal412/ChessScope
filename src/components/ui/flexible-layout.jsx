@@ -252,14 +252,12 @@ export function FlexibleLayout({
     }
   }, [visibleComponents.join(','), gridLayout.gridTemplateColumns, isMobile, isTablet]); // Removed onLayoutChange from deps to prevent infinite loops
 
-  // Trigger canvas resize when components change
+  // Trigger resize event when components change
   useEffect(() => {
-    // Small delay to let CSS transitions complete
-    const timer = setTimeout(() => {
+    // Use requestAnimationFrame to ensure DOM updates are complete
+    requestAnimationFrame(() => {
       window.dispatchEvent(new Event('resize'));
-    }, 100);
-    
-    return () => clearTimeout(timer);
+    });
   }, [gridLayout.gridTemplateColumns]);
 
   // Force specific components on mobile/tablet
