@@ -48,10 +48,15 @@ export default function InteractiveChessboard({
   openingGraph = null, // Add openingGraph prop for position info
   graphNodes = [], // Performance graph nodes to check position existence
   onFlip = null, // External flip handler (optional)
-  showPositionMessage = true // Control whether to show "Position not in performance graph" message
+  showPositionMessage = true, // Control whether to show "Position not in performance graph" message
+  customArrows = [], // Array of {from, to, color} for custom arrows
+  onArrowDraw = null, // Callback for when user draws an arrow
+  drawingMode = false, // Whether drawing mode is active
+  onDrawingModeChange = null // Callback when drawing mode changes
 }) {
   const containerRef = useRef(null);
   const isInternalMoveRef = useRef(false); // Track if move change is internal
+  const chessgroundRef = useRef(null); // Reference to chessground component
   const [currentMoveIndex, setCurrentMoveIndex] = useState(currentMoves.length);
   const [orientation, setOrientation] = useState(isWhiteTree ? 'white' : 'black');
   
@@ -85,6 +90,10 @@ export default function InteractiveChessboard({
   const [lastMove, setLastMove] = useState([]);
   const [selected, setSelected] = useState(null);
 
+  // State for arrow drawing
+  const [drawingArrows, setDrawingArrows] = useState([]);
+  const [currentModifiers, setCurrentModifiers] = useState({ shift: false, alt: false });
+
   // Stockfish state
   const [stockfish, setStockfish] = useState(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -116,12 +125,54 @@ export default function InteractiveChessboard({
     return dests;
   }, []);
 
+  // Handle drawing mode toggle
+  const handleDrawingModeToggle = () => {
+    const newMode = !drawingMode;
+    if (onDrawingModeChange) {
+      onDrawingModeChange(newMode);
+    }
+  };
+
   // Calculate arrow shapes for both hovered moves and top stockfish moves
   const arrowShapes = useMemo(() => {
     const arrows = [];
 
-    // Add hovered move arrow (from tree)
-    if (hoveredMove && hoveredMove.san) {
+    // Add drawing arrows (temporary arrows being drawn)
+    if (drawingArrows && drawingArrows.length > 0) {
+      drawingArrows.forEach((arrow, index) => {
+        try {
+          const brushKey = `drawing_arrow_${arrow.color.replace('#', '')}_${index}`;
+          arrows.push({
+            orig: arrow.from.toLowerCase(),
+            dest: arrow.to.toLowerCase(),
+            brush: brushKey
+          });
+        } catch (error) {
+          console.warn('Error creating drawing arrow:', error);
+        }
+      });
+    }
+
+    // Add custom arrows from move annotations (always show saved arrows)
+    if (customArrows && customArrows.length > 0) {
+      customArrows.forEach((arrow, index) => {
+        try {
+          // Use a stable identifier based on arrow properties instead of array index
+          const stableId = `${arrow.from}_${arrow.to}_${arrow.color.replace('#', '')}`;
+          const brushKey = `custom_arrow_${stableId}`;
+          arrows.push({
+            orig: arrow.from.toLowerCase(),
+            dest: arrow.to.toLowerCase(),
+            brush: brushKey
+          });
+        } catch (error) {
+          console.warn('Error creating custom arrow:', error);
+        }
+      });
+    }
+
+    // Add hovered move arrow (from tree) - only if no custom arrows
+    if (!customArrows.length && hoveredMove && hoveredMove.san) {
       try {
         const tempGame = new Chess(game.fen());
         const move = tempGame.move(hoveredMove.san);
@@ -180,8 +231,8 @@ export default function InteractiveChessboard({
       }
     }
 
-    // Add Stockfish top moves arrows (only if enabled, no hovered move, and has moves)
-    if (stockfishEnabled && !hoveredMove && topMoves.length > 0) {
+    // Add Stockfish top moves arrows (only if enabled, no custom arrows, no hovered move, and has moves)
+    if (!customArrows.length && stockfishEnabled && !hoveredMove && topMoves.length > 0) {
       topMoves.forEach((moveData, index) => {
         try {
           // Different colors for ranking: blue for #1, green for #2, yellow for #3
@@ -205,7 +256,7 @@ export default function InteractiveChessboard({
     }
 
     return arrows;
-  }, [hoveredMove, game, topMoves, stockfishEnabled]);
+  }, [hoveredMove, game, topMoves, stockfishEnabled, customArrows, drawingArrows]);
 
   // Handle piece selection
   const onSelect = useCallback((key) => {
@@ -485,6 +536,50 @@ export default function InteractiveChessboard({
       }
     }
   }, [isAnalyzing, topMoves.length]); // Recalculate when Stockfish state changes
+
+  // Track container dimensions to detect layout changes
+  const [containerDimensions, setContainerDimensions] = useState({ width: 0, height: 0 });
+  
+  // Force chessground re-mount when container dimensions change significantly
+  const [chessgroundKey, setChessgroundKey] = useState(0);
+  
+  // Proper chessground resize handler
+  const handleChessgroundResize = useCallback(() => {
+    if (chessgroundRef.current && chessgroundRef.current.cg) {
+      // Use chessground's built-in redrawAll method which properly recalculates coordinates
+      const cg = chessgroundRef.current.cg;
+      if (cg.redrawAll) {
+        cg.redrawAll();
+      }
+    }
+  }, []);
+
+  // Track container size changes and trigger chessground updates
+  useEffect(() => {
+    if (!containerRef.current) return;
+    
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        
+        // Only update if dimensions changed significantly
+        if (Math.abs(width - containerDimensions.width) > 10 || 
+            Math.abs(height - containerDimensions.height) > 10) {
+          
+          setContainerDimensions({ width, height });
+          
+          // Force chessground re-mount for significant changes
+          setChessgroundKey(prev => prev + 1);
+        }
+      }
+    });
+    
+    resizeObserver.observe(containerRef.current);
+    
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [containerDimensions.width, containerDimensions.height]);
 
   const navigateToMove = (moveIndex) => {
     const clampedIndex = Math.max(0, Math.min(moveIndex, currentMoves.length));
@@ -840,9 +935,37 @@ export default function InteractiveChessboard({
         lineWidth: thickness
       };
     });
+
+    // Generate brushes for custom arrows
+    if (customArrows && customArrows.length > 0) {
+      customArrows.forEach((arrow, index) => {
+        // Use a stable identifier based on arrow properties instead of array index
+        const stableId = `${arrow.from}_${arrow.to}_${arrow.color.replace('#', '')}`;
+        const brushKey = `custom_arrow_${stableId}`;
+        brushes[brushKey] = {
+          key: `ca_${stableId}`, // Unique key for custom arrows using stable ID
+          color: arrow.color,
+          opacity: 0.9,
+          lineWidth: 14 // Standard thickness for custom arrows
+        };
+      });
+    }
+
+    // Generate brushes for drawing arrows
+    if (drawingArrows && drawingArrows.length > 0) {
+      drawingArrows.forEach((arrow, index) => {
+        const brushKey = `drawing_arrow_${arrow.color.replace('#', '')}_${index}`;
+        brushes[brushKey] = {
+          key: `da${index}`, // Unique key for drawing arrows
+          color: arrow.color,
+          opacity: 0.7, // Slightly transparent for drawing mode
+          lineWidth: 16 // Slightly thicker for visibility while drawing
+        };
+      });
+    }
     
     return brushes;
-  }, []);
+  }, [customArrows, drawingArrows]);
 
   // Dynamic brush generation for custom colors (like pink arrows)
   const generateCustomBrush = useCallback((color, thickness) => {
@@ -856,6 +979,96 @@ export default function InteractiveChessboard({
       }
     };
   }, []);
+
+  // Handle drawable changes - this is called when arrows are drawn/removed
+  const handleDrawableChange = useCallback((shapes) => {
+    console.log('🎯 Drawable changed:', shapes, 'drawingMode:', drawingMode);
+    
+    // Only save arrows when in drawing mode
+    if (!drawingMode || !onArrowDraw) return;
+    
+    // Find the most recent arrow (last one in the array)
+    const newArrows = shapes.filter(shape => 
+      shape.orig && shape.dest && shape.brush &&
+      !customArrows.find(arrow => arrow.from === shape.orig && arrow.to === shape.dest)
+    );
+    
+    if (newArrows.length > 0) {
+      const latestArrow = newArrows[newArrows.length - 1];
+      
+      // Map brush names to colors
+      const brushColorMap = {
+        'green': '#22c55e',
+        'red': '#ef4444', 
+        'blue': '#3b82f6',
+        'yellow': '#eab308',
+        'purple': '#a855f7',
+        'orange': '#f97316',
+        'pink': '#ec4899',
+        'cyan': '#06b6d4'
+      };
+      
+      // Get color from brush or default to green
+      let color = brushColorMap[latestArrow.brush] || '#22c55e';
+      
+      console.log('🎨 Adding arrow:', latestArrow.orig, '->', latestArrow.dest, 'color:', color);
+      onArrowDraw(latestArrow.orig, latestArrow.dest, color);
+    }
+  }, [drawingMode, onArrowDraw, customArrows]);
+
+  // Keyboard event listeners for drawing mode
+  useEffect(() => {
+    if (!drawingMode) {
+      setCurrentModifiers({ shift: false, alt: false });
+      return;
+    }
+
+    const handleKeyDown = (e) => {
+      // Prevent default browser behavior for modifier keys when in drawing mode
+      if (e.key === 'Shift' || e.key === 'Alt' || e.key === 'Meta') {
+        e.preventDefault();
+      }
+      
+      setCurrentModifiers({
+        shift: e.shiftKey,
+        alt: e.altKey || e.metaKey // Alt on Windows/Linux, Cmd on Mac
+      });
+    };
+
+    const handleKeyUp = (e) => {
+      // Prevent default browser behavior for modifier keys when in drawing mode
+      if (e.key === 'Shift' || e.key === 'Alt' || e.key === 'Meta') {
+        e.preventDefault();
+      }
+      
+      setCurrentModifiers({
+        shift: e.shiftKey,
+        alt: e.altKey || e.metaKey
+      });
+    };
+
+    const handleBlur = () => {
+      setCurrentModifiers({ shift: false, alt: false });
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+    };
+  }, [drawingMode]);
+
+  // Get current arrow color based on modifiers
+  const getCurrentArrowColor = () => {
+    if (currentModifiers.shift && currentModifiers.alt) return 'yellow';
+    if (currentModifiers.shift) return 'red';
+    if (currentModifiers.alt) return 'blue';
+    return 'green';
+  };
 
   return (
     <div ref={containerRef} className={`w-full h-full flex items-center justify-center ${className}`}>
@@ -881,28 +1094,30 @@ export default function InteractiveChessboard({
                 )}
               </div>
             </div>
-            {/* Stockfish Analysis Toggle Button - Top Right */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                console.log('🖱️ Stockfish toggle clicked!', e);
-                toggleStockfishAnalysis();
-              }}
-              disabled={isAnalyzing && !stockfishEnabled}
-              className={`transition-all duration-200 flex-shrink-0 ${
-                stockfishEnabled || isAnalyzing
-                  ? 'bg-white border-white text-slate-800 hover:bg-slate-100 hover:border-slate-200' // White/active when enabled
-                  : 'bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/60 hover:border-slate-500 hover:text-slate-200' // Default inactive state
-              }`}
-              title={stockfishEnabled ? "Disable Stockfish analysis" : "Enable Stockfish analysis"}
-            >
-              {isAnalyzing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Fish className="w-4 h-4" />
-              )}
-            </Button>
+            {/* Stockfish Analysis Toggle Button - Top Right (hidden when drawing) */}
+            {!drawingMode && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  console.log('🖱️ Stockfish toggle clicked!', e);
+                  toggleStockfishAnalysis();
+                }}
+                disabled={isAnalyzing && !stockfishEnabled}
+                className={`transition-all duration-200 flex-shrink-0 ${
+                  stockfishEnabled || isAnalyzing
+                    ? 'bg-white border-white text-slate-800 hover:bg-slate-100 hover:border-slate-200' // White/active when enabled
+                    : 'bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/60 hover:border-slate-500 hover:text-slate-200' // Default inactive state
+                }`}
+                title={stockfishEnabled ? "Disable Stockfish analysis" : "Enable Stockfish analysis"}
+              >
+                {isAnalyzing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Fish className="w-4 h-4" />
+                )}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent className="flex-1 flex flex-col gap-2 min-h-0 p-3">
@@ -915,15 +1130,20 @@ export default function InteractiveChessboard({
               maxHeight: 'calc(100% - 140px)'
             }}
           >
-            <div style={{ 
-              width: boardSize, 
-              height: boardSize, 
-              minWidth: '280px',
-              minHeight: '280px',
-              maxWidth: '600px',
-              maxHeight: '600px'
-            }}>
+            <div 
+              style={{ 
+                width: boardSize, 
+                height: boardSize, 
+                minWidth: '280px',
+                minHeight: '280px',
+                maxWidth: '600px',
+                maxHeight: '600px'
+              }}
+              className="relative"
+            >
               <Chessground
+                ref={chessgroundRef}
+                key={chessgroundKey} // Force re-mount when layout changes significantly
                 fen={game.fen()}
                 orientation={orientation}
                 turnColor={currentTurn}
@@ -931,7 +1151,7 @@ export default function InteractiveChessboard({
                   free: false,
                   color: currentTurn,
                   dests: dests,
-                  showDests: true, // Show move destination dots
+                  showDests: true,
                   events: {
                     after: onMove
                   }
@@ -946,15 +1166,27 @@ export default function InteractiveChessboard({
                 selectable={{
                   enabled: true // Enable click-to-move
                 }}
-                                  drawable={{
-                  enabled: true,
+                drawable={{
+                  enabled: true, // Always enable for right-click drawing
                   visible: true,
                   autoShapes: arrowShapes,
+                  shapes: [], // Always clear chessground's own shapes to avoid duplicates
                   brushes: {
+                    // Standard chessground brushes for right-click drawing
+                    green: { key: 'g', color: '#22c55e', opacity: 0.8, lineWidth: 10 },
+                    red: { key: 'r', color: '#ef4444', opacity: 0.8, lineWidth: 10 },
+                    blue: { key: 'b', color: '#3b82f6', opacity: 0.8, lineWidth: 10 },
+                    yellow: { key: 'y', color: '#eab308', opacity: 0.8, lineWidth: 10 },
+                    purple: { key: 'p', color: '#a855f7', opacity: 0.8, lineWidth: 10 },
+                    orange: { key: 'o', color: '#f97316', opacity: 0.8, lineWidth: 10 },
+                    pink: { key: 'k', color: '#ec4899', opacity: 0.8, lineWidth: 10 },
+                    cyan: { key: 'c', color: '#06b6d4', opacity: 0.8, lineWidth: 10 },
                     ...dynamicBrushes,
                     // Add custom brushes for pink arrows if needed
                     ...(hoveredMove?.arrowColor ? generateCustomBrush(hoveredMove.arrowColor, getArrowThickness(hoveredMove.gameCount || 0, hoveredMove.maxGameCount || 0)) : {})
-                  }
+                  },
+                  // Use onChange to capture arrow drawing
+                  onChange: handleDrawableChange
                 }}
                 promotion={promotion}
                 reset={reset}
@@ -974,8 +1206,8 @@ export default function InteractiveChessboard({
             </div>
           </div>
 
-        {/* Stockfish Status Area - Fixed height to prevent layout shifts */}
-        <div className="flex-shrink-0 px-2 py-1 h-8 flex items-center justify-center min-h-[32px]">
+        {/* Stockfish Status Area - Fixed height to prevent layout shifts (invisible when drawing) */}
+        <div className={`flex-shrink-0 px-2 py-1 h-8 flex items-center justify-center min-h-[32px] ${drawingMode ? 'invisible' : ''}`}>
           {stockfishEnabled ? (
             isAnalyzing ? (
               <div className="flex items-center gap-2 text-slate-400 text-xs">
@@ -1064,36 +1296,70 @@ export default function InteractiveChessboard({
           </div>
         </div>
 
-        {/* Move List - Fixed height container */}
+        {/* Move List or Drawing Mode UI - Fixed height container */}
         <div data-move-list className="flex-shrink-0 bg-slate-900/50 rounded-lg p-2 h-[80px] overflow-y-auto">
-          <div className="text-xs text-slate-400 mb-1">Move History</div>
-          {currentMoves.length > 0 ? (
-            <div className="grid grid-cols-3 gap-x-2 gap-y-1 text-xs">
-              {currentMoves.map((move, index) => {
-                const moveNumber = Math.floor(index / 2) + 1;
-                const isWhiteMove = index % 2 === 0;
-                const isCurrentMove = index === currentMoveIndex - 1;
-                
-                return (
-                  <div
-                    key={index}
-                    className={`cursor-pointer hover:bg-slate-700/50 px-1 py-0.5 rounded text-center ${
-                      isCurrentMove ? 'bg-slate-700 text-white' : 'text-slate-300'
-                    }`}
-                    onClick={() => navigateToMove(index + 1)}
-                  >
-                    {isWhiteMove && (
-                      <span className="text-slate-500 mr-1">{moveNumber}.</span>
-                    )}
-                    {move}
+          {drawingMode ? (
+            /* Drawing Mode UI */
+            <div className="h-full flex flex-col justify-center">
+              <div className="flex items-center gap-2 mb-2">
+                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="text-xs font-medium text-slate-200">Drawing Mode Active</span>
+              </div>
+              <div className="text-xs text-slate-400">
+                <div className="mb-1">Right-click drag for arrows:</div>
+                <div className="flex items-center justify-between">
+                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'green' ? 'bg-green-500/20' : ''}`}>
+                    <div className="w-2 h-0.5 bg-green-500 rounded-full"></div>
+                    <span className="text-xs">None</span>
                   </div>
-                );
-              })}
+                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'red' ? 'bg-red-500/20' : ''}`}>
+                    <div className="w-2 h-0.5 bg-red-500 rounded-full"></div>
+                    <span className="text-xs">SHIFT</span>
+                  </div>
+                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'blue' ? 'bg-blue-500/20' : ''}`}>
+                    <div className="w-2 h-0.5 bg-blue-500 rounded-full"></div>
+                    <span className="text-xs">ALT/CMD</span>
+                  </div>
+                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'yellow' ? 'bg-yellow-500/20' : ''}`}>
+                    <div className="w-2 h-0.5 bg-yellow-500 rounded-full"></div>
+                    <span className="text-xs">SHIFT+ALT/CMD</span>
+                  </div>
+                </div>
+              </div>
             </div>
           ) : (
-            <div className="text-xs text-slate-500 italic text-center py-2">
-              No moves played yet
-            </div>
+            /* Normal Move History */
+            <>
+              <div className="text-xs text-slate-400 mb-1">Move History</div>
+              {currentMoves.length > 0 ? (
+                <div className="grid grid-cols-3 gap-x-2 gap-y-1 text-xs">
+                  {currentMoves.map((move, index) => {
+                    const moveNumber = Math.floor(index / 2) + 1;
+                    const isWhiteMove = index % 2 === 0;
+                    const isCurrentMove = index === currentMoveIndex - 1;
+                    
+                    return (
+                      <div
+                        key={index}
+                        className={`cursor-pointer hover:bg-slate-700/50 px-1 py-0.5 rounded text-center ${
+                          isCurrentMove ? 'bg-slate-700 text-white' : 'text-slate-300'
+                        }`}
+                        onClick={() => navigateToMove(index + 1)}
+                      >
+                        {isWhiteMove && (
+                          <span className="text-slate-500 mr-1">{moveNumber}.</span>
+                        )}
+                        {move}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-xs text-slate-500 italic text-center py-2">
+                  No moves played yet
+                </div>
+              )}
+            </>
           )}
         </div>
       </CardContent>

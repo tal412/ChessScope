@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { BookOpen, Crown, Shield, ExternalLink, Loader2 } from 'lucide-react';
 import { checkPositionInOpenings } from '@/api/openingEntities';
+import OpeningDetailsDialog from './OpeningDetailsDialog';
 
 export default function OpeningSelector({ fen, trigger, children }) {
   const navigate = useNavigate();
@@ -45,6 +46,14 @@ export default function OpeningSelector({ fen, trigger, children }) {
     navigate(`/openings-book/opening/${openingId}`);
   };
 
+  const handleCreateOpening = (openingDetails) => {
+    const params = new URLSearchParams({
+      name: openingDetails.name,
+      color: openingDetails.color
+    });
+    navigate(`/openings-book/editor/new?${params.toString()}`);
+  };
+
   const triggerElement = trigger || (
     <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
       <BookOpen className="w-4 h-4" />
@@ -73,15 +82,15 @@ export default function OpeningSelector({ fen, trigger, children }) {
             <div className="text-center py-8 text-slate-400">
               <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>No saved openings contain this position</p>
-              <Button
-                onClick={() => {
-                  setOpen(false);
-                  navigate('/openings-book/editor/new');
-                }}
-                className="mt-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+              <OpeningDetailsDialog 
+                onConfirm={handleCreateOpening}
+                title="Create New Opening"
+                confirmText="Create Opening"
               >
-                Create New Opening
-              </Button>
+                <Button className="mt-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white">
+                  Create New Opening
+                </Button>
+              </OpeningDetailsDialog>
             </div>
           ) : (
             <ScrollArea className="max-h-[400px]">

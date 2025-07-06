@@ -43,6 +43,7 @@ import CanvasPerformanceGraph from '@/components/chess/CanvasPerformanceGraph';
 import { cn } from '@/lib/utils';
 import { loadOpeningGraph } from '@/api/graphStorage';
 import { createPositionClusters, createOpeningClusters } from '../utils/clusteringAnalysis';
+import MoveDetailsPanel from '@/components/opening-moves/MoveDetailsPanel';
 
 // Move tree node structure
 class MoveNode {
@@ -55,7 +56,7 @@ class MoveNode {
     this.isMainLine = !parent || parent.children.length === 0;
     this.comment = '';
     this.links = []; // Array of {title, url}
-    this.arrows = [];
+    this.arrows = []; // Array of {from, to, color} for colored arrows
   }
   
   addChild(san, fen) {
@@ -70,6 +71,7 @@ class MoveNode {
     this.children = this.children.filter(child => child.id !== childId);
     // After removing a child, recalculate the main line for the entire tree
     // This will be handled by the parent component
+    return true; // Return true to indicate successful removal
   }
 
   // Method to calculate and set the main line for the entire tree
@@ -138,14 +140,28 @@ export default function OpeningEditor() {
   const { openingId } = useParams();
   const isNewOpening = !openingId;
   
-  // Form state
+  // Form state - initialized from URL params for new openings
   const [name, setName] = useState('');
   const [color, setColor] = useState('white');
+  
+  // Initialize form state from URL parameters for new openings
+  useEffect(() => {
+    if (isNewOpening) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const nameParam = urlParams.get('name');
+      const colorParam = urlParams.get('color');
+      
+      if (nameParam) setName(nameParam);
+      if (colorParam && ['white', 'black'].includes(colorParam)) setColor(colorParam);
+    }
+  }, [isNewOpening]);
   
   // Move tree state
   const [moveTree, setMoveTree] = useState(new MoveNode('Start', 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'));
   const [currentNode, setCurrentNode] = useState(moveTree);
   const [currentPath, setCurrentPath] = useState([]);
+  const [treeVersion, setTreeVersion] = useState(0); // Version counter to force re-renders
+  const [treeChangeVersion, setTreeChangeVersion] = useState(0); // Version counter for tracking changes
   
   // UI state
   const [loading, setLoading] = useState(false);
@@ -165,9 +181,25 @@ export default function OpeningEditor() {
   const [hoveredMove, setHoveredMove] = useState(null);
   const [movesHoveredMove, setMovesHoveredMove] = useState(null);
   
-  // Layout state - using flexible layout system
+  // Arrow drawing state
+  const [drawingMode, setDrawingMode] = useState(false);
+
+  // Handle arrow drawing from chessboard
+  const handleArrowDraw = useCallback((from, to, color = null) => {
+    if (currentNode) {
+      // Use the provided color or default to green
+      const arrowColor = color || '#22c55e';
+      const newArrow = { from, to, color: arrowColor };
+      currentNode.arrows = [...(currentNode.arrows || []), newArrow];
+      setTreeVersion(v => v + 1); // Force re-render
+      
+      // Trigger change detection by updating the tree version
+      setTreeChangeVersion(v => v + 1);
+    }
+  }, [currentNode]);
+
+  // Layout state - using flexible layout system (removed details section)
   const [layoutInfo, setLayoutInfo] = useState({});
-  const [showDetails, setShowDetails] = useState(true);
   const [showBoard, setShowBoard] = useState(true);
   const [showGraph, setShowGraph] = useState(true);
   
@@ -207,6 +239,22 @@ export default function OpeningEditor() {
     if (!performanceState.currentNodeId) return null;
     return findNodeById(moveTree, performanceState.currentNodeId);
   }, [performanceState.currentNodeId, moveTree, findNodeById]);
+
+  // Handle drawing mode toggle
+  const handleDrawingModeToggle = useCallback(() => {
+    // Don't allow drawing mode on the start position
+    if (selectedNode && selectedNode.san === 'Start') {
+      return;
+    }
+    setDrawingMode(!drawingMode);
+  }, [drawingMode, selectedNode]);
+
+  // Automatically disable drawing mode when on start position
+  useEffect(() => {
+    if (selectedNode && selectedNode.san === 'Start' && drawingMode) {
+      setDrawingMode(false);
+    }
+  }, [selectedNode, drawingMode]);
   
   // Override the navigate function to check for unsaved changes
   const navigateWithCheck = useCallback((to, options = {}) => {
@@ -265,16 +313,30 @@ export default function OpeningEditor() {
     }
   }, [openingId]);
 
+  // Helper function to serialize tree for change detection
+  const serializeTree = useCallback((node) => {
+    const serialize = (n) => ({
+      san: n.san,
+      fen: n.fen,
+      isMainLine: n.isMainLine,
+      comment: n.comment || '',
+      links: (n.links || []).map(link => ({ title: link.title || '', url: link.url || '' })),
+      arrows: (n.arrows || []).map(arrow => ({ from: arrow.from, to: arrow.to, color: arrow.color })),
+      children: n.children.map(child => serialize(child))
+    });
+    return JSON.stringify(serialize(node));
+  }, []);
+
   // Set initial state after loading or on mount for new openings
   useEffect(() => {
     if (!loading && !initialState) {
       setInitialState({
         name,
         color,
-        moveTreeId: moveTree.id
+        treeStructure: serializeTree(moveTree)
       });
     }
-  }, [loading, name, color, moveTree.id, initialState]);
+  }, [loading, name, color, moveTree, initialState, serializeTree]);
 
   // Set initial state immediately for new openings
   useEffect(() => {
@@ -282,28 +344,28 @@ export default function OpeningEditor() {
       setInitialState({
         name: '',
         color: 'white',
-        moveTreeId: moveTree.id
+        treeStructure: serializeTree(moveTree)
       });
     }
-  }, [isNewOpening, initialState, loading, moveTree.id]);
+  }, [isNewOpening, initialState, loading, moveTree, serializeTree]);
 
-  // Track changes
+  // Track changes - now includes tree structure changes
   useEffect(() => {
     if (!initialState) return;
     
     const currentState = {
       name,
       color,
-      moveTreeId: moveTree.id
+      treeStructure: serializeTree(moveTree)
     };
     
     const hasChanges = 
       currentState.name !== initialState.name ||
       currentState.color !== initialState.color ||
-      currentState.moveTreeId !== initialState.moveTreeId;
+      currentState.treeStructure !== initialState.treeStructure;
     
     setHasUnsavedChanges(hasChanges);
-  }, [name, color, moveTree.id, initialState]);
+  }, [name, color, moveTree, treeChangeVersion, initialState, serializeTree]);
 
   // Prevent navigation with unsaved changes
   useEffect(() => {
@@ -373,42 +435,37 @@ export default function OpeningEditor() {
       
       let maxGameCount = 0;
       
+      // Calculate total games for root node like PerformanceGraph.jsx does
+      let rootTotalGames = 0;
+      try {
+        const rootMoves = openingGraph.getRootMoves(color === 'white');
+        rootTotalGames = rootMoves ? rootMoves.reduce((sum, move) => sum + (move.gameCount || 0), 0) : 0;
+      } catch (error) {
+        console.error('Error calculating root total games:', error);
+        rootTotalGames = 0;
+      }
+      
       // Process each node in the opening tree
       graphData.nodes.forEach(node => {
         const nodeData = { ...node.data };
         
         if (nodeData.isRoot) {
-          // Root node - handle differently based on whether we have moves or not
-          if (hasOnlyStartPosition) {
-            // For start-only position, keep it simple and clean like opening mode
-            enhancedNodes.push({
-              ...node,
-              data: {
-                ...nodeData,
-                // Don't add performance data for start-only case to avoid styling issues
-                winRate: null,
-                gameCount: null,
-                performanceData: null,
-                isMissing: false // Don't mark as missing to avoid gray styling
-              }
-            });
-          } else {
-            // For root with moves, add neutral performance styling
-            enhancedNodes.push({
-              ...node,
-              data: {
-                ...nodeData,
+          // Root node - always show actual game count from performance data
+          enhancedNodes.push({
+            ...node,
+            data: {
+              ...nodeData,
+              winRate: 50,
+              gameCount: rootTotalGames,
+              performanceData: {
+                hasData: true,
                 winRate: 50,
-                gameCount: 0,
-                performanceData: {
-                  hasData: true,
-                  winRate: 50,
-                  gameCount: 0
-                },
-                isMissing: false
-              }
-            });
-          }
+                gameCount: rootTotalGames
+              },
+              isMissing: false
+            }
+          });
+          maxGameCount = Math.max(maxGameCount, rootTotalGames);
         } else {
           // Try to get performance data for this node
           let performanceData = null;
@@ -502,11 +559,11 @@ export default function OpeningEditor() {
     setPerformanceGraphData(enhancedGraph);
   }, [openingGraph, graphData, color]); // Removed performanceGraphData dependency
 
-  // Update graph data when tree changes
+  // Update graph data when tree changes or opening graph becomes available
   useEffect(() => {
     // Always update the underlying opening tree data when the tree changes
     updateGraphData();
-  }, [moveTree]); // Trigger on any tree changes (structure or content)
+  }, [moveTree, openingGraph, treeVersion]); // Trigger on any tree changes (structure or content) or when opening graph loads
   
   // Handle performance mode overlay when graphData is updated
   useEffect(() => {
@@ -671,7 +728,7 @@ export default function OpeningEditor() {
     }
   };
 
-  const updateGraphData = () => {
+  const updateGraphData = useCallback(() => {
     if (!moveTree) return;
     
     const nodes = [];
@@ -681,6 +738,18 @@ export default function OpeningEditor() {
     const nodeHeight = 180;
     const horizontalSpacing = 240; // Reduced from 250 to match performance graph
     const verticalSpacing = 350; // Increased from 250 to match performance graph
+    
+    // Calculate root total games for display even in opening mode
+    let rootTotalGames = 0;
+    if (openingGraph) {
+      try {
+        const rootMoves = openingGraph.getRootMoves(color === 'white');
+        rootTotalGames = rootMoves ? rootMoves.reduce((sum, move) => sum + (move.gameCount || 0), 0) : 0;
+      } catch (error) {
+        console.error('Error calculating root total games in updateGraphData:', error);
+        rootTotalGames = 0;
+      }
+    }
     
     // Build tree structure map for proper layout calculation
     const treeStructure = new Map();
@@ -804,6 +873,7 @@ export default function OpeningEditor() {
               hasComment: !!node.comment,
               hasLinks: node.links && node.links.some(link => link.title || link.url),
               linkCount: node.links ? node.links.filter(link => link.title || link.url).length : 0,
+              arrows: node.arrows || [], // Add arrows data for rendering
               annotation: {
                 hasComment: !!node.comment,
                 hasLinks: node.links && node.links.some(link => link.title || link.url),
@@ -812,11 +882,15 @@ export default function OpeningEditor() {
               },
               isRoot: node.san === 'Start',
               moveSequence: moveSequence, // Add move sequence for move color determination
-              // For compatibility with performance mode
-              winRate: null,
-              totalGames: null,
-              gameCount: null,
-              performanceData: null
+              // For compatibility with performance mode - include actual game count for root
+              winRate: node.san === 'Start' ? 50 : null,
+              totalGames: node.san === 'Start' ? rootTotalGames : null,
+              gameCount: node.san === 'Start' ? rootTotalGames : null,
+              performanceData: node.san === 'Start' ? {
+                hasData: true,
+                winRate: 50,
+                gameCount: rootTotalGames
+              } : null
             }
           });
         } else {
@@ -834,6 +908,7 @@ export default function OpeningEditor() {
               hasComment: !!node.comment,
               hasLinks: node.links && node.links.some(link => link.title || link.url),
               linkCount: node.links ? node.links.filter(link => link.title || link.url).length : 0,
+              arrows: node.arrows || [], // Add arrows data for rendering
               annotation: {
                 hasComment: !!node.comment,
                 hasLinks: node.links && node.links.some(link => link.title || link.url),
@@ -842,11 +917,15 @@ export default function OpeningEditor() {
               },
               isRoot: node.san === 'Start',
               moveSequence: moveSequence, // Add move sequence for move color determination
-              // For compatibility with performance mode
-              winRate: null,
-              totalGames: null,
-              gameCount: null,
-              performanceData: null
+              // For compatibility with performance mode - include actual game count for root
+              winRate: node.san === 'Start' ? 50 : null,
+              totalGames: node.san === 'Start' ? rootTotalGames : null,
+              gameCount: node.san === 'Start' ? rootTotalGames : null,
+              performanceData: node.san === 'Start' ? {
+                hasData: true,
+                winRate: 50,
+                gameCount: rootTotalGames
+              } : null
             }
           });
           
@@ -897,7 +976,7 @@ export default function OpeningEditor() {
     calculateTreeLayout();
     
     setGraphData({ nodes, edges });
-  };
+  }, [moveTree, selectedNode, openingGraph, color]);
 
   const handleSave = useCallback(async () => {
     if (!name.trim()) {
@@ -995,7 +1074,7 @@ export default function OpeningEditor() {
       setInitialState({
         name: name.trim(),
         color,
-        moveTreeId: moveTree.id
+        treeStructure: serializeTree(moveTree)
       });
       
       // Navigate to the opening view
@@ -1029,59 +1108,70 @@ export default function OpeningEditor() {
     // Handle new move from chessboard
     // newMoves is an array of SAN moves from the root
     
-    // Find where the path diverges from current position
+    // If empty moves array, go to start position
+    if (newMoves.length === 0) {
+      setCurrentNode(moveTree);
+      setCurrentPath([]);
+      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen);
+      return;
+    }
+    
+    // Start from the root and follow/create the path
     let node = moveTree;
     let i = 0;
+    let needsUpdate = false;
     
-    // Follow existing path as far as possible
-    while (i < newMoves.length && node.children.length > 0) {
-      const childNode = node.children.find(c => c.san === newMoves[i]);
-      if (childNode) {
-        node = childNode;
+    // Follow existing moves as far as possible
+    while (i < newMoves.length) {
+      const move = newMoves[i];
+      const existingChild = node.children.find(c => c.san === move);
+      
+      if (existingChild) {
+        // Move exists, follow it
+        node = existingChild;
         i++;
       } else {
+        // Move doesn't exist, create new branch from here
         break;
       }
     }
     
-    // Add new moves from divergence point
-    const chess = new Chess(node.fen);
-    while (i < newMoves.length) {
-      const move = chess.move(newMoves[i]);
-      if (move) {
-        node = node.addChild(move.san, chess.fen());
+    // Create any new moves from the divergence point
+    if (i < newMoves.length) {
+      const chess = new Chess(node.fen);
+      
+      while (i < newMoves.length) {
+        const move = chess.move(newMoves[i]);
+        if (move) {
+          node = node.addChild(move.san, chess.fen());
+          needsUpdate = true;
+        }
+        i++;
       }
-      i++;
     }
     
-    // Update current position
+    // Update current position to the final node
     setCurrentNode(node);
-    
-    // Update path
-    const path = [];
-    let current = node;
-    while (current.parent) {
-      path.unshift(current.san);
-      current = current.parent;
-    }
-    setCurrentPath(path);
-    
-    // Update unified performance state position
+    setCurrentPath([...newMoves]);
     performanceState.updateCurrentPosition(node.id, node.fen);
     
-    // Recalculate main line after adding moves
-    MoveNode.calculateMainLine(moveTree);
-    
-    // Force re-render of tree with new ID to trigger graph regeneration
-    const updatedTree = { ...moveTree };
-    updatedTree.id = `${moveTree.id}-${Date.now()}`;
-    setMoveTree(updatedTree);
-    
-    // Schedule auto-fit after tree update (longer delay to ensure graph is updated)
-    // Use the unified canvas state for both modes
-    setTimeout(() => {
-      performanceState.scheduleAutoFit('new-move-added', 200);
-    }, 300);
+    // Only update the tree if we added new moves
+    if (needsUpdate) {
+      // Recalculate main line after adding moves
+      MoveNode.calculateMainLine(moveTree);
+      
+      // Increment version to force React to re-render
+      setTreeVersion(v => v + 1);
+      
+      // Trigger change detection
+      setTreeChangeVersion(v => v + 1);
+      
+      // Schedule auto-fit after tree update (longer delay to ensure graph is updated)
+      // Use the unified canvas state for both modes
+      setTimeout(() => {
+        performanceState.scheduleAutoFit('new-move-added', 200);
+      }, 300);
+    }
   };
   
   const handleNodeSelect = (node) => {
@@ -1116,10 +1206,11 @@ export default function OpeningEditor() {
       // Recalculate main line after deletion
       MoveNode.calculateMainLine(moveTree);
       
-      // Force re-render with new ID to trigger graph regeneration
-      const updatedTree = { ...moveTree };
-      updatedTree.id = `${moveTree.id}-${Date.now()}`;
-      setMoveTree(updatedTree);
+      // Increment version to force re-render
+      setTreeVersion(v => v + 1);
+      
+      // Trigger change detection
+      setTreeChangeVersion(v => v + 1);
     }
   };
 
@@ -1127,17 +1218,20 @@ export default function OpeningEditor() {
 
   // Memoized node click handler to prevent infinite re-renders
   const handleCanvasNodeClick = useCallback((e, node) => {
-    if (canvasMode === 'opening' && node.data && !node.data.isRoot) {
+    if (canvasMode === 'opening' && node.data) {
       const treeNode = findNodeById(moveTree, node.id);
       if (treeNode) {
         // Check if clicking on currently selected node - if so, deselect it
         if (performanceState.currentNodeId === treeNode.id) {
-          // Deselect the current node
-          setCurrentNode(null);
-          setCurrentPath([]);
-          // Clear performance state position
-          performanceState.updateCurrentPosition(null, null);
-          return;
+          // Don't deselect the root node - it should always be selectable
+          if (!node.data.isRoot) {
+            // Deselect the current node
+            setCurrentNode(null);
+            setCurrentPath([]);
+            // Clear performance state position
+            performanceState.updateCurrentPosition(null, null);
+            return;
+          }
         }
         handleNodeSelect(treeNode);
       }
@@ -1230,10 +1324,6 @@ export default function OpeningEditor() {
     setLayoutInfo(layoutData);
   }, []);
 
-  const toggleDetails = () => {
-    setShowDetails(!showDetails);
-  };
-
   const toggleBoard = () => {
     setShowBoard(!showBoard);
   };
@@ -1242,11 +1332,10 @@ export default function OpeningEditor() {
     setShowGraph(!showGraph);
   };
 
-  // Component visibility state for flexible layout
+  // Component visibility state for flexible layout (removed details)
   const componentVisibility = {
-            details: showDetails,
-        board: showBoard,
-        graph: showGraph
+    board: showBoard,
+    graph: showGraph
   };
 
   // Navigation handlers with unsaved changes check
@@ -1351,29 +1440,105 @@ export default function OpeningEditor() {
       // Get the move notation for the confirmation message
       const moveNotation = nodeToDelete.san;
       
-      // Remove the node and all its children
-      nodeToDelete.parent.removeChild(nodeToDelete.id);
+      // Create a deep clone of the tree FIRST to ensure React detects the change
+      const cloneNode = (node, parent = null, skipNodeId = null) => {
+        // Skip the node we want to delete
+        if (node.id === skipNodeId) {
+          return null;
+        }
+        
+        const cloned = new MoveNode(node.san, node.fen, parent);
+        cloned.id = node.id;
+        cloned.isMainLine = node.isMainLine;
+        cloned.comment = node.comment;
+        cloned.links = [...(node.links || [])];
+        cloned.arrows = [...(node.arrows || [])];
+        cloned.moveId = node.moveId;
+        
+        // Clone children, filtering out the node to delete
+        cloned.children = node.children
+          .map(child => cloneNode(child, cloned, skipNodeId))
+          .filter(child => child !== null);
+        
+        return cloned;
+      };
       
-      // If deleted node was current, move to parent
-      if (currentNode === nodeToDelete) {
-        setCurrentNode(nodeToDelete.parent);
-        setCurrentPath(currentPath.slice(0, -1)); // Remove last move from path
+      // Clone the entire tree, excluding the node to delete
+      const updatedTree = cloneNode(moveTree, null, nodeToDelete.id);
+      
+      // Find node by ID in the cloned tree
+      const findNodeInClone = (node, targetId) => {
+        if (node.id === targetId) return node;
+        for (const child of node.children) {
+          const found = findNodeInClone(child, targetId);
+          if (found) return found;
+        }
+        return null;
+      };
+      
+      // Check if the deleted node is in the current path
+      const isDeletedNodeInCurrentPath = () => {
+        let node = currentNode;
+        while (node) {
+          if (node.id === nodeToDelete.id) return true;
+          node = node.parent;
+        }
+        return false;
+      };
+      
+      // Determine the new current node after deletion
+      let newCurrentNode;
+      let needsPathUpdate = false;
+      
+      if (currentNode === nodeToDelete || isDeletedNodeInCurrentPath()) {
+        // If we're deleting the current node or an ancestor, go to parent of deleted node
+        newCurrentNode = findNodeInClone(updatedTree, nodeToDelete.parent.id);
+        needsPathUpdate = true;
+      } else {
+        // Otherwise, find the corresponding node in the cloned tree
+        newCurrentNode = findNodeInClone(updatedTree, currentNode.id);
+        needsPathUpdate = false;
+      }
+      
+      if (newCurrentNode) {
+        setCurrentNode(newCurrentNode);
+        
+        // Always rebuild the path to ensure it's correct
+        const newPath = [];
+        let current = newCurrentNode;
+        while (current && current.parent) {
+          newPath.unshift(current.san);
+          current = current.parent;
+        }
+        
+        // Use a new array instance to force React to see the change
+        setCurrentPath([...newPath]);
+        
         // Update unified performance state position
-        performanceState.updateCurrentPosition(nodeToDelete.parent.id, nodeToDelete.parent.fen);
+        performanceState.updateCurrentPosition(newCurrentNode.id, newCurrentNode.fen);
+      } else {
+        // If we can't find a node, go to root
+        setCurrentNode(updatedTree);
+        setCurrentPath([]);
+        performanceState.updateCurrentPosition(updatedTree.id, updatedTree.fen);
       }
       
       // Recalculate main line after deletion
-      MoveNode.calculateMainLine(moveTree);
+      MoveNode.calculateMainLine(updatedTree);
       
-      // Force re-render with new ID to trigger graph regeneration
-      const updatedTree = { ...moveTree };
-      updatedTree.id = `${moveTree.id}-${Date.now()}`;
       setMoveTree(updatedTree);
+      // Also increment version since we're setting a new tree
+      setTreeVersion(v => v + 1);
       
-      // Schedule auto-fit after deletion
+      // Trigger change detection
+      setTreeChangeVersion(v => v + 1);
+      
+            // Schedule auto-fit after deletion
       setTimeout(() => {
         performanceState.scheduleAutoFit('node-deleted', 200);
       }, 100);
+      
+      // No need for additional timeout - the state is already updated correctly
     }
     
     // Close dialog and reset state
@@ -1406,9 +1571,8 @@ export default function OpeningEditor() {
     );
   }
 
-  // Component toggle configuration
+  // Component toggle configuration (removed details)
   const componentToggleConfig = {
-    details: { icon: FileText, label: 'Details' },
     board: { icon: Grid3x3, label: 'Board' },
     graph: { icon: Network, label: 'Graph' }
   };
@@ -1416,9 +1580,6 @@ export default function OpeningEditor() {
   // Handle component toggles
   const handleComponentToggle = (componentKey) => {
     switch (componentKey) {
-      case 'details':
-        toggleDetails();
-        break;
       case 'board':
         toggleBoard();
         break;
@@ -1442,218 +1603,68 @@ export default function OpeningEditor() {
       )}
 
       {/* Main Content using FlexibleLayout with integrated AppBar */}
-      <FlexibleLayout
-        title={
-          <div className="flex items-center gap-2">
-            {isNewOpening ? 'Create New Opening' : 'Edit Opening'}
-            {hasUnsavedChanges && (
-              <Badge variant="secondary" className="bg-amber-500/20 text-amber-400 border-amber-500/30">
-                Unsaved Changes
-              </Badge>
-            )}
-          </div>
-        }
-        icon={Edit}
-        leftControls={
-          <Button
-            variant="ghost"
-            onClick={handleNavigateBack}
-            className="text-slate-300 hover:text-white"
-          >
-            <ChevronLeft className="w-5 h-5 mr-1" />
-            Back
-          </Button>
-        }
-        rightControls={
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            size="sm"
-            className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
-          >
-            {saving ? (
-              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-            ) : (
-              <Save className="w-4 h-4 mr-2" />
-            )}
-            Save Opening
-          </Button>
-        }
-        components={componentVisibility}
-        componentConfig={ComponentConfigs.openingEditor}
-        componentToggleConfig={componentToggleConfig}
-        onComponentToggle={handleComponentToggle}
-        onLayoutChange={handleLayoutChange}
-      >
-        {{
-          details: (
-            <LayoutSection
-              key="details"
-            >
-              <div className="h-full flex flex-col gap-2 pb-2">
-                <Card className="bg-slate-800 border-slate-700 flex-shrink-0">
-                  <CardHeader>
-                    <CardTitle className="text-slate-100">Opening Details</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div>
-                      <Label className="text-slate-300">Name</Label>
-                      <Input
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        placeholder="e.g. Italian Game - Giuoco Piano"
-                        className="bg-slate-700 border-slate-600 text-slate-100"
-                      />
-                    </div>
-
-                    <div>
-                      <Label className="text-slate-300">Color</Label>
-                      <div className="flex gap-2 mt-2">
-                        <Button
-                          variant={color === 'white' ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setColor('white')}
-                          className={color === 'white' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700/20'}
-                        >
-                          <Crown className="w-4 h-4 mr-1 text-amber-400" />
-                          White
-                        </Button>
-                        <Button
-                          variant={color === 'black' ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => setColor('black')}
-                          className={color === 'black' ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700/20'}
-                        >
-                          <Shield className="w-4 h-4 mr-1 text-slate-400" />
-                          Black
-                        </Button>
-                      </div>
-                    </div>
-
-
-                  </CardContent>
-                </Card>
-
-                {/* Move Annotations */}
-                {selectedNode && selectedNode.san !== 'Start' && (
-                  <Card className="bg-slate-800 border-slate-700 flex-1 flex flex-col min-h-0">
-                    <CardHeader className="flex-shrink-0">
-                      <CardTitle className="text-slate-100 text-lg flex items-center justify-between">
-                        <span>Move: {selectedNode.san}</span>
-                        <div className="relative group">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            disabled={selectedNode.isMainLine}
-                            onClick={() => {
-                              // Set the main line to go through the selected node
-                              MoveNode.setMainLineToNode(moveTree, selectedNode);
-                              
-                              // Force tree update with new ID to trigger graph regeneration
-                              const updatedTree = { ...moveTree };
-                              updatedTree.id = `${moveTree.id}-${Date.now()}`;
-                              setMoveTree(updatedTree);
-                            }}
-                            className={cn(
-                              "h-8 w-8 p-0 transition-colors",
-                              selectedNode.isMainLine 
-                                ? "text-amber-400 bg-amber-400/10" 
-                                : "text-slate-400 hover:text-amber-400 hover:bg-amber-400/10"
-                            )}
-                          >
-                            <Star className={cn(
-                              "w-4 h-4 transition-all",
-                              selectedNode.isMainLine ? "fill-amber-400" : "fill-none"
-                            )} />
-                          </Button>
-                          
-                          {/* Custom tooltip */}
-                          <div className="absolute right-0 bottom-full mb-2 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-slate-200 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-lg">
-                            {selectedNode.isMainLine 
-                              ? 'Already on main line' 
-                              : 'Set as main line'}
-                            <div className="absolute -bottom-1 right-3 w-2 h-2 bg-slate-800 border-r border-b border-slate-600 transform rotate-45"></div>
-                          </div>
-                        </div>
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-1 overflow-hidden flex flex-col">
-                      <div className="flex-1 flex flex-col min-h-0 mb-4">
-                        <Label className="text-slate-300 flex-shrink-0">
-                          <MessageSquare className="w-4 h-4 inline mr-1" />
-                          Comment
-                        </Label>
-                        <Textarea
-                          value={selectedNode.comment || ''}
-                          onChange={(e) => {
-                            selectedNode.comment = e.target.value;
-                            setMoveTree({ ...moveTree }); // Force re-render
-                          }}
-                          placeholder="Add notes about this move..."
-                          className="bg-slate-700 border-slate-600 text-slate-100 mt-2 flex-1 resize-none"
-                        />
-                      </div>
-
-                      <div className="flex-shrink-0 h-32 mb-4">
-                        <Label className="text-slate-300">
-                          <LinkIcon className="w-4 h-4 inline mr-1" />
-                          Links
-                        </Label>
-                        <div className="h-24 overflow-y-auto mt-2 space-y-2">
-                          {selectedNode.links?.map((link, index) => (
-                            <div key={index} className="flex gap-2">
-                              <Input
-                                value={link.title}
-                                onChange={(e) => {
-                                  selectedNode.links[index].title = e.target.value;
-                                  setMoveTree({ ...moveTree });
-                                }}
-                                placeholder="Link title"
-                                className="bg-slate-700 border-slate-600 text-slate-100 flex-1"
-                              />
-                              <Input
-                                value={link.url}
-                                onChange={(e) => {
-                                  selectedNode.links[index].url = e.target.value;
-                                  setMoveTree({ ...moveTree });
-                                }}
-                                placeholder="URL"
-                                className="bg-slate-700 border-slate-600 text-slate-100 flex-1"
-                              />
-                              <Button
-                                size="sm"
-                                variant="ghost"
-                                onClick={() => {
-                                  selectedNode.links.splice(index, 1);
-                                  setMoveTree({ ...moveTree });
-                                }}
-                                className="text-red-400 hover:text-red-300"
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ))}
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              if (!selectedNode.links) selectedNode.links = [];
-                              selectedNode.links.push({ title: '', url: '' });
-                              setMoveTree({ ...moveTree });
-                            }}
-                            className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
-                          >
-                            <Plus className="w-4 h-4 mr-2" />
-                            Add Link
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
+      <div className="h-full flex">
+        {/* Main Layout */}
+        <div className="flex-1 min-w-0">
+          <FlexibleLayout
+            title={
+              <div className="flex items-center gap-2">
+                {isNewOpening ? `Create Opening: ${name || 'Untitled'}` : `Edit Opening: ${name || 'Untitled'}`}
+                {hasUnsavedChanges && (
+                  <Badge variant="secondary" className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+                    Unsaved Changes
+                  </Badge>
                 )}
               </div>
-            </LayoutSection>
-          ),
+            }
+            icon={Edit}
+            leftControls={
+              <Button
+                variant="ghost"
+                onClick={handleNavigateBack}
+                className="text-slate-300 hover:text-white"
+              >
+                <ChevronLeft className="w-5 h-5 mr-1" />
+                Back
+              </Button>
+            }
+            rightControls={
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+                size="sm"
+                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+              >
+                {saving ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Save className="w-4 h-4 mr-2" />
+                )}
+                Save Opening
+              </Button>
+            }
+                    components={componentVisibility}
+        componentConfig={{
+          board: {
+            desktopWidth: '1fr',
+            twoActive: {
+              'board+graph': '1fr'
+            },
+            oneActive: '1fr'
+          },
+          graph: {
+            desktopWidth: '1fr',
+            twoActive: {
+              'board+graph': '1fr'
+            },
+            oneActive: '1fr'
+          }
+        }}
+        componentToggleConfig={componentToggleConfig}
+            onComponentToggle={handleComponentToggle}
+            onLayoutChange={handleLayoutChange}
+          >
+        {{
 
           board: (
             <LayoutSection
@@ -1670,6 +1681,10 @@ export default function OpeningEditor() {
                   }}
                   isWhiteTree={color === 'white'}
                   hoveredMove={movesHoveredMove || hoveredMove}
+                  customArrows={currentNode?.arrows || []}
+                  onArrowDraw={handleArrowDraw}
+                  drawingMode={drawingMode}
+                  onDrawingModeChange={handleDrawingModeToggle}
                   className="w-full max-w-none"
                   showPositionMessage={false}
                 />
@@ -1755,6 +1770,32 @@ export default function OpeningEditor() {
           )
         }}
       </FlexibleLayout>
+        </div>
+        
+        {/* Sidebar for Move Details */}
+        <div className="w-80 bg-slate-800 border-l border-slate-700 flex-shrink-0">
+          <div className="h-full p-4">
+            <MoveDetailsPanel
+              selectedNode={selectedNode}
+              onUpdateNode={() => {
+                setTreeVersion(v => v + 1);
+                setTreeChangeVersion(v => v + 1);
+              }}
+              onSetMainLine={(node) => {
+                // Set the main line to go through the selected node
+                MoveNode.setMainLineToNode(moveTree, node);
+                // Increment version to force re-render
+                setTreeVersion(v => v + 1);
+                // Trigger change detection
+                setTreeChangeVersion(v => v + 1);
+              }}
+              moveTree={moveTree}
+              drawingMode={drawingMode}
+              onDrawingModeToggle={handleDrawingModeToggle}
+            />
+          </div>
+        </div>
+      </div>
 
       {/* NEW: Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
