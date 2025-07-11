@@ -637,19 +637,12 @@ export default function InteractiveChessboard({
   useEffect(() => {
     let engine = null;
     
-    // Debug: Check if script is loading
-    console.log('🔍 Component mounted, checking window.stockfish...');
-    console.log('Current window.stockfish:', typeof window.stockfish);
-    
     // Add a simple test that users can run in console
     window.testStockfish = () => {
-      console.log('🧪 Testing Stockfish availability...');
-      console.log('window.stockfish:', typeof window.stockfish);
       if (typeof window.stockfish === 'function') {
         try {
           const sf = eval('stockfish');
           const engine = sf();
-          console.log('✅ Stockfish works! Engine created:', !!engine);
           engine.postMessage('quit');
         } catch (e) {
           console.error('❌ Stockfish failed:', e.message);
@@ -661,45 +654,35 @@ export default function InteractiveChessboard({
     
     const initEngine = () => {
       try {
-        console.log('🛠️ Attempting to initialize Stockfish...');
-        console.log('window.stockfish type:', typeof window.stockfish);
-        
         // Use eval approach like in chess-master project
         // The stockfish.js file exposes STOCKFISH (uppercase)
         let sf;
         if (typeof window.STOCKFISH === 'function') {
           sf = window.STOCKFISH;
-          console.log('✅ Using window.STOCKFISH');
         } else if (typeof window.stockfish === 'function') {
           sf = window.stockfish;
-          console.log('✅ Using window.stockfish');
         } else {
           // Try eval as fallback
           try {
             sf = eval('STOCKFISH') || eval('stockfish');
-            console.log('✅ Using eval approach');
           } catch (e) {
             throw new Error('Neither STOCKFISH nor stockfish function found');
           }
         }
-        console.log('sf function:', typeof sf);
         
         engine = sf();
-        console.log('engine created:', !!engine);
         
         setStockfish(engine);
         
         // Set up a default message handler to prevent warnings
         engine.onmessage = (message) => {
           // Just log initialization messages, actual analysis will override this
-          console.log('🔧 Stockfish init:', message);
         };
         
         // Initialize engine
         engine.postMessage('uci');
         engine.postMessage('isready');
         
-        console.log('✅ Stockfish initialized successfully');
         return engine;
       } catch (error) {
         console.error('❌ Failed to initialize Stockfish:', error);
@@ -715,34 +698,20 @@ export default function InteractiveChessboard({
     
     const checkStockfish = () => {
       attempts++;
-      console.log(`🔄 Checking for Stockfish... (attempt ${attempts}/${maxAttempts})`, {
-        windowExists: typeof window !== 'undefined',
-        STOCKFISHExists: typeof window !== 'undefined' && typeof window.STOCKFISH !== 'undefined',
-        stockfishExists: typeof window !== 'undefined' && typeof window.stockfish !== 'undefined',
-        STOCKFISHType: typeof window !== 'undefined' ? typeof window.STOCKFISH : 'window undefined',
-        stockfishType: typeof window !== 'undefined' ? typeof window.stockfish : 'window undefined'
-      });
       
       if (typeof window !== 'undefined' && (typeof window.STOCKFISH === 'function' || typeof window.stockfish === 'function')) {
-        console.log('✅ Stockfish found! Initializing...');
         initEngine();
       } else if (attempts >= maxAttempts) {
         console.error('❌ Stockfish script failed to load after 5 seconds');
         console.error('Please check if /stockfish.js is accessible in your browser');
-        console.log('💡 Try opening http://localhost:5187/stockfish.js in a new tab to test');
       } else {
         setTimeout(checkStockfish, 100);
       }
     };
     
-    // Start checking
-    console.log('🚀 Starting Stockfish initialization check...');
-    
     // Also listen for script load events
     const handleScriptLoad = () => {
-      console.log('📡 Script load event detected, checking Stockfish...');
       if (typeof window.STOCKFISH === 'function' || typeof window.stockfish === 'function') {
-        console.log('✅ Stockfish available after script load!');
         initEngine();
       }
     };
@@ -758,7 +727,7 @@ export default function InteractiveChessboard({
         try {
           engine.postMessage('quit');
         } catch (e) {
-          console.log('Engine cleanup completed');
+          // Engine cleanup completed
         }
       }
     };
@@ -766,8 +735,6 @@ export default function InteractiveChessboard({
 
   // Toggle Stockfish analysis function - turns analysis on/off
   const toggleStockfishAnalysis = useCallback(() => {
-    console.log('🔍 Stockfish toggle clicked!');
-    
     if (!stockfish) {
       console.error('❌ Stockfish not initialized yet');
       alert('Stockfish engine not ready yet. Please try again in a moment.');
@@ -776,7 +743,6 @@ export default function InteractiveChessboard({
     
     // If currently enabled, disable and clear
     if (stockfishEnabled) {
-      console.log('🚫 Disabling Stockfish analysis');
       setStockfishEnabled(false);
       setIsAnalyzing(false);
       setTopMoves([]);
@@ -788,30 +754,26 @@ export default function InteractiveChessboard({
       try {
         stockfish.postMessage('stop');
       } catch (e) {
-        console.log('Stop command sent');
+        // Stop command sent
       }
       return;
     }
     
     // If disabled, enable and start analysis
     if (isAnalyzing) {
-      console.log('⏳ Already analyzing...');
       return;
     }
     
-    console.log('🚀 Enabling Stockfish - Starting MultiPV analysis for top 3 moves...');
     setStockfishEnabled(true);
     setIsAnalyzing(true);
     setTopMoves([]);
     
     const fen = game.fen();
-    console.log('📋 FEN position:', fen);
     
     const candidateMoves = [];
     
     const handleMessage = (event) => {
       const message = event.data ? event.data : event;
-      console.log('📨 Stockfish:', message);
       
       // Parse MultiPV info lines
       if (message.includes('info depth') && message.includes('multipv') && message.includes('pv')) {
@@ -834,8 +796,6 @@ export default function InteractiveChessboard({
               evaluation = `M${value}`;
             }
           }
-          
-          console.log('🔍 Parsing MultiPV move:', { multipv, uciMove, evaluation, depth });
           
           // Convert UCI to SAN
           try {
@@ -868,7 +828,6 @@ export default function InteractiveChessboard({
                 .slice(0, 3);
               
               setTopMoves([...sortedMoves]);
-              console.log('📊 Updated moves:', sortedMoves.map(m => `${m.multipv}. ${m.san} (${m.evaluation})`));
             }
           } catch (error) {
             console.warn('Error converting UCI move:', uciMove, error);
@@ -880,14 +839,12 @@ export default function InteractiveChessboard({
       if (message.startsWith('bestmove')) {
         setIsAnalyzing(false);
         stockfish.onmessage = null;
-        console.log('✅ MultiPV analysis complete with', candidateMoves.length, 'moves');
       }
     };
     
     stockfish.onmessage = handleMessage;
     
     // Send commands to Stockfish with MultiPV enabled
-    console.log('📤 Sending MultiPV commands to Stockfish...');
     stockfish.postMessage('setoption name MultiPV value 3');
     stockfish.postMessage(`position fen ${fen}`);
     stockfish.postMessage('go depth 12');
@@ -982,8 +939,6 @@ export default function InteractiveChessboard({
 
   // Handle drawable changes - this is called when arrows are drawn/removed
   const handleDrawableChange = useCallback((shapes) => {
-    console.log('🎯 Drawable changed:', shapes, 'drawingMode:', drawingMode);
-    
     // Only save arrows when in drawing mode
     if (!drawingMode || !onArrowDraw) return;
     
@@ -1011,7 +966,6 @@ export default function InteractiveChessboard({
       // Get color from brush or default to green
       let color = brushColorMap[latestArrow.brush] || '#22c55e';
       
-      console.log('🎨 Adding arrow:', latestArrow.orig, '->', latestArrow.dest, 'color:', color);
       onArrowDraw(latestArrow.orig, latestArrow.dest, color);
     }
   }, [drawingMode, onArrowDraw, customArrows]);
@@ -1100,7 +1054,6 @@ export default function InteractiveChessboard({
                 variant="outline"
                 size="sm"
                 onClick={(e) => {
-                  console.log('🖱️ Stockfish toggle clicked!', e);
                   toggleStockfishAnalysis();
                 }}
                 disabled={isAnalyzing && !stockfishEnabled}

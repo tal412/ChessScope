@@ -8,7 +8,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 export const useCanvasState = ({
   // Canvas options
   enableAutoFit = true,
-  autoFitOnResize = true,
+  autoFitOnResize = true, // Controls resize-based auto-fit (separate from click-based auto-zoom)
   autoFitOnGraphChange = true,
   autoFitDelay = 200,
   
@@ -17,7 +17,8 @@ export const useCanvasState = ({
   selectedPlayer = 'white',
   enableClustering = true,
   enablePositionClusters = true,
-  enableAutoZoom = false,
+  enableAutoZoom = true, // General auto-zoom (for programmatic position changes)
+  enableClickAutoZoom = true, // Specific auto-zoom on user clicks
   
   // Context menu options
   enableContextMenu = false,
@@ -25,7 +26,7 @@ export const useCanvasState = ({
   
   // Default control values
   defaultMaxDepth = 20,
-  defaultMinGameCount = 20,
+  defaultMinGameCount = 1,
   defaultWinRateFilter = [0, 100]
 } = {}) => {
   // Canvas function references - use refs for stable access
@@ -40,14 +41,21 @@ export const useCanvasState = ({
   // Performance controls state
   const [maxDepth, setMaxDepth] = useState(defaultMaxDepth);
   const [minGameCount, setMinGameCount] = useState(defaultMinGameCount);
+  const [tempMinGameCount, setTempMinGameCount] = useState(defaultMinGameCount); // NEW: Temporary value for slider
   const [winRateFilter, setWinRateFilter] = useState(defaultWinRateFilter);
   const [tempWinRateFilter, setTempWinRateFilter] = useState(defaultWinRateFilter);
   
-  // Clustering state
-  const [openingClusteringEnabled, setOpeningClusteringEnabled] = useState(enableClustering);
+  // Clustering state - with localStorage persistence
+  const [openingClusteringEnabled, setOpeningClusteringEnabled] = useState(() => {
+    const savedState = localStorage.getItem('canvas-opening-clusters-enabled');
+    return savedState ? JSON.parse(savedState) : enableClustering;
+  });
   const [openingClusters, setOpeningClusters] = useState([]);
   const [positionClusters, setPositionClusters] = useState([]);
-  const [showPositionClusters, setShowPositionClusters] = useState(true);
+  const [showPositionClusters, setShowPositionClusters] = useState(() => {
+    const savedState = localStorage.getItem('canvas-position-clusters-enabled');
+    return savedState ? JSON.parse(savedState) : true;
+  });
   
   // Hover state
   const [hoveredOpeningName, setHoveredOpeningName] = useState(null);
@@ -62,6 +70,7 @@ export const useCanvasState = ({
   // Position tracking
   const [currentNodeId, setCurrentNodeId] = useState(null);
   const [currentPositionFen, setCurrentPositionFen] = useState(null);
+  const hasInitialPositionRef = useRef(false); // Track if we've set an initial position
   
   // Context menu state
   const [contextMenuVisible, setContextMenuVisible] = useState(false);
@@ -151,6 +160,11 @@ export const useCanvasState = ({
   
   const handleMinGameCountChange = useCallback((newMinCount) => {
     setMinGameCount(newMinCount);
+    setTempMinGameCount(newMinCount); // Sync temp value when actual value changes
+  }, []);
+
+  const handleTempMinGameCountChange = useCallback((newTempMinCount) => {
+    setTempMinGameCount(newTempMinCount);
   }, []);
   
   const handleWinRateFilterChange = useCallback((newFilter) => {
@@ -165,13 +179,17 @@ export const useCanvasState = ({
     setWinRateFilter([...tempWinRateFilter]);
   }, [tempWinRateFilter]);
   
-  // Clustering handlers
+  // Clustering handlers - with localStorage persistence
   const toggleOpeningClustering = useCallback(() => {
-    setOpeningClusteringEnabled(!openingClusteringEnabled);
+    const newState = !openingClusteringEnabled;
+    setOpeningClusteringEnabled(newState);
+    localStorage.setItem('canvas-opening-clusters-enabled', JSON.stringify(newState));
   }, [openingClusteringEnabled]);
   
   const togglePositionClusters = useCallback(() => {
-    setShowPositionClusters(!showPositionClusters);
+    const newState = !showPositionClusters;
+    setShowPositionClusters(newState);
+    localStorage.setItem('canvas-position-clusters-enabled', JSON.stringify(newState));
   }, [showPositionClusters]);
   
   // Cluster hover handlers
@@ -190,7 +208,24 @@ export const useCanvasState = ({
   }, []);
   
   // Position tracking
-  const updateCurrentPosition = useCallback((nodeId, fen) => {
+  const lastPositionChangeSourceRef = useRef(null); // Track the source of position changes
+  const lastPositionChangeTimeRef = useRef(0); // Track when the last position change happened
+  
+  const updateCurrentPosition = useCallback((nodeId, fen, source = 'unknown') => {
+    const now = Date.now();
+    const timeSinceLastChange = now - lastPositionChangeTimeRef.current;
+    
+    // Preserve recent user clicks - don't overwrite 'click' source with programmatic sources
+    // within 1 second of a user click
+    const shouldPreserveClickSource = lastPositionChangeSourceRef.current === 'click' && 
+                                     timeSinceLastChange < 1000 && 
+                                     (source === 'programmatic' || source === 'sync');
+    
+    if (!shouldPreserveClickSource) {
+      lastPositionChangeSourceRef.current = source;
+    }
+    
+    lastPositionChangeTimeRef.current = now;
     setCurrentNodeId(nodeId);
     setCurrentPositionFen(fen);
   }, []);
@@ -219,6 +254,13 @@ export const useCanvasState = ({
     
     if (positionChanged) {
       lastPositionFenRef.current = currentPositionFen;
+      
+      // Mark that we've had an initial position if this is the first one
+      if (!hasInitialPositionRef.current && currentPositionFen) {
+        hasInitialPositionRef.current = true;
+        // Skip auto-zoom on the very first position update (initial load)
+        return;
+      }
     }
     
     // Check if canvas is ready and not resizing
@@ -228,6 +270,21 @@ export const useCanvasState = ({
     // This prevents conflicts with resize handling
     if (!positionChanged || !canvasIsReady) return;
     
+    // Check if this is a user click and if click auto-zoom is disabled
+    const isUserClick = lastPositionChangeSourceRef.current === 'click';
+    console.log('🔍 AUTO-ZOOM CHECK:', {
+      isUserClick,
+      enableClickAutoZoom,
+      shouldSkip: isUserClick && !enableClickAutoZoom,
+      source: lastPositionChangeSourceRef.current
+    });
+    
+    if (isUserClick && !enableClickAutoZoom) {
+      console.log('🚫 SKIPPING AUTO-ZOOM - CLICK AUTO-ZOOM DISABLED');
+      // User clicked but click auto-zoom is disabled - skip auto-zoom
+      return;
+    }
+    
     // Auto-zoom logic: 
     // - If we have position clusters enabled and a current position, zoom to clusters
     // - If we have a current position but no position clusters enabled, fit to all nodes
@@ -235,12 +292,22 @@ export const useCanvasState = ({
     const shouldFitToAll = (!enablePositionClusters || positionClusters.length === 0) && currentPositionFen;
     
     if (shouldZoomToClusters || shouldFitToAll) {
+      console.log('🚨 AUTO-ZOOM LOGIC REACHED - THIS SHOULD NOT HAPPEN FOR CLICKS!', {
+        shouldZoomToClusters,
+        shouldFitToAll,
+        source: lastPositionChangeSourceRef.current,
+        enableClickAutoZoom,
+        isUserClick
+      });
+      
       // Debounce auto-zoom calls to prevent conflicts
       autoZoomTimeoutRef.current = setTimeout(() => {
         try {
           if (shouldZoomToClusters && canvasZoomToClustersRef.current) {
+            console.log('🎯 EXECUTING: ZOOM TO CLUSTERS');
             canvasZoomToClustersRef.current();
           } else if (shouldFitToAll && canvasFitViewRef.current) {
+            console.log('🎯 EXECUTING: FIT ALL');
             canvasFitViewRef.current();
           }
         } catch (error) {
@@ -251,7 +318,7 @@ export const useCanvasState = ({
     }
     
     setShowZoomDebounceOverlay(false);
-  }, [positionClusters, currentPositionFen, isGenerating, isCanvasResizing, enableAutoZoom, enablePositionClusters]);
+  }, [positionClusters, currentPositionFen, isGenerating, isCanvasResizing, enableAutoZoom, enablePositionClusters, enableClickAutoZoom]);
   
   // Canvas callback handlers
   const handleCanvasFitView = useCallback((fitViewFn) => {
@@ -266,31 +333,45 @@ export const useCanvasState = ({
     canvasZoomToRef.current = zoomToFn;
   }, []);
   
-  const handleCanvasResizeStateChange = useCallback((isResizing) => {
+  const handleCanvasResizeStateChange = useCallback((isResizing, resizeSource = 'unknown') => {
     setIsCanvasResizing(isResizing);
     isCanvasResizingRef.current = isResizing;
     
-    // Schedule appropriate zoom when resize completes - but respect enableAutoZoom setting
+    // Schedule appropriate zoom when resize completes - controlled by autoFitOnResize only
     if (!isResizing && autoFitOnResize) {
       setTimeout(() => {
-        // Only auto-zoom if enableAutoZoom is true
-        if (enableAutoZoom) {
-          // If we have position clusters enabled and a current position, zoom to clusters
-          // Otherwise, fit to all nodes
-          if (enablePositionClusters && positionClusters.length > 0 && currentPositionFen && canvasZoomToClustersRef.current) {
-            canvasZoomToClustersRef.current();
-          } else if (canvasFitViewRef.current) {
-            canvasFitViewRef.current();
-          }
-        } else {
-          // If auto-zoom is disabled, just fit to all nodes on resize
-          if (canvasFitViewRef.current) {
-            canvasFitViewRef.current();
-          }
+        // Check if this resize was triggered by a recent user click and if click auto-zoom is disabled
+        const timeSinceLastPositionChange = Date.now() - lastPositionChangeTimeRef.current;
+        const isRecentClickTriggeredResize = lastPositionChangeSourceRef.current === 'click' && 
+                                            timeSinceLastPositionChange < 500; // 500ms window
+        
+        console.log('🔍 RESIZE AUTO-ZOOM CHECK:', {
+          lastSource: lastPositionChangeSourceRef.current,
+          timeSinceLastChange: timeSinceLastPositionChange,
+          isRecentClickTriggered: isRecentClickTriggeredResize,
+          enableClickAutoZoom,
+          shouldSkip: isRecentClickTriggeredResize && !enableClickAutoZoom
+        });
+        
+        if (isRecentClickTriggeredResize && !enableClickAutoZoom) {
+          // Skip auto-zoom for click-triggered resizes when click auto-zoom is disabled
+          console.log('🚫 SKIPPING RESIZE AUTO-ZOOM - CLICK AUTO-ZOOM DISABLED (recent click)');
+          return;
+        }
+        
+        // Always auto-fit on actual window resize, but be smart about zoom target:
+        // - If auto-zoom is enabled: zoom to clusters when available, otherwise fit all
+        // - If auto-zoom is disabled: always fit to all (don't zoom to clusters)
+        if (enableAutoZoom && enablePositionClusters && positionClusters.length > 0 && currentPositionFen && canvasZoomToClustersRef.current) {
+          console.log('🎯 RESIZE AUTO-ZOOM: ZOOM TO CLUSTERS');
+          canvasZoomToClustersRef.current();
+        } else if (canvasFitViewRef.current) {
+          console.log('🎯 RESIZE AUTO-ZOOM: FIT ALL');
+          canvasFitViewRef.current();
         }
       }, 300); // Use longer delay for resize to ensure canvas is stable
     }
-  }, [autoFitOnResize, enableAutoZoom, enablePositionClusters, positionClusters.length, currentPositionFen]);
+  }, [autoFitOnResize, enableAutoZoom, enablePositionClusters, positionClusters.length, currentPositionFen, enableClickAutoZoom]);
   
   const handleCanvasInitializingStateChange = useCallback((isInitializing) => {
     setIsCanvasInitializing(isInitializing);
@@ -351,10 +432,12 @@ export const useCanvasState = ({
     // Performance controls
     maxDepth,
     minGameCount,
+    tempMinGameCount,
     winRateFilter,
     tempWinRateFilter,
     handleMaxDepthChange,
     handleMinGameCountChange,
+    handleTempMinGameCountChange,
     handleWinRateFilterChange,
     handleTempWinRateFilterChange,
     applyWinRateFilter,

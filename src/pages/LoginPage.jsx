@@ -72,6 +72,11 @@ export default function LoginPage() {
 
   // Handle back navigation
   const handleBack = () => {
+    // Prevent navigation during import
+    if (isImporting) {
+      return;
+    }
+    
     if (step === 2) {
       // Go back to step 1
       setIsVisible(false);
@@ -106,13 +111,39 @@ export default function LoginPage() {
 
   // Handle browser back button
   useEffect(() => {
-    const handlePopState = () => {
+    const handlePopState = (e) => {
+      // Prevent browser back navigation during import
+      if (isImporting) {
+        e.preventDefault();
+        // Push the current state back to prevent navigation
+        window.history.pushState(null, '', window.location.href);
+        return;
+      }
       setIsLeaving(true);
     };
 
+    // Add initial history entry to prevent back navigation during import
+    if (isImporting) {
+      window.history.pushState(null, '', window.location.href);
+    }
+
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
+  }, [isImporting]);
+
+  // Block navigation during import
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (isImporting) {
+        e.preventDefault();
+        e.returnValue = 'Import is in progress. Are you sure you want to leave?';
+        return 'Import is in progress. Are you sure you want to leave?';
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isImporting]);
 
   const handlePlatformSelection = (platform) => {
     setSelectedPlatform(platform);
@@ -187,6 +218,19 @@ export default function LoginPage() {
     }
   };
 
+  const handleTimeControlClick = (timeControlId) => {
+    if (!isImporting) {
+      setSelectedTimeControls(prev => {
+        const isCurrentlySelected = prev.includes(timeControlId);
+        if (isCurrentlySelected) {
+          return prev.filter(tc => tc !== timeControlId);
+        } else {
+          return [...prev, timeControlId];
+        }
+      });
+    }
+  };
+
   const handleGoogleDriveConnect = async () => {
     // For now, simulate Google Drive connection
     try {
@@ -222,7 +266,12 @@ export default function LoginPage() {
         <Button
           onClick={handleBack}
           variant="ghost"
-          className={`absolute top-6 left-6 text-slate-400 hover:text-white transition-all duration-300 ${
+          disabled={isImporting}
+          className={`absolute top-6 left-6 transition-all duration-300 ${
+            isImporting 
+              ? 'text-slate-600 cursor-not-allowed' 
+              : 'text-slate-400 hover:text-white'
+          } ${
             isVisible && !isLeaving ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform -translate-x-4'
           }`}
         >
@@ -258,8 +307,12 @@ export default function LoginPage() {
           }`}>
             {/* Chess.com Platform */}
             <Card 
-              className="bg-slate-800/50 backdrop-blur-xl border-slate-700/50 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group"
-              onClick={() => handlePlatformSelection('chess.com')}
+              className={`bg-slate-800/50 backdrop-blur-xl border-slate-700/50 transition-all duration-300 group ${
+                isImporting 
+                  ? 'cursor-not-allowed opacity-50' 
+                  : 'hover:bg-slate-800/70 cursor-pointer'
+              }`}
+              onClick={() => !isImporting && handlePlatformSelection('chess.com')}
             >
               <CardContent className="p-8">
                 <div className="flex flex-col items-center space-y-6">
@@ -289,8 +342,12 @@ export default function LoginPage() {
 
             {/* Lichess Platform */}
             <Card 
-              className="bg-slate-800/50 backdrop-blur-xl border-slate-700/50 hover:bg-slate-800/70 transition-all duration-300 cursor-pointer group"
-              onClick={() => handlePlatformSelection('lichess')}
+              className={`bg-slate-800/50 backdrop-blur-xl border-slate-700/50 transition-all duration-300 group ${
+                isImporting 
+                  ? 'cursor-not-allowed opacity-50' 
+                  : 'hover:bg-slate-800/70 cursor-pointer'
+              }`}
+              onClick={() => !isImporting && handlePlatformSelection('lichess')}
             >
               <CardContent className="p-8">
                 <div className="flex flex-col items-center space-y-6">
@@ -331,7 +388,12 @@ export default function LoginPage() {
         <Button
           onClick={handleBack}
           variant="ghost"
-          className={`absolute top-6 left-6 text-slate-400 hover:text-white transition-all duration-300 ${
+          disabled={isImporting}
+          className={`absolute top-6 left-6 transition-all duration-300 ${
+            isImporting 
+              ? 'text-slate-600 cursor-not-allowed' 
+              : 'text-slate-400 hover:text-white'
+          } ${
             isVisible && !isLeaving ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform -translate-x-4'
           }`}
         >
@@ -396,7 +458,10 @@ export default function LoginPage() {
                       id="username"
                       type="text"
                       value={username}
-                      onChange={(e) => setUsername(e.target.value)}
+                      onChange={(e) => {
+                        setUsername(e.target.value);
+                        setError(''); // Clear error when user types
+                      }}
                       placeholder="Enter your username"
                       className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-500"
                       disabled={isImporting}
@@ -432,34 +497,44 @@ export default function LoginPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {(selectedPlatform === 'lichess' ? [
-                    { id: 'bullet', label: 'Bullet', desc: '< 3 minutes' },
-                    { id: 'blitz', label: 'Blitz', desc: '3-8 minutes' },
-                    { id: 'rapid', label: 'Rapid', desc: '8-25 minutes' },
-                    { id: 'classical', label: 'Classical', desc: '> 25 minutes' },
-                    { id: 'correspondence', label: 'Correspondence', desc: 'Several days' }
-                  ] : [
-                    { id: 'bullet', label: 'Bullet', desc: '< 3 minutes' },
-                    { id: 'blitz', label: 'Blitz', desc: '3-10 minutes' },
-                    { id: 'rapid', label: 'Rapid', desc: '10-30 minutes' },
-                    { id: 'daily', label: 'Daily', desc: 'Correspondence' }
-                  ]).map((timeControl) => (
-                    <div key={timeControl.id} className="flex items-center space-x-3 p-3 rounded-lg hover:bg-slate-700/30 transition-colors">
-                      <Checkbox
-                        id={timeControl.id}
-                        checked={selectedTimeControls.includes(timeControl.id)}
-                        onCheckedChange={(checked) => handleTimeControlChange(timeControl.id, checked)}
-                        className="border-slate-500 data-[state=checked]:bg-purple-600 data-[state=checked]:border-purple-600"
-                        disabled={isImporting}
-                      />
-                      <div className="flex-1">
-                        <label htmlFor={timeControl.id} className="text-slate-200 font-medium cursor-pointer">
-                          {timeControl.label}
-                        </label>
-                        <p className="text-slate-400 text-xs">{timeControl.desc}</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {(selectedPlatform === 'lichess' ? [
+                      { id: 'bullet', label: 'Bullet', desc: '< 3 minutes' },
+                      { id: 'blitz', label: 'Blitz', desc: '3-8 minutes' },
+                      { id: 'rapid', label: 'Rapid', desc: '8-25 minutes' },
+                      { id: 'classical', label: 'Classical', desc: '> 25 minutes' },
+                      { id: 'correspondence', label: 'Correspondence', desc: 'Several days' }
+                    ] : [
+                      { id: 'bullet', label: 'Bullet', desc: '< 3 minutes' },
+                      { id: 'blitz', label: 'Blitz', desc: '3-10 minutes' },
+                      { id: 'rapid', label: 'Rapid', desc: '10-30 minutes' },
+                      { id: 'daily', label: 'Daily', desc: 'Correspondence' }
+                    ]).map((timeControl) => (
+                      <div 
+                        key={timeControl.id} 
+                        className={`flex items-center space-x-3 p-3 rounded-lg transition-colors select-none ${
+                          isImporting 
+                            ? 'cursor-not-allowed opacity-50' 
+                            : 'hover:bg-slate-700/30 cursor-pointer'
+                        }`}
+                        onClick={() => !isImporting && handleTimeControlClick(timeControl.id)}
+                      >
+                        <div className="w-4 h-4 rounded border border-slate-500 bg-slate-700 flex items-center justify-center pointer-events-none">
+                          {selectedTimeControls.includes(timeControl.id) && (
+                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <label htmlFor={timeControl.id} className="text-slate-200 font-medium cursor-pointer">
+                            {timeControl.label}
+                          </label>
+                          <p className="text-slate-400 text-xs">{timeControl.desc}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </CardContent>
               </Card>
 
@@ -479,22 +554,18 @@ export default function LoginPage() {
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
                     <Label className="text-slate-200 font-medium">Date Range</Label>
-                    <Select 
+                    <select 
                       value={selectedDateRange} 
-                      onValueChange={setSelectedDateRange}
+                      onChange={(e) => setSelectedDateRange(e.target.value)}
                       disabled={isImporting}
+                      className="bg-slate-700/50 border-slate-600 text-white rounded-md px-3 py-2 w-full"
                     >
-                      <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-slate-700">
-                        <SelectItem value="1">Last 1 month</SelectItem>
-                        <SelectItem value="2">Last 2 months</SelectItem>
-                        <SelectItem value="3">Last 3 months</SelectItem>
-                        <SelectItem value="6">Last 6 months</SelectItem>
-                        <SelectItem value="custom">Custom range</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      <option value="1">Last 1 month</option>
+                      <option value="2">Last 2 months</option>
+                      <option value="3">Last 3 months</option>
+                      <option value="6">Last 6 months</option>
+                      <option value="custom">Custom range</option>
+                    </select>
                   </div>
 
                   {selectedDateRange === "custom" && (
@@ -572,63 +643,62 @@ export default function LoginPage() {
                     <div className="space-y-2">
                       <Label className="text-slate-200 font-medium">Auto-Sync Frequency</Label>
                       <p className="text-slate-400 text-xs">How often to check for and import new games</p>
-                      <Select 
+                      <select 
                         value={autoSyncFrequency} 
-                        onValueChange={setAutoSyncFrequency}
+                        onChange={(e) => setAutoSyncFrequency(e.target.value)}
                         disabled={isImporting}
+                        className="bg-slate-700/50 border-slate-600 text-white rounded-md px-3 py-2 w-full"
                       >
-                        <SelectTrigger className="bg-slate-700/50 border-slate-600 text-white">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="bg-slate-800 border-slate-700">
-                          <SelectItem value="never">Never (Manual only)</SelectItem>
-                          <SelectItem value="visit">Every visit</SelectItem>
-                          <SelectItem value="5min">Every 5 minutes</SelectItem>
-                          <SelectItem value="30min">Every 30 minutes</SelectItem>
-                          <SelectItem value="1hour">Every hour</SelectItem>
-                          <SelectItem value="3hours">Every 3 hours</SelectItem>
-                          <SelectItem value="1day">Daily</SelectItem>
-                          <SelectItem value="1week">Weekly</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        <option value="never">Never (Manual only)</option>
+                        <option value="visit">Every visit</option>
+                        <option value="5min">Every 5 minutes</option>
+                        <option value="30min">Every 30 minutes</option>
+                        <option value="1hour">Every hour</option>
+                        <option value="3hours">Every 3 hours</option>
+                        <option value="1day">Daily</option>
+                        <option value="1week">Weekly</option>
+                      </select>
                     </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Error Display */}
-            {error && (
-              <Alert className="border-red-500/50 bg-red-500/10 max-w-3xl mx-auto">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription className="text-red-200">
-                  {error}
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Submit Button with integrated loading */}
-            <div className={`flex justify-center transition-all duration-300 delay-200 ${
+            {/* Submit Button with integrated loading and error display */}
+            <div className={`flex flex-col items-center transition-all duration-300 delay-200 ${
               isLeaving ? 'opacity-0 transform -translate-x-2' :
               isVisible ? 'opacity-100 transform translate-x-0' : 
               'opacity-0 transform translate-x-2'
             }`}>
-              <SettingsLoading 
-                isLoading={isImporting}
-                progress={importProgress}
-                status={importStatus}
-                onComplete={handleImportComplete}
-                successMessage="Games Imported Successfully!"
-                className="w-full max-w-md"
-                showButtons={!isImporting}
-                buttonText="Connect & Import Games"
-                loadingText="Importing Games..."
-                onButtonClick={(e) => {
-                  e.preventDefault();
-                  handleAccountSubmit(e);
-                }}
-                buttonDisabled={selectedTimeControls.length === 0}
-              />
+              {/* Fixed container to prevent layout shifts */}
+              <div className="w-full max-w-md min-h-[120px] flex flex-col items-center justify-center space-y-4">
+                <SettingsLoading 
+                  isLoading={isImporting}
+                  progress={importProgress}
+                  status={importStatus}
+                  onComplete={handleImportComplete}
+                  successMessage="Games Imported Successfully!"
+                  className="w-full"
+                  showButtons={!isImporting}
+                  buttonText="Connect & Import Games"
+                  loadingText="Importing Games..."
+                  onButtonClick={(e) => {
+                    e.preventDefault();
+                    handleAccountSubmit(e);
+                  }}
+                  buttonDisabled={selectedTimeControls.length === 0}
+                  error={error}
+                />
+                {/* Fixed error area below button */}
+                <div className="h-6 flex items-center justify-center w-full">
+                  {error && (
+                    <div className="flex items-center gap-1.5 text-red-400 text-sm animate-in slide-in-from-bottom-1 duration-200">
+                      <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                      <span>{error}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
           </form>
         </div>
@@ -643,7 +713,12 @@ export default function LoginPage() {
       <Button
         onClick={handleBack}
         variant="ghost"
-        className={`absolute top-6 left-6 text-slate-400 hover:text-white transition-all duration-300 ${
+        disabled={isImporting}
+        className={`absolute top-6 left-6 transition-all duration-300 ${
+          isImporting 
+            ? 'text-slate-600 cursor-not-allowed' 
+            : 'text-slate-400 hover:text-white'
+        } ${
           isVisible && !isLeaving ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform -translate-x-4'
         }`}
       >

@@ -8,12 +8,10 @@ import '@/utils/migration.js' // Auto-run database migrations
 
 // Initialize graph database before rendering the app
 initGraphDB().then(() => {
-  console.log('Graph database initialized successfully');
   ReactDOM.createRoot(document.getElementById('root')).render(
       <App />
   )
 }).catch(error => {
-  console.error('Failed to initialize graph database:', error)
   // Still render the app but with error handling
   ReactDOM.createRoot(document.getElementById('root')).render(
       <App />

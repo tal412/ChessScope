@@ -20,7 +20,8 @@ export function SettingsLoading({
   // Custom button props (for advanced use cases)
   approveButton = null,
   cancelButton = null,
-  showButtons = true // Control whether to show buttons or loading
+  showButtons = true, // Control whether to show buttons or loading
+  error = null // Error state to prevent success messages
 }) {
   const [displayState, setDisplayState] = useState('buttons'); // 'buttons', 'loading', 'success', 'hidden'
 
@@ -34,13 +35,41 @@ export function SettingsLoading({
     }
   }, [isLoading]);
 
+  // Reset to buttons when error state changes to true
+  useEffect(() => {
+    if (error && displayState !== 'buttons') {
+      setDisplayState('buttons');
+    }
+  }, [error, displayState]);
+
   useEffect(() => {
     if (isLoading) {
       if (progress >= 100 && displayState === 'loading') {
-        // Show success immediately when reaching 100%
+        // Only show success if there's no error
+        if (!error) {
+          setDisplayState('success');
+          
+          // After successDuration, hide and call completion
+          const timer = setTimeout(() => {
+            setDisplayState('hidden');
+            if (onComplete) {
+              onComplete();
+            }
+          }, successDuration);
+          
+          return () => clearTimeout(timer);
+        } else {
+          // If there's an error, go back to buttons immediately
+          setDisplayState('buttons');
+        }
+      } else if (progress < 100) {
+        setDisplayState('loading');
+      }
+    } else if (!isLoading && displayState === 'loading') {
+      // If loading ends without reaching 100%, only show success if no error
+      if (!error) {
         setDisplayState('success');
         
-        // After successDuration, hide and call completion
         const timer = setTimeout(() => {
           setDisplayState('hidden');
           if (onComplete) {
@@ -49,23 +78,12 @@ export function SettingsLoading({
         }, successDuration);
         
         return () => clearTimeout(timer);
-      } else if (progress < 100) {
-        setDisplayState('loading');
+      } else {
+        // If there's an error, go back to buttons
+        setDisplayState('buttons');
       }
-    } else if (!isLoading && displayState === 'loading') {
-      // If loading ends without reaching 100%, go straight to success
-      setDisplayState('success');
-      
-      const timer = setTimeout(() => {
-        setDisplayState('hidden');
-        if (onComplete) {
-          onComplete();
-        }
-      }, successDuration);
-      
-      return () => clearTimeout(timer);
     }
-  }, [isLoading, progress, displayState, onComplete, successDuration]);
+  }, [isLoading, progress, displayState, onComplete, successDuration, error]);
 
   // Don't render anything if we're in hidden state or if buttons shouldn't be shown and we're not loading
   if (displayState === 'hidden' || (!showButtons && !isLoading)) {
@@ -80,18 +98,19 @@ export function SettingsLoading({
         className
       )}
     >
-      <div className="w-full max-w-lg">
+      {/* Fixed container with consistent dimensions */}
+      <div className="w-full max-w-lg min-w-[300px]">
         {displayState === 'success' ? (
-          // Success Animation
-          <div className="flex items-center justify-center space-x-3 animate-in slide-in-from-bottom-2 duration-300 min-h-[56px]">
+          // Success Animation - maintain consistent height and width
+          <div className="flex items-center justify-center space-x-3 animate-in slide-in-from-bottom-2 duration-300 min-h-[56px] w-full">
             <CheckCircle className="w-5 h-5 text-green-400" />
             <span className="text-sm font-medium text-green-400">
               {successMessage}
             </span>
           </div>
         ) : displayState === 'loading' ? (
-          // Loading Animation - Progress bar with integrated text
-          <div className="space-y-2 py-2 min-h-[56px] flex flex-col justify-center">
+          // Loading Animation - Progress bar with consistent dimensions
+          <div className="space-y-2 py-2 min-h-[56px] flex flex-col justify-center w-full">
             <div className="flex items-center justify-between text-sm">
               <span className="text-slate-300 font-medium truncate pr-4">
                 {progress >= 100 ? 'Finalizing...' : status || 'Updating Analysis...'}
@@ -113,9 +132,9 @@ export function SettingsLoading({
             </div>
           </div>
         ) : displayState === 'buttons' && showButtons ? (
-          // Show buttons - either custom or generic
+          // Show buttons - either custom or generic with consistent dimensions
           <div className={cn(
-            "flex gap-2",
+            "flex gap-2 w-full",
             // Center generic button, right-align custom buttons
             approveButton || cancelButton ? "justify-end" : "justify-center"
           )}>
@@ -126,25 +145,20 @@ export function SettingsLoading({
                 {approveButton}
               </>
             ) : (
-              // Show generic button
-              <Button 
-                onClick={onButtonClick}
-                disabled={isLoading || buttonDisabled}
-                size="lg"
-                className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-12 py-3 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 min-w-[300px] min-h-[56px]"
-              >
-                {isLoading ? (
-                  <div className="flex items-center gap-3">
-                    <Loader2 className="w-5 h-5 animate-spin" />
-                    {loadingText}
-                  </div>
-                ) : (
+              // Show generic button - maintain consistent dimensions
+              !isLoading && (
+                <Button 
+                  onClick={onButtonClick}
+                  disabled={buttonDisabled}
+                  size="lg"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-12 py-3 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 w-full max-w-[300px] min-h-[56px]"
+                >
                   <div className="flex items-center gap-3">
                     <ChevronRight className="w-5 h-5" />
                     {buttonText}
                   </div>
-                )}
-              </Button>
+                </Button>
+              )
             )}
           </div>
         ) : null}

@@ -221,6 +221,7 @@ export const AuthProvider = ({ children }) => {
       const currentIdentifier = user?.platform ? `${user.platform}:${user.username}`.toLowerCase() : user?.chessComUsername?.toLowerCase();
       
       // If delay is specified, wait before clearing data (for smooth transitions)
+      // Keep delay minimal to prevent black screen flash
       if (delay > 0) {
         console.log(`⏳ Waiting ${delay}ms for smooth transition...`);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -238,13 +239,19 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('chesscope_db');
       console.log('✅ Cleared legacy database data');
       
-      // 4. Clear other potential localStorage keys
+      // 4. Clear other potential localStorage keys including canvas preferences
       const keysToCheck = [
         'chesscope_games',
         'chesscope_nodes',
         'chesscope_settings',
         'chesscope_openings',
-        'chesscope_cache'
+        'chesscope_cache',
+        // Canvas preferences
+        'canvas-opening-clusters-enabled',
+        'canvas-position-clusters-enabled',
+        'canvas-auto-zoom-on-click',
+        // Sidebar preferences
+        'sidebar-collapsed'
       ];
       
       keysToCheck.forEach(key => {
