@@ -225,13 +225,17 @@ export default function OpeningEditor() {
     return null;
   }, []);
   
+  // Auto zoom on click state
+  const [autoZoomOnClick, setAutoZoomOnClick] = useState(false);
+  
   // Shared performance graph state for all canvas functionality (unified for both modes)
   const performanceState = useCanvasState({
     openingGraph: openingGraph,
     selectedPlayer: color,
     enableClustering: false, // Disable opening clustering in opening editor
     enablePositionClusters: true, // Enable position clusters in both modes
-    enableAutoZoom: false // Disable auto-zoom in opening editor - only manual fit to all
+    enableAutoZoom: true, // Enable auto-zoom functionality 
+    enableClickAutoZoom: autoZoomOnClick // Use state-controlled click auto-zoom
   });
   
   // Derived selected node state from unified performance state
@@ -309,7 +313,7 @@ export default function OpeningEditor() {
       loadOpening();
     } else {
       // Initialize performance state position for new opening
-      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen);
+      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'programmatic');
     }
   }, [openingId]);
 
@@ -644,11 +648,11 @@ export default function OpeningEditor() {
     if (targetNodeId && targetNodeId !== performanceState.currentNodeId) {
       const targetNode = currentGraphData.nodes.find(n => n.id === targetNodeId);
       if (targetNode) {
-        performanceState.updateCurrentPosition(targetNodeId, targetNode.data.fen);
+        performanceState.updateCurrentPosition(targetNodeId, targetNode.data.fen, 'programmatic');
       }
     } else if (!targetNodeId && performanceState.currentNodeId) {
       // Clear the current position if no matching node found
-      performanceState.updateCurrentPosition(null, null);
+      performanceState.updateCurrentPosition(null, null, 'programmatic');
     }
   }, [canvasMode, currentNode, currentPath, graphData.nodes, performanceGraphData.nodes]);
 
@@ -713,7 +717,7 @@ export default function OpeningEditor() {
       setCurrentNode(root);
       
       // Initialize unified performance state position
-      performanceState.updateCurrentPosition(root.id, root.fen);
+      performanceState.updateCurrentPosition(root.id, root.fen, 'programmatic');
       
     } catch (error) {
       console.error('Error loading opening:', error);
@@ -1107,7 +1111,7 @@ export default function OpeningEditor() {
     if (newMoves.length === 0) {
       setCurrentNode(moveTree);
       setCurrentPath([]);
-      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen);
+      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'programmatic');
       return;
     }
     
@@ -1148,7 +1152,7 @@ export default function OpeningEditor() {
     // Update current position to the final node
     setCurrentNode(node);
     setCurrentPath([...newMoves]);
-    performanceState.updateCurrentPosition(node.id, node.fen);
+    performanceState.updateCurrentPosition(node.id, node.fen, 'programmatic');
     
     // Only update the tree if we added new moves
     if (needsUpdate) {
@@ -1161,11 +1165,12 @@ export default function OpeningEditor() {
       // Trigger change detection
       setTreeChangeVersion(v => v + 1);
       
-      // Schedule auto-fit after tree update (longer delay to ensure graph is updated)
-      // Use the unified canvas state for both modes
-      setTimeout(() => {
-        performanceState.scheduleAutoFit('new-move-added', 200);
-      }, 300);
+      // Schedule auto-fit after tree update only if auto zoom is enabled
+      if (autoZoomOnClick) {
+        setTimeout(() => {
+          performanceState.scheduleAutoFit('new-move-added', 200);
+        }, 300);
+      }
     }
   };
   
@@ -1181,8 +1186,8 @@ export default function OpeningEditor() {
     }
     setCurrentPath(path);
     
-    // Update unified performance state position
-    performanceState.updateCurrentPosition(node.id, node.fen);
+    // Update unified performance state position - pass 'click' as source
+    performanceState.updateCurrentPosition(node.id, node.fen, 'click');
     
     // Don't auto-fit on node selection - let user control the view
     // This prevents the view from jumping when user clicks nodes
@@ -1195,7 +1200,7 @@ export default function OpeningEditor() {
       if (currentNode === node) {
         setCurrentNode(node.parent);
         // Update unified performance state position
-        performanceState.updateCurrentPosition(node.parent.id, node.parent.fen);
+        performanceState.updateCurrentPosition(node.parent.id, node.parent.fen, 'programmatic');
       }
       
       // Recalculate main line after deletion
@@ -1224,7 +1229,7 @@ export default function OpeningEditor() {
             setCurrentNode(null);
             setCurrentPath([]);
             // Clear performance state position
-            performanceState.updateCurrentPosition(null, null);
+            performanceState.updateCurrentPosition(null, null, 'click');
             return;
           }
         }
@@ -1234,11 +1239,11 @@ export default function OpeningEditor() {
       // Check if clicking on currently selected node - if so, deselect it
       if (performanceState.currentNodeId === node.id) {
         // Deselect the current node
-        performanceState.updateCurrentPosition(null, null);
+        performanceState.updateCurrentPosition(null, null, 'click');
         return;
       }
-      // Update performance state position for auto-zoom functionality
-      performanceState.updateCurrentPosition(node.id, node.data.fen);
+      // Update performance state position for auto-zoom functionality - pass 'click' as source
+      performanceState.updateCurrentPosition(node.id, node.data.fen, 'click');
       
       // Also update the local tree state to match the selected performance node
       // Find the corresponding tree node by move sequence
@@ -1510,12 +1515,12 @@ export default function OpeningEditor() {
         setCurrentPath([...newPath]);
         
         // Update unified performance state position
-        performanceState.updateCurrentPosition(newCurrentNode.id, newCurrentNode.fen);
+        performanceState.updateCurrentPosition(newCurrentNode.id, newCurrentNode.fen, 'programmatic');
       } else {
         // If we can't find a node, go to root
         setCurrentNode(updatedTree);
         setCurrentPath([]);
-        performanceState.updateCurrentPosition(updatedTree.id, updatedTree.fen);
+        performanceState.updateCurrentPosition(updatedTree.id, updatedTree.fen, 'programmatic');
       }
       
       // Recalculate main line after deletion
@@ -1758,8 +1763,8 @@ export default function OpeningEditor() {
                   onPlayerChange={setColor}
                   isClusteringLoading={false}
                   enableOpeningClusters={false}
-                  autoZoomOnClick={false}
-                  onAutoZoomOnClickChange={null}
+                  autoZoomOnClick={autoZoomOnClick}
+                  onAutoZoomOnClickChange={setAutoZoomOnClick}
                   className="w-full h-full"
                 />
               </div>

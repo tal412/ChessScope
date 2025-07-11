@@ -328,6 +328,19 @@ const CanvasPerformanceGraph = ({
         setDimensions(newDimensions);
       }
     }
+    
+    // Fallback: if dimensions aren't set after a delay, use defaults
+    const dimensionFallbackTimeout = setTimeout(() => {
+      setDimensions(current => {
+        if (current.width === 0 || current.height === 0) {
+          console.warn('Canvas dimensions fallback - using default size');
+          return { width: 800, height: 600 };
+        }
+        return current;
+      });
+    }, 1000);
+    
+    return () => clearTimeout(dimensionFallbackTimeout);
   }, []); // Only run on mount
   
   // Notify parent of resize state changes
@@ -628,16 +641,22 @@ const CanvasPerformanceGraph = ({
     }
     
     if (!graphData.nodes || graphData.nodes.length === 0) {
-      // console.log('📭 NO GRAPH DATA - KEEPING INITIALIZATION STATE');
-      // DON'T mark as complete when there's no data - keep waiting for real data
+      // console.log('📭 NO GRAPH DATA - COMPLETE INITIALIZATION WITH EMPTY STATE');
+      // Complete initialization with empty state - don't wait forever for data that might not come
       requestAnimationFrame(() => {
         setPositionedNodes([]);
-        setHasAutoFitted(false); // Don't mark as fitted yet
-        // Keep isInitializing and isInitialPositioningComplete as false
-        // Keep hasValidTransform as false - wait for real data
-        setTransform(null); // No transform yet
-        optimalTransformRef.current = null; // Clear ref
-        coreGraphDataRef.current = null; // Clear core data ref
+        setHasAutoFitted(true); // Mark as fitted even with no data
+        // Complete initialization for empty state
+        setIsInitializing(false);
+        setIsInitialPositioningComplete(true);
+        setHasValidTransform(true); // Mark as having valid transform (empty state is valid)
+        // Set a default transform for empty state
+        const defaultTransform = { x: 0, y: 0, scale: 1 };
+        setTransform(defaultTransform);
+        optimalTransformRef.current = defaultTransform;
+        currentTransformRef2.current = defaultTransform;
+        currentPositionedNodesRef.current = [];
+        coreGraphDataRef.current = JSON.stringify({ nodeCount: 0, edgeCount: 0, nodeIds: [], edgeIds: [] });
       });
       return;
     }
@@ -666,21 +685,25 @@ const CanvasPerformanceGraph = ({
     });
     
     const isRealGraphChange = currentCoreData !== coreGraphDataRef.current;
+    
+    // Special case: if we previously had empty data and now have nodes, always recalculate
+    const wasEmpty = coreGraphDataRef.current === JSON.stringify({ nodeCount: 0, edgeCount: 0, nodeIds: [], edgeIds: [] });
+    const hasNodesNow = nodes.length > 0;
+    const isEmptyToNodesTransition = wasEmpty && hasNodesNow;
+    
     coreGraphDataRef.current = currentCoreData;
 
     // console.log('🔍 TRANSFORM CALCULATION CHECK:', { shouldCalculateTransform: dimensions.width > 0 && dimensions.height > 0 && (!isInitialPositioningComplete || (isRealGraphChange && !resizeOnlyRef.current)) });
 
     // Only calculate and apply optimal transform if:
     // 1. We have valid dimensions
-    // 2. We haven't completed initial positioning yet OR this is a real graph change
+    // 2. We haven't completed initial positioning yet OR this is a real graph change OR transitioning from empty to nodes
     // 3. This is NOT just a resize (no new graph data) - unless it's initial positioning
     const shouldCalculateTransform = dimensions.width > 0 && dimensions.height > 0 && 
-      (!isInitialPositioningComplete || (isRealGraphChange && !resizeOnlyRef.current));
+      (!isInitialPositioningComplete || (isRealGraphChange && !resizeOnlyRef.current) || isEmptyToNodesTransition);
     
     if (shouldCalculateTransform) {
       const optimalTransform = calculateOptimalTransform(positioned, dimensions);
-      
-          // console.log('🎯 INITIAL TRANSFORM CALCULATION:', { dimensions, nodeCount: positioned.length, optimalTransform });
       
       // Store EVERYTHING in refs first for immediate access
       optimalTransformRef.current = optimalTransform;
@@ -710,12 +733,20 @@ const CanvasPerformanceGraph = ({
   useEffect(() => {
     if (isInitializing) {
       const fallbackTimeout = setTimeout(() => {
+        console.warn('Canvas initialization timeout - forcing completion');
         setIsInitializing(false);
-      }, 1000); // 1 second fallback (more reasonable since we use 100ms delays)
+        setIsInitialPositioningComplete(true);
+        setHasValidTransform(true);
+        // Set basic transform if none exists
+        if (!transform) {
+          const defaultTransform = { x: 0, y: 0, scale: 1 };
+          setTransform(defaultTransform);
+        }
+      }, 3000); // Increased to 3 seconds to allow for slower initialization
 
       return () => clearTimeout(fallbackTimeout);
     }
-  }, [isInitializing]);
+  }, [isInitializing, transform]);
 
   // Hide initialization overlay when parent is generating to prevent conflicts
   useEffect(() => {
