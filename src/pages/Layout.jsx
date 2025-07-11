@@ -80,6 +80,7 @@ export default function Layout() {
   const [isLoggingOutTransition, setIsLoggingOutTransition] = useState(false);
   const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [settingsSaveStarted, setSettingsSaveStarted] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
   const [showUserContent, setShowUserContent] = useState(() => {
     const savedState = localStorage.getItem('sidebar-collapsed');
     const isCollapsed = savedState ? JSON.parse(savedState) : false;
@@ -120,15 +121,35 @@ export default function Layout() {
     setTempSettings(user?.importSettings || {});
     setIsSettingsOpen(true);
     setSettingsSaveStarted(false);
+    setSettingsError('');
   };
 
   const handleSettingsSave = async () => {
+    // Validate settings before saving
+    if ((tempSettings.selectedTimeControls || []).length === 0) {
+      setSettingsError('Please select at least one time control to import');
+      return;
+    }
+
+    if (tempSettings.selectedDateRange === "custom" && 
+        (!tempSettings.customDateRange?.from || !tempSettings.customDateRange?.to)) {
+      setSettingsError('Please select both start and end dates for custom range');
+      return;
+    }
+
     try {
       console.log('🎯 Starting settings save');
+      setSettingsError(''); // Clear any previous errors
       setSettingsSaveStarted(true); // Mark that save has started
-      await updateImportSettings(tempSettings, handleSettingsLoadingComplete); // Add callback back
+      const result = await updateImportSettings(tempSettings, handleSettingsLoadingComplete);
+      
+      if (result && !result.success) {
+        setSettingsError(result.error || 'Failed to update settings');
+        setSettingsSaveStarted(false);
+      }
     } catch (error) {
       console.error('Failed to update settings:', error);
+      setSettingsError('Failed to update settings. Please try again.');
       setSettingsSaveStarted(false); // Reset on error
     }
   };
@@ -183,8 +204,8 @@ export default function Layout() {
         } 
       });
       
-      // Clear auth state after navigation completes (delay for smooth transition)
-      await logout(300); // 300ms delay to allow for smooth navigation
+      // Clear auth state with minimal delay to prevent black screen flash
+      await logout(150); // Reduced delay for smoother transition
       
     } catch (error) {
       console.error('Logout failed:', error);
@@ -228,7 +249,7 @@ export default function Layout() {
 
   return (
     <TooltipProvider delayDuration={0}>
-      <div className={`app-layout bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 transition-all duration-300 ${
+      <div className={`app-layout bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 transition-all duration-200 ${
         isLoggingOutTransition ? 'opacity-0 transform -translate-x-8' : 'opacity-100 transform translate-x-0'
       }`}>
         <div className="flex h-full">
@@ -564,9 +585,15 @@ export default function Layout() {
 
         {/* Settings Dialog */}
         <Dialog open={isSettingsOpen} onOpenChange={(open) => {
+          // Prevent closing during import
+          if (!open && isImporting) {
+            return;
+          }
+          
           setIsSettingsOpen(open);
           if (!open) {
             setSettingsSaveStarted(false); // Reset when dialog closes
+            setSettingsError(''); // Clear errors when dialog closes
           }
         }}>
           <DialogContent className="bg-slate-800/95 backdrop-blur-xl border-slate-700/50 text-white max-w-6xl max-h-[90vh] overflow-y-auto">
@@ -814,20 +841,11 @@ export default function Layout() {
             </div>
 
             {/* Validation */}
-            {(tempSettings.selectedTimeControls || []).length === 0 && (
+            {settingsError && (
               <Alert className="bg-red-500/10 border-red-500/50">
                 <AlertCircle className="h-4 w-4 text-red-400" />
                 <AlertDescription className="text-red-300">
-                  Please select at least one time control to import.
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {tempSettings.selectedDateRange === "custom" && (!tempSettings.customDateRange?.from || !tempSettings.customDateRange?.to) && (
-              <Alert className="bg-red-500/10 border-red-500/50">
-                <AlertCircle className="h-4 w-4 text-red-400" />
-                <AlertDescription className="text-red-300">
-                  Please select both start and end dates for custom range.
+                  {settingsError}
                 </AlertDescription>
               </Alert>
             )}
@@ -846,6 +864,7 @@ export default function Layout() {
                 buttonDisabled={(tempSettings.selectedTimeControls || []).length === 0 || 
                               (tempSettings.selectedDateRange === "custom" && (!tempSettings.customDateRange?.from || !tempSettings.customDateRange?.to))}
                 successMessage="Settings Updated Successfully!"
+                error={settingsError}
               />
             </DialogFooter>
           </DialogContent>

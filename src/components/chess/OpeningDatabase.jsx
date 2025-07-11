@@ -25,28 +25,7 @@ const initializeDatabase = async () => {
       LICHESS_OPENINGS_DATABASE.set(opening.epd, opening);
     });
     
-    console.log(`✅ Loaded ${openings.length} openings from Lichess database`);
-    console.log(`🔍 Database size:`, LICHESS_OPENINGS_DATABASE.size);
-    
-    // Test Sicilian Defense lookup
-    const sicilianEpd = "rnbqkbnr/pp1ppppp/8/2p5/4P3/8/PPPP1PPP/RNBQKBNR w KQkq -";
-    const sicilianOpening = LICHESS_OPENINGS_DATABASE.get(sicilianEpd);
-    console.log(`🔍 Sicilian Defense test:`, sicilianOpening ? sicilianOpening.name : 'Not found');
-    
-    // Test 1.e4 lookup
-    const e4Epd = "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq -";
-    const e4Opening = LICHESS_OPENINGS_DATABASE.get(e4Epd);
-    console.log(`🔍 1.e4 test:`, e4Opening ? e4Opening.name : 'Not found');
-    
-    // Check for conflicts by looking at all entries with this EPD
-    let e4Count = 0;
-    LICHESS_OPENINGS_DATABASE.forEach((opening, key) => {
-      if (key === e4Epd) {
-        e4Count++;
-        console.log(`🔍 Found entry for e4 EPD:`, opening.name);
-      }
-    });
-    console.log(`🔍 Total entries for e4 EPD:`, e4Count);
+
     return LICHESS_OPENINGS_DATABASE;
   } catch (error) {
     console.warn('Failed to load Lichess openings database, using fallback data:', error);
@@ -148,15 +127,7 @@ const _identifyOpeningAsync = async (moves) => {
     // Try to find opening with the EPD
     let opening = LICHESS_OPENINGS_DATABASE.get(epd) || LICHESS_OPENINGS_DATABASE.get(currentFen);
     
-    // Debug logging for first few lookups
-    if (moves.length <= 4) {
-      console.log(`🔍 Opening lookup:`, {
-        moves: moves.slice(0, 4),
-        epd: epd,
-        found: opening ? opening.name : 'Not found',
-        databaseSize: LICHESS_OPENINGS_DATABASE?.size || 0
-      });
-    }
+
     
     if (opening) {
       return {
@@ -372,5 +343,5 @@ DATABASE_LOADING_PROMISE.then(() => {
     ECO_CODES[eco] = { code: eco, description: eco };
   });
   
-  console.log(`🔧 Initialized compatibility objects with ${Object.keys(OPENING_DATABASE).length} openings and ${Object.keys(ECO_CODES).length} ECO codes`);
+
 });

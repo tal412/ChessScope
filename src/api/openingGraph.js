@@ -31,7 +31,7 @@ class GraphNode {
     
     // Debug logging for Lichess result processing
     if (gameIndex < 5) { // Only log first 5 games to avoid spam
-      console.log(`🎯 DEBUG Opening Graph - Game ${gameIndex}: result="${result}", position games: ${this.details.totalGames}`);
+      // Debug logging removed
     }
     
     switch (result) {
@@ -112,7 +112,7 @@ class Graph {
     
     // Debug logging for Lichess games
     if (gameIndex < 5) { // Only log first 5 games to avoid spam
-      console.log(`🎮 DEBUG addPGN - Game ${gameIndex}: result="${gameResult}", player="${this.playerColor}", moves: ${moves.length}`);
+      // Debug logging removed
     }
     this.pgnStats.push({
       result: gameResult,
@@ -143,12 +143,10 @@ class Graph {
     
     // Load the opening database once globally for super fast FEN-based lookups
     if (!GLOBAL_OPENING_DATABASE) {
-      console.log('🚀 Loading opening database for fast FEN lookups...');
       try {
         const openingModule = await import('../components/chess/OpeningDatabase.jsx');
         await openingModule.DATABASE_LOADING_PROMISE; // Wait for database to load
         GLOBAL_OPENING_DATABASE = openingModule.LICHESS_OPENINGS_DATABASE;
-        console.log(`✅ Opening database loaded: ${GLOBAL_OPENING_DATABASE?.size || 0} positions`);
       } catch (error) {
         console.warn('Could not load opening database:', error);
         GLOBAL_OPENING_DATABASE = new Map(); // Empty map as fallback
@@ -247,12 +245,7 @@ class Graph {
           
           // Debug logging for first move e4
           if (i === 0 && move.san === 'e4') {
-            console.log(`🎯 Fast e4 identification:`, {
-              move: move.san,
-              fen: newFen,
-              epd: epd,
-              opening: positionOpeningInfo
-            });
+            // Debug logging removed
           }
         }
         
@@ -427,7 +420,7 @@ export class OpeningGraph {
     
     // Debug logging for first few games
     if (this.whiteGraph.pgnStats.length + this.blackGraph.pgnStats.length < 5) {
-      console.log(`📊 DEBUG addGame: result="${result}", player_color="${player_color}", moves: ${moves?.length || 0}`);
+      // Debug logging removed
     }
     
     // Determine opponent rating

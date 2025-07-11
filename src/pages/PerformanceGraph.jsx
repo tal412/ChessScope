@@ -384,10 +384,8 @@ function PerformanceGraphContent() {
   
   // Component lifecycle logging
   useEffect(() => {
-    console.log('🎬 PerformanceGraph component MOUNTED at', new Date().toISOString());
-    
     return () => {
-      console.log('💥 PerformanceGraph component UNMOUNTED at', new Date().toISOString());
+      // Component unmounted
     };
   }, []);
   
@@ -405,14 +403,28 @@ function PerformanceGraphContent() {
   // Ref must be declared before using in hooks
   const openingGraphRef = useRef(null);
   
+  // Auto-zoom toggle state - controls both click-based and position-change-based auto-zoom
+  const [autoZoomOnClick, setAutoZoomOnClick] = useState(() => {
+    const savedState = localStorage.getItem('canvas-auto-zoom-on-click');
+    return savedState ? JSON.parse(savedState) : true;
+  }); // On by default
+
   // Use shared performance graph state management
   const performanceState = useCanvasState({
     openingGraph: openingGraphRef.current,
     selectedPlayer,
     enableClustering: false,
     enablePositionClusters: true,
-    enableAutoZoom: true
+    enableAutoZoom: true, // Keep general auto-zoom enabled for programmatic changes
+    enableClickAutoZoom: autoZoomOnClick, // This controls click-based auto-zoom specifically
+    autoFitOnResize: true // This controls resize-based auto-fit (always enabled)
   });
+
+  // Auto-zoom toggle handler with persistence
+  const handleAutoZoomOnClickChange = useCallback((newState) => {
+    setAutoZoomOnClick(newState);
+    localStorage.setItem('canvas-auto-zoom-on-click', JSON.stringify(newState));
+  }, []);
   
   // Saved openings state
   const [nodeOpeningsMap, setNodeOpeningsMap] = useState(new Map()); // Map of FEN -> openings containing it
@@ -489,14 +501,8 @@ function PerformanceGraphContent() {
         // Don't load if syncing is in progress OR if there's a pending auto-sync
         // UNLESS we're in the middle of a refresh (which means import just completed)
         if ((isSyncing || pendingAutoSync) && !isRefreshInProgress) {
-          console.log('🔄 Skipping graph load - sync in progress or pending auto-sync');
           setLoading(true); // Keep loading state during sync
           return;
-        }
-        
-        // If we're doing a refresh, log that we're bypassing sync checks
-        if (isRefreshInProgress) {
-          console.log('🔄 Refresh in progress - bypassing sync checks to load new data');
         }
         
         setLoading(true);
@@ -523,21 +529,13 @@ function PerformanceGraphContent() {
         setGraphLoaded(true); // Trigger recalculation
         setInitialLoad(false); // Mark initial load as complete
         
-        // Auto-detect user's primary playing color and set as default
+        // Always default to white's perspective
         const overallStats = graph.getOverallStats();
         const whiteGames = overallStats.white?.totalGames || 0;
         const blackGames = overallStats.black?.totalGames || 0;
         
-        // Set selectedPlayer to the color with more games (or white if equal)
-        if (blackGames > whiteGames) {
-          console.log(`🎯 Auto-detected primary color: black (${blackGames} games vs ${whiteGames} white games)`);
-          setSelectedPlayer('black');
-        } else if (whiteGames > 0) {
-          console.log(`🎯 Auto-detected primary color: white (${whiteGames} games vs ${blackGames} black games)`);
-          setSelectedPlayer('white');
-        } else {
-          console.log('🎯 No games found, keeping default white selection');
-        }
+        // Always set selectedPlayer to white (user can manually switch if needed)
+        setSelectedPlayer('white');
         
         // Also set up opening moves with the same graph
         setOpeningGraph(graph);
@@ -554,7 +552,6 @@ function PerformanceGraphContent() {
         // Clear refresh flag when loading completes
         if (isRefreshInProgress) {
           setIsRefreshInProgress(false);
-          console.log('✅ Refresh completed - data loading finished');
         }
       }
     };
@@ -565,14 +562,6 @@ function PerformanceGraphContent() {
   // Listen for custom refresh event from settings
   useEffect(() => {
     const handleRefresh = (event) => {
-      console.log('🔄 PerformanceGraph received refresh event from settings', {
-        detail: event?.detail,
-        timestamp: new Date().toISOString()
-      });
-      
-      // Add a visual indicator that refresh is happening
-      console.log('🔄 Starting PerformanceGraph refresh...');
-      
       // Set refresh in progress flag
       setIsRefreshInProgress(true);
       
@@ -605,41 +594,29 @@ function PerformanceGraphContent() {
       performanceState.setHoveredNextMoveNodeId(null);
       setMovesHoveredMove(null);
       setMovesCurrentPath([]);
+      setHasInitialRootSelection(false); // Reset so root gets selected again on new data
       
       // Force loading state to show immediately
       setLoading(true);
       
       // Trigger data reload with a small delay to ensure auth state is updated
       setTimeout(() => {
-        setRefreshTrigger(prev => {
-          console.log('📈 Incrementing refresh trigger from', prev, 'to', prev + 1);
-          return prev + 1;
-        });
+        setRefreshTrigger(prev => prev + 1);
       }, 100); // Small delay to allow auth state to settle
-      
-      console.log('✅ PerformanceGraph state reset complete, data reload triggered');
     };
 
-    console.log('🎧 PerformanceGraph setting up refresh event listener at', new Date().toISOString());
     window.addEventListener('refreshPerformanceGraph', handleRefresh);
-    
-    // Test that the listener is working
-    console.log('🧪 Testing event listener setup - current listeners:', window._getEventListeners?.('refreshPerformanceGraph'));
     
     // Add test function to window for manual testing
     window.testPerformanceGraphRefresh = () => {
-      console.log('🧪 Manual test: Dispatching refreshPerformanceGraph event');
       const event = new CustomEvent('refreshPerformanceGraph', { 
         detail: { source: 'manual-test', timestamp: Date.now() } 
       });
       const result = window.dispatchEvent(event);
-      console.log('🧪 Manual test dispatch result:', result);
       return result;
     };
-    console.log('💡 Test function added: Run window.testPerformanceGraphRefresh() in console to test refresh');
     
     return () => {
-      console.log('🧹 PerformanceGraph cleaning up refresh event listener');
       window.removeEventListener('refreshPerformanceGraph', handleRefresh);
       delete window.testPerformanceGraphRefresh;
     };
@@ -809,7 +786,7 @@ function PerformanceGraphContent() {
         
         const finalGraphData = { nodes: [defaultRootNode], edges: [], maxGameCount: 0 };
         setGraphData(finalGraphData);
-        setIsGenerating(false);
+        performanceState.setIsGenerating(false);
         return;
       }
       
@@ -852,55 +829,15 @@ function PerformanceGraphContent() {
                winRate <= performanceState.winRateFilter[1];
       });
       
-      // Apply fallback logic that respects win rate filter and dataset size
+      // NO FALLBACK - Strictly respect the filter settings
       let finalRootMoves = filteredRootMoves;
-      if (filteredRootMoves.length < 3 && rootMoves.length > 0) {
-        // Calculate total games and max games in any move to determine if fallback should apply
-        const maxGamesInAnyMove = Math.max(...rootMoves.map(m => m.gameCount || 0));
-        
-        // Apply different logic based on filter level:
-        // - Low filters (1-5 games): Always show moves that meet win rate criteria
-        // - High filters (10+ games): Only show if dataset is reasonable
-        let shouldApplyFallback = false;
-        
-        if (performanceState.minGameCount <= 5) {
-          // Low filter - always apply fallback for game count (user wants to see data)
-          shouldApplyFallback = true;
-        } else if (performanceState.minGameCount <= 20) {
-          // Medium filter - apply fallback if there's reasonable data
-          shouldApplyFallback = totalGames >= 50 || maxGamesInAnyMove >= 10;
-        } else {
-          // High filter - only apply fallback if there's substantial data
-          shouldApplyFallback = totalGames >= 150 || maxGamesInAnyMove >= 30;
-        }
-        
-        if (shouldApplyFallback) {
-          // Check if it's a win rate filter issue vs game count issue
-          const winRateFilteredRootMoves = rootMoves.filter(move => {
-            const winRate = move.details?.winRate || move.winRate || 0;
-            return winRate >= performanceState.winRateFilter[0] && winRate <= performanceState.winRateFilter[1];
-          });
-          
-          if (winRateFilteredRootMoves.length === 0) {
-            // No root moves meet win rate criteria - respect the filter
-            finalRootMoves = [];
-          } else if (winRateFilteredRootMoves.length < 3) {
-            // Few moves meet win rate but not enough - show all that meet win rate
-            finalRootMoves = winRateFilteredRootMoves;
-          } else {
-            // Enough moves meet win rate but not game count - apply fallback for game count only
-            const sortedMoves = [...winRateFilteredRootMoves].sort((a, b) => (b.gameCount || 0) - (a.gameCount || 0));
-            finalRootMoves = sortedMoves.slice(0, Math.min(8, winRateFilteredRootMoves.length));
-          }
-        } else {
-          // High filter on small dataset - respect the user's explicit filter choice
-          console.log(`🔍 Small dataset (${totalGames} total games, max ${maxGamesInAnyMove} per move) - respecting ${performanceState.minGameCount}+ games filter`);
-          finalRootMoves = [];
-        }
-      }
       
       if (finalRootMoves.length === 0) {
-        console.warn('No root moves to display - filter too restrictive');
+        console.warn(`No root moves meet the ${performanceState.minGameCount}+ games filter`);
+        
+        // Update root node to show filter message
+        rawNodes[0].data.openingName = `No moves with ${performanceState.minGameCount}+ games`;
+        rawNodes[0].data.ecoOpeningName = `Filter: ${performanceState.minGameCount}+ games`;
         
         // Return just the root node (no popup alert)
         const finalGraphData = { 
@@ -947,67 +884,14 @@ function PerformanceGraphContent() {
               continue;
             }
             
-            // Apply filtering - but be more generous to go deeper
-            const levelAdjustedMinGames = Math.max(1, Math.floor(performanceState.minGameCount / Math.pow(1.5, currentLevel - 1)));
-            
-            // Filter moves by game count AND win rate
-            let validMoves = movesToGet.filter(move => {
+            // SIMPLE FILTER: Apply minimum game count to all moves
+            const validMoves = movesToGet.filter(move => {
               const gameCount = move.gameCount || 0;
               const winRate = move.details?.winRate || move.winRate || 0;
-              return gameCount >= levelAdjustedMinGames && 
+              return gameCount >= performanceState.minGameCount && 
                      winRate >= performanceState.winRateFilter[0] && 
                      winRate <= performanceState.winRateFilter[1];
             });
-            
-            // Only apply fallback for game count filtering, NOT win rate filtering
-            if (validMoves.length === 0 && movesToGet.length > 0) {
-              // Calculate total games and max games in any move to determine if fallback should apply
-              const totalGamesAtLevel = movesToGet.reduce((sum, move) => sum + (move.gameCount || 0), 0);
-              const maxGamesInAnyMove = Math.max(...movesToGet.map(m => m.gameCount || 0));
-              
-              // Apply different logic based on filter level:
-              // - Low filters (1-5 games): Always show moves that meet win rate criteria
-              // - High filters (10+ games): Only show if dataset is reasonable
-              let shouldApplyFallback = false;
-              
-              if (performanceState.minGameCount <= 5) {
-                // Low filter - always apply fallback for game count (user wants to see data)
-                shouldApplyFallback = true;
-              } else if (performanceState.minGameCount <= 20) {
-                // Medium filter - apply fallback if there's reasonable data at this level
-                shouldApplyFallback = totalGamesAtLevel >= 20 || maxGamesInAnyMove >= 5;
-              } else {
-                // High filter - only apply fallback if there's substantial data at this level
-                shouldApplyFallback = totalGamesAtLevel >= 50 || maxGamesInAnyMove >= 15;
-              }
-              
-              if (shouldApplyFallback) {
-                // Check if it's a win rate filter issue vs game count issue
-                const winRateFilteredMoves = movesToGet.filter(move => {
-                  const winRate = move.details?.winRate || move.winRate || 0;
-                  return winRate >= performanceState.winRateFilter[0] && winRate <= performanceState.winRateFilter[1];
-                });
-                
-                if (winRateFilteredMoves.length === 0) {
-                  // No moves meet win rate criteria - respect the filter and show nothing
-                  validMoves = [];
-                } else {
-                  // Some moves meet win rate but not game count - apply fallback for game count only
-                  const sortedMoves = [...winRateFilteredMoves].sort((a, b) => (b.gameCount || 0) - (a.gameCount || 0));
-                  validMoves = sortedMoves.slice(0, Math.min(5, winRateFilteredMoves.length));
-                }
-              } else {
-                // High filter on small dataset at this level - respect the user's explicit filter choice
-                validMoves = [];
-              }
-            }
-            
-            // Limit breadth at deeper levels to prevent explosion but allow depth
-            const maxMovesAtLevel = Math.max(3, Math.floor(8 / Math.sqrt(currentLevel)));
-            if (validMoves.length > maxMovesAtLevel) {
-              validMoves = [...validMoves].sort((a, b) => (b.gameCount || 0) - (a.gameCount || 0))
-                                        .slice(0, maxMovesAtLevel);
-            }
             
             if (validMoves.length === 0) continue;
             
@@ -1030,12 +914,7 @@ function PerformanceGraphContent() {
               
               const calculatedWinRate = move.details?.winRate || move.winRate || 0;
               
-              // Debug logging for Lichess win rates
-              if (currentLevel === 1 && calculatedWinRate < 40) {
-                console.log(`🔍 DEBUG Low win rate for ${move.san}: ${calculatedWinRate}% (${gameCount} games)`);
-                console.log(`  - move.details:`, move.details);
-                console.log(`  - move.winRate:`, move.winRate);
-              }
+              // Debug logging for Lichess win rates removed
               
               const childNode = {
                 id: nodeId,
@@ -1189,6 +1068,9 @@ function PerformanceGraphContent() {
         const originalNodeCount = rawNodes.length;
         const originalEdgeCount = rawEdges.length;
         
+        // Count single-game nodes before trimming
+        const singleGameNodes = rawNodes.filter(n => n.data.gameCount === 1).length;
+        
         // Filter out marked nodes
         rawNodes.splice(0, rawNodes.length, ...rawNodes.filter(node => !nodesToRemove.has(node.id)));
         
@@ -1210,7 +1092,6 @@ function PerformanceGraphContent() {
           }
           treeStructure.delete(nodeId);
         }
-        
 
       };
       
@@ -1237,66 +1118,36 @@ function PerformanceGraphContent() {
           return treeNode.width;
         };
         
-        // Top-down position assignment
+        // Top-down position assignment - SIMPLIFIED AND FIXED
         const assignPositions = (nodeId, x, y, availableWidth) => {
           const treeNode = treeStructure.get(nodeId);
           const node = rawNodes.find(n => n.id === nodeId);
           
           if (!treeNode || !node) return;
           
-          if (node.data.isRoot && treeNode.children.length > 0) {
-            // Calculate the center position of all children
-            let minChildX = Infinity;
-            let maxChildX = -Infinity;
-            let childXs = [];
-
-            // First pass: position children to get their bounds
+          // Position this node at the given coordinates
+          node.position = { x, y };
+          
+          // Position children if any
+          if (treeNode.children.length > 0) {
             const childY = y + LEVEL_HEIGHT;
-            let currentX = -(availableWidth * NODE_SPACING) / 2;
-
+            
+            // Calculate total spacing needed for all children
+            const totalChildWidth = availableWidth * NODE_SPACING;
+            const startX = x - totalChildWidth / 2;
+            
+            // Position children evenly across the available width
+            let currentX = startX;
+            
             for (const childId of treeNode.children) {
               const childTreeNode = treeStructure.get(childId);
-              const childNode = rawNodes.find(n => n.id === childId);
-              if (childTreeNode && childNode) {
-                const childWidth = childTreeNode.width * NODE_SPACING;
-                const childCenterX = currentX + childWidth / 2;
-                childXs.push(childCenterX);
-                minChildX = Math.min(minChildX, childCenterX);
-                maxChildX = Math.max(maxChildX, childCenterX);
-                // Offset child so its center is at childCenterX
-                assignPositions(childId, childCenterX - (childNode ? (parseInt(childNode.data.isRoot ? 200 : Math.round(180 * Math.min(1.8, 1 + (childNode.data.gameCount / 100)))) / 2) : 0), childY, childTreeNode.width);
-                currentX += childWidth;
-              }
-            }
-
-            // Center root node exactly above the first move (if only one), or average if multiple
-            let rootCenterX = 0;
-            if (childXs.length === 1) {
-              rootCenterX = childXs[0];
-            } else if (childXs.length > 1) {
-              rootCenterX = childXs.reduce((a, b) => a + b, 0) / childXs.length;
-            }
-            // Offset root so its center is at rootCenterX
-            const rootNodeWidth = parseInt(node.data.isRoot ? 200 : Math.round(180 * Math.min(1.8, 1 + (node.data.gameCount / 100))));
-            node.position = { x: rootCenterX - rootNodeWidth / 2, y };
-          } else {
-            // Position this node normally
-            node.position = { x, y };
-            
-            // Position children
-            if (treeNode.children.length > 0) {
-              const childY = y + LEVEL_HEIGHT;
-              let currentX = x - (availableWidth * NODE_SPACING) / 2;
-              
-              for (const childId of treeNode.children) {
-                const childTreeNode = treeStructure.get(childId);
-                if (childTreeNode) {
-                  const childWidth = childTreeNode.width * NODE_SPACING;
-                  const childCenterX = currentX + childWidth / 2;
-                  
-                  assignPositions(childId, childCenterX, childY, childTreeNode.width);
-                  currentX += childWidth;
-                }
+              if (childTreeNode) {
+                const childSubtreeWidth = childTreeNode.width * NODE_SPACING;
+                const childCenterX = currentX + childSubtreeWidth / 2;
+                
+                // Recursively position this child and its subtree
+                assignPositions(childId, childCenterX, childY, childTreeNode.width);
+                currentX += childSubtreeWidth;
               }
             }
           }
@@ -1310,22 +1161,7 @@ function PerformanceGraphContent() {
       
       calculateTreeLayout();
       
-      // Debug: Check layout bounds after calculation
-      if (rawNodes.length > 0) {
-        const bounds = rawNodes.reduce((acc, node) => ({
-          minX: Math.min(acc.minX, node.position.x),
-          maxX: Math.max(acc.maxX, node.position.x),
-          minY: Math.min(acc.minY, node.position.y),
-          maxY: Math.max(acc.maxY, node.position.y)
-        }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
-        
-        console.log('🏗️ TREE LAYOUT BOUNDS:', {
-          bounds,
-          width: bounds.maxX - bounds.minX,
-          height: bounds.maxY - bounds.minY,
-          nodeCount: rawNodes.length
-        });
-      }
+
       
       // Validate coordinates
       const validNodes = rawNodes.filter(node => {
@@ -1381,11 +1217,7 @@ function PerformanceGraphContent() {
         cleanEdges.push(edge);
       });
       
-      console.log(`🔗 EDGE SUMMARY: ${rawEdges.length} raw edges -> ${cleanEdges.length} clean edges (${rawEdges.length - cleanEdges.length} removed)`);
-      
       const validEdges = cleanEdges;
-      
-
       
       const finalGraphData = { 
         nodes: validNodes, 
@@ -1393,26 +1225,7 @@ function PerformanceGraphContent() {
         maxGameCount 
       };
       
-      // Debug: Show win rate distribution for Lichess
-      if (validNodes.length > 0) {
-        const winRates = validNodes.map(n => n.data.winRate || 0);
-        const avgWinRate = winRates.reduce((a, b) => a + b, 0) / winRates.length;
-        const minWinRate = Math.min(...winRates);
-        const maxWinRate = Math.max(...winRates);
-        
-        const redNodes = winRates.filter(wr => wr < 40).length;
-        const orangeNodes = winRates.filter(wr => wr >= 40 && wr < 50).length;
-        const yellowNodes = winRates.filter(wr => wr >= 50 && wr < 60).length;
-        const greenNodes = winRates.filter(wr => wr >= 60).length;
-        
-        console.log(`📊 WIN RATE DISTRIBUTION (${validNodes.length} nodes):`);
-        console.log(`  - Average: ${avgWinRate.toFixed(1)}%`);
-        console.log(`  - Range: ${minWinRate.toFixed(1)}% - ${maxWinRate.toFixed(1)}%`);
-        console.log(`  - Red (<40%): ${redNodes} nodes`);
-        console.log(`  - Orange (40-50%): ${orangeNodes} nodes`);
-        console.log(`  - Yellow (50-60%): ${yellowNodes} nodes`);
-        console.log(`  - Green (60%+): ${greenNodes} nodes`);
-      }
+
       
       // Set the graph data and clear generating state
       setGraphData(finalGraphData);
@@ -1428,23 +1241,27 @@ function PerformanceGraphContent() {
   generateGraph();
 }, [selectedPlayer, performanceState.maxDepth, performanceState.minGameCount, performanceState.winRateFilter, loading, graphLoaded, initialLoad]);
 
+  // Track if we've done initial root selection
+  const [hasInitialRootSelection, setHasInitialRootSelection] = useState(false);
+
   // Update nodes and edges when data changes
   useEffect(() => {
     if (graphData.nodes.length > 0) {
       // Don't set nodes here - let the opening clustering effect handle it
       setEdges(graphData.edges);
       
-      // Set initial current node to root if not already set
-      if (!performanceState.currentNodeId) {
+      // Set initial current node to root ONLY on first load, not on deselection
+      if (!performanceState.currentNodeId && !hasInitialRootSelection) {
         const rootNode = graphData.nodes.find(node => node.data.isRoot);
         if (rootNode) {
-          performanceState.updateCurrentPosition(rootNode.id, rootNode.data.fen);
+          performanceState.updateCurrentPosition(rootNode.id, rootNode.data.fen, 'initial');
+          setHasInitialRootSelection(true);
         }
       }
       
       // Note: Canvas handles its own auto-fit timing internally
     }
-  }, [graphData, setEdges]);
+  }, [graphData, setEdges, hasInitialRootSelection]);
 
   // Simple cluster hover handlers - deferred to prevent setState during render
   const handleClusterHover = useCallback((clusterName, clusterColor) => {
@@ -1502,7 +1319,7 @@ function PerformanceGraphContent() {
     // Check if clicking on currently selected node - if so, deselect it
     if (performanceState.currentNodeId === node.id) {
       // Deselect the current node
-      performanceState.updateCurrentPosition(null, null);
+      performanceState.updateCurrentPosition(null, null, 'click');
       // Reset chessboard to starting position
       chessboardSync.syncMovesToChessboard([]);
       return;
@@ -1515,7 +1332,7 @@ function PerformanceGraphContent() {
     chessboardSync.syncMovesToChessboard(moveSequence);
     
     // Track currently selected node and position
-    performanceState.updateCurrentPosition(node.id, node.data.fen);
+    performanceState.updateCurrentPosition(node.id, node.data.fen, 'click');
     
     // Don't open position dialog - it clashes with the chessboard
     // setSelectedNode(node);
@@ -1614,7 +1431,9 @@ function PerformanceGraphContent() {
     });
     
     if (targetNode) {
-      performanceState.updateCurrentPosition(targetNode.id, targetNode.data.fen);
+      // Don't overwrite recent user clicks with 'programmatic' - preserve the original source
+      // This prevents interfering with click auto-zoom detection
+      performanceState.updateCurrentPosition(targetNode.id, targetNode.data.fen, 'sync');
     }
   };
 
@@ -1635,7 +1454,6 @@ function PerformanceGraphContent() {
   const handleMovesNext = () => {
     // For opening moves, next navigation is typically done by clicking moves
     // This could be enhanced to go to the most popular next move
-    console.log('Moves next navigation - typically done by clicking moves');
   };
 
   const handleMovesReset = () => {
@@ -1956,10 +1774,12 @@ function PerformanceGraphContent() {
                   onInitializingStateChange={performanceState.onInitializingStateChange}
                   maxDepth={performanceState.maxDepth}
                   minGameCount={performanceState.minGameCount}
+                  tempMinGameCount={performanceState.tempMinGameCount}
                   winRateFilter={performanceState.winRateFilter}
                   tempWinRateFilter={performanceState.tempWinRateFilter}
                   onMaxDepthChange={performanceState.handleMaxDepthChange}
                   onMinGameCountChange={performanceState.handleMinGameCountChange}
+                  onTempMinGameCountChange={performanceState.handleTempMinGameCountChange}
                   onWinRateFilterChange={performanceState.handleWinRateFilterChange}
                   onTempWinRateFilterChange={performanceState.handleTempWinRateFilterChange}
                   onApplyWinRateFilter={performanceState.applyWinRateFilter}
@@ -1971,6 +1791,8 @@ function PerformanceGraphContent() {
                   onShowPerformanceLegend={performanceState.setShowPerformanceLegend}
                   onShowPerformanceControls={performanceState.setShowPerformanceControls}
                   isClusteringLoading={false}
+                  autoZoomOnClick={autoZoomOnClick}
+                  onAutoZoomOnClickChange={handleAutoZoomOnClickChange}
                   className="w-full h-full"
                 />
               </div>

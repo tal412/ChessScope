@@ -19,17 +19,13 @@ export const initDatabase = async () => {
       // Load existing database
       const uint8Array = new Uint8Array(JSON.parse(existingDb));
       db = new SQL.Database(uint8Array);
-      console.log('Loaded existing ChessScope database from localStorage');
     } else {
       // Create new database
       db = new SQL.Database();
-      console.log('Created new ChessScope database');
     }
 
     // Create tables
     await createTables();
-    
-    console.log('Database initialized successfully');
   } catch (error) {
     console.error('Error initializing database:', error);
     // Fallback: create new database even if loading fails

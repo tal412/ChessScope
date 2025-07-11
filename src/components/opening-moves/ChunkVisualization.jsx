@@ -193,7 +193,7 @@ export default function ChunkVisualization({
   initialPath = [], // NEW: Initial path to restore tree state
   // NEW: Filtering parameters to sync with performance graph
   maxDepth = 20,
-  minGameCount = 20,
+  minGameCount = 1,
   winRateFilter = [0, 100]
 }) {
   const [path, setPath] = useState(initialPath); // Array of selected moves (SAN notation)
@@ -334,12 +334,12 @@ export default function ChunkVisualization({
       }
     }
     
-    // Limit breadth at deeper levels
-    const maxMovesAtLevel = Math.max(3, Math.floor(8 / Math.sqrt(currentLevel + 1)));
-    if (validMoves.length > maxMovesAtLevel) {
-      validMoves = [...validMoves].sort((a, b) => (b.gameCount || 0) - (a.gameCount || 0))
-                                   .slice(0, maxMovesAtLevel);
-    }
+    // Optional: Limit breadth at deeper levels (disabled to match performance graph)
+    // const maxMovesAtLevel = Math.max(3, Math.floor(8 / Math.sqrt(currentLevel + 1)));
+    // if (validMoves.length > maxMovesAtLevel) {
+    //   validMoves = [...validMoves].sort((a, b) => (b.gameCount || 0) - (a.gameCount || 0))
+    //                                .slice(0, maxMovesAtLevel);
+    // }
     
     return validMoves;
   };

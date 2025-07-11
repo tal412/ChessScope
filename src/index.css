@@ -152,9 +152,12 @@ button:focus-visible {
   * {
     @apply border-border outline-ring/50;
   }
+  
+  /* Ensure consistent dark background throughout the app to prevent flash during transitions */
   html, body, #root {
     @apply bg-background text-foreground;
     min-height: 100vh;
+    background: linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a) !important;
   }
   
   /* Only apply overflow hidden to the main app layout, not landing page */

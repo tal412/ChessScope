@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useRef, useEffect, useLayoutEffect, useState, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from '@/components/ui/button';
 import { Slider } from '@/components/ui/slider';
@@ -15,7 +15,8 @@ import {
   Trash2,
   Edit3,
   Copy,
-  MoreHorizontal
+  MoreHorizontal,
+  Search
 } from 'lucide-react';
 
 // Performance color constants
@@ -244,11 +245,13 @@ const CanvasPerformanceGraph = ({
   onInitializingStateChange, // Callback to notify parent of initialization state
   // Control props to match ReactFlow version
   maxDepth = 20,
-  minGameCount = 20,
+  minGameCount = 1,
+  tempMinGameCount = 1, // NEW: Temporary value for slider
   winRateFilter = [0, 100],
   tempWinRateFilter = [0, 100],
   onMaxDepthChange,
   onMinGameCountChange,
+  onTempMinGameCountChange, // NEW: For slider changes
   onWinRateFilterChange,
   onTempWinRateFilterChange,
   onApplyWinRateFilter,
@@ -266,12 +269,17 @@ const CanvasPerformanceGraph = ({
   // Context menu props
   contextMenuActions = null, // Array of action objects: { label, icon, onClick: (node) => void, disabled?: (node) => boolean }
   onNodeRightClick = null, // Optional callback for right-click events
+  
+  // Auto zoom on click props
+  autoZoomOnClick = false, // Whether auto zoom on click is enabled
+  onAutoZoomOnClickChange = null, // Callback to change auto zoom on click state
 }) => {
   const canvasRef = useRef();
   const containerRef = useRef();
   const animationRef = useRef();
-  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-  const [transform, setTransform] = useState({ x: 0, y: 0, scale: 1 });
+  const [dimensions, setDimensions] = useState({ width: 0, height: 0 }); // Start with 0 to prevent rendering with wrong dimensions
+  const [transform, setTransform] = useState(null); // Start with null to prevent initial render
+  const [hasValidTransform, setHasValidTransform] = useState(false); // Track if we have a valid calculated transform
   const [mousePressed, setMousePressed] = useState(false);
   const [lastMouse, setLastMouse] = useState({ x: 0, y: 0 });
   // Track whether the current mouse interaction involved dragging
@@ -285,6 +293,12 @@ const CanvasPerformanceGraph = ({
   
   // Add new state to track if initial positioning is complete
   const [isInitialPositioningComplete, setIsInitialPositioningComplete] = useState(false);
+  
+  // Ref to store the optimal transform before it's applied - prevents zoom flash
+  const optimalTransformRef = useRef(null);
+  // Refs to store current state for immediate access
+  const currentPositionedNodesRef = useRef([]);
+  const currentTransformRef2 = useRef(null);
   
   // Track resize transitions to prevent zoom conflicts
   const [isResizing, setIsResizing] = useState(false);
@@ -301,6 +315,20 @@ const CanvasPerformanceGraph = ({
   useEffect(() => {
     positionedNodesRef.current = positionedNodes;
   }, [positionedNodes]);
+  
+  // Measure dimensions immediately on mount using layout effect
+  useLayoutEffect(() => {
+    if (containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const newDimensions = { 
+        width: Math.floor(rect.width), 
+        height: Math.floor(rect.height) 
+      };
+      if (newDimensions.width > 0 && newDimensions.height > 0) {
+        setDimensions(newDimensions);
+      }
+    }
+  }, []); // Only run on mount
   
   // Notify parent of resize state changes
   useEffect(() => {
@@ -346,6 +374,13 @@ const CanvasPerformanceGraph = ({
     }
   }, [onMinGameCountChange]);
 
+  // NEW: Handle slider release to apply min game count
+  const handleMinGameCountSliderRelease = useCallback(() => {
+    if (tempMinGameCount !== minGameCount) {
+      handleMinGameCountChangeAsync(tempMinGameCount);
+    }
+  }, [tempMinGameCount, minGameCount, handleMinGameCountChangeAsync]);
+
   const handleApplyWinRateFilterAsync = useCallback(async () => {
     if (onApplyWinRateFilter) {
       // Use simple initialization-style loading
@@ -366,6 +401,12 @@ const CanvasPerformanceGraph = ({
       onTogglePositionClusters(); // Instant toggle - no loading needed
     }
   }, [onTogglePositionClusters]);
+
+  const handleToggleAutoZoomOnClick = useCallback(() => {
+    if (onAutoZoomOnClickChange) {
+      onAutoZoomOnClickChange(!autoZoomOnClick);
+    }
+  }, [autoZoomOnClick, onAutoZoomOnClickChange]);
 
   // Enhanced resize detection with screen change support - handles window moves between screens
   useEffect(() => {
@@ -401,6 +442,11 @@ const CanvasPerformanceGraph = ({
         if (widthChanged || heightChanged || dprChanged) {
           // Mark as resizing
           setIsResizing(true);
+          
+          // Mark this as a resize-only change (not new graph data)
+          if (isInitialPositioningComplete) {
+            resizeOnlyRef.current = true;
+          }
           
           // Clear existing timeout
           if (resizeTimeoutRef.current) {
@@ -530,7 +576,8 @@ const CanvasPerformanceGraph = ({
     );
     
     // For auto-fit, allow unlimited zoom-out to ensure content always fits
-    const scale = Math.min(Math.max(rawScale, 0.001), 2.0);
+    // Don't clamp to max 2.0 - let it use whatever scale fits the content
+    const scale = Math.max(rawScale, 0.001);
 
     const centerX = (bounds.minX + bounds.maxX) / 2;
     const centerY = (bounds.minY + bounds.maxY) / 2;
@@ -564,21 +611,43 @@ const CanvasPerformanceGraph = ({
     return optimalTransform;
   }, []); // Empty dependency array - this function is pure and doesn't depend on external state
 
+  // Track whether this is a resize (not a new graph) to prevent auto-fit on resize
+  const resizeOnlyRef = useRef(false);
+
+  // Track core graph data (excluding cluster background nodes) to detect real changes
+  const coreGraphDataRef = useRef(null);
+  
   // Process graph data and calculate positions with immediate optimal transform
   useEffect(() => {
+    // console.log('📊 GRAPH PROCESSING EFFECT:', { dimensions, graphDataNodes: graphData.nodes?.length || 0 });
+    
+    // Don't process anything until we have valid dimensions from the DOM
+    if (dimensions.width === 0 || dimensions.height === 0) {
+      // console.log('⏳ WAITING FOR DIMENSIONS');
+      return;
+    }
+    
     if (!graphData.nodes || graphData.nodes.length === 0) {
-      // Defer state updates to prevent setState during render
+      // console.log('📭 NO GRAPH DATA - KEEPING INITIALIZATION STATE');
+      // DON'T mark as complete when there's no data - keep waiting for real data
       requestAnimationFrame(() => {
         setPositionedNodes([]);
-        setHasAutoFitted(true); // Mark as fitted since there's nothing to fit
-        setIsInitializing(false); // Not initializing if no nodes
-        setIsInitialPositioningComplete(true); // Mark as complete
-        setTransform({ x: 0, y: 0, scale: 1 }); // Reset to default
+        setHasAutoFitted(false); // Don't mark as fitted yet
+        // Keep isInitializing and isInitialPositioningComplete as false
+        // Keep hasValidTransform as false - wait for real data
+        setTransform(null); // No transform yet
+        optimalTransformRef.current = null; // Clear ref
+        coreGraphDataRef.current = null; // Clear core data ref
       });
       return;
     }
+    
+    // CRITICAL: Keep initialization true until we've calculated AND applied the transform
+    if (!isInitializing && !isInitialPositioningComplete) {
+      setIsInitializing(true);
+    }
 
-    // Use the existing positions from the graph data instead of recalculating
+    // Calculate positioned nodes
     const nodes = graphData.nodes.filter(n => n.type !== 'clusterBackground');
     const positioned = nodes.map(node => ({
       ...node,
@@ -588,41 +657,54 @@ const CanvasPerformanceGraph = ({
       height: 180
     }));
 
-    // Check if this is a significant graph change (different nodes)
-    const newNodeCount = positioned.length;
-    const prevNodeCount = positionedNodesRef.current.length; // Use ref to avoid dependency
-    const isSignificantChange = prevNodeCount === 0 || Math.abs(prevNodeCount - newNodeCount) > 5;
+    // Check if this is a real graph change (not just cluster background changes)
+    const currentCoreData = JSON.stringify({
+      nodeCount: nodes.length,
+      edgeCount: graphData.edges?.length || 0,
+      nodeIds: nodes.map(n => n.id).sort(),
+      edgeIds: graphData.edges?.map(e => e.id).sort() || []
+    });
     
-    // Reset positioning state on significant changes
-    if (isSignificantChange && isInitialPositioningComplete) {
-      setIsInitialPositioningComplete(false);
-      // Only show initialization overlay if parent is not already generating
-      if (!isGenerating) {
-        setIsInitializing(true);
-      }
-    }
+    const isRealGraphChange = currentCoreData !== coreGraphDataRef.current;
+    coreGraphDataRef.current = currentCoreData;
 
-    // Only auto-fit if this is initial positioning (not a resize after setup)
-    if (!isInitialPositioningComplete && dimensions.width > 0 && dimensions.height > 0) {
-      // Calculate optimal transform for initial setup
+    // console.log('🔍 TRANSFORM CALCULATION CHECK:', { shouldCalculateTransform: dimensions.width > 0 && dimensions.height > 0 && (!isInitialPositioningComplete || (isRealGraphChange && !resizeOnlyRef.current)) });
+
+    // Only calculate and apply optimal transform if:
+    // 1. We have valid dimensions
+    // 2. We haven't completed initial positioning yet OR this is a real graph change
+    // 3. This is NOT just a resize (no new graph data) - unless it's initial positioning
+    const shouldCalculateTransform = dimensions.width > 0 && dimensions.height > 0 && 
+      (!isInitialPositioningComplete || (isRealGraphChange && !resizeOnlyRef.current));
+    
+    if (shouldCalculateTransform) {
       const optimalTransform = calculateOptimalTransform(positioned, dimensions);
       
-      // Apply transform before injecting nodes to avoid one-frame zoom flash
+          // console.log('🎯 INITIAL TRANSFORM CALCULATION:', { dimensions, nodeCount: positioned.length, optimalTransform });
+      
+      // Store EVERYTHING in refs first for immediate access
+      optimalTransformRef.current = optimalTransform;
+      currentTransformRef2.current = optimalTransform;
+      currentPositionedNodesRef.current = positioned;
+      
+      // Set both nodes and transform atomically
       setTransform(optimalTransform);
+      setPositionedNodes(positioned);
       setHasAutoFitted(true);
+      setHasValidTransform(true); // Mark that we now have a valid transform
+      setIsInitializing(false);
+      setIsInitialPositioningComplete(true);
+    } else {
+      // console.log('⚠️ SKIPPING TRANSFORM CALCULATION - UPDATING NODES ONLY');
+      // Just update positioned nodes without changing transform (for resize or cluster updates)
+      currentPositionedNodesRef.current = positioned;
+      setPositionedNodes(positioned);
     }
     
-    // Always update positioned nodes
-    setPositionedNodes(positioned);
-
-    // Mark initialization as complete after a short delay
-    if (!isInitialPositioningComplete) {
-      setTimeout(() => {
-        setIsInitializing(false);
-        setIsInitialPositioningComplete(true);
-      }, 100);
-    }
-  }, [graphData, dimensions, isGenerating, isInitialPositioningComplete]); // Removed calculateOptimalTransform to prevent infinite loops
+    // Reset resize flag after processing
+    resizeOnlyRef.current = false;
+    
+  }, [graphData, dimensions, isGenerating, isInitialPositioningComplete]);
 
   // Fallback timeout to prevent initialization from getting stuck
   useEffect(() => {
@@ -790,7 +872,31 @@ const CanvasPerformanceGraph = ({
     if (!ctx) return;
     
     const { width, height } = dimensions;
-    const { x: offsetX, y: offsetY, scale } = transform;
+    
+    // Don't render if we don't have valid dimensions yet
+    if (width <= 0 || height <= 0) {
+      return;
+    }
+    
+    // CRITICAL: Don't render until we have a valid transform from initial calculation
+    if (!hasValidTransform) {
+      return;
+    }
+    
+    // Use refs ONLY during initial positioning to prevent flash, then use state for interactions
+    const activeTransform = (!isInitialPositioningComplete && optimalTransformRef.current) 
+      ? optimalTransformRef.current 
+      : transform;
+    const activeNodes = (!isInitialPositioningComplete && currentPositionedNodesRef.current.length > 0) 
+      ? currentPositionedNodesRef.current 
+      : positionedNodes;
+    
+    // Don't render anything if we don't have a proper transform yet
+    if (!activeTransform) {
+      return;
+    }
+    
+    const { x: offsetX, y: offsetY, scale } = activeTransform;
 
     // Validate dimensions
     if (width <= 0 || height <= 0) return;
@@ -825,7 +931,7 @@ const CanvasPerformanceGraph = ({
     ctx.scale(scale, scale);
 
                // Render position clusters - MATCH ReactFlow brightness levels
-      if (showPositionClustersRef.current && positionClusters.length > 0 && mode === 'performance') {
+      if (showPositionClustersRef.current && positionClusters.length > 0) {
         positionClusters.forEach((cluster, index) => {
           if (!cluster.allNodes || cluster.allNodes.length === 0) return;
 
@@ -958,13 +1064,13 @@ const CanvasPerformanceGraph = ({
       });
     }
 
-    // Render nodes (skip if no nodes)
-    if (positionedNodes.length > 0) {
+    // Render nodes using active nodes (from refs or state)
+    if (activeNodes.length > 0) {
       // Debug render check - check if any nodes are visible
-      const visibleNodes = positionedNodes.filter(node => {
-        const screenX = (node.x * transform.scale) + transform.x;
-        const screenY = (node.y * transform.scale) + transform.y;
-        const nodeSize = 140 * transform.scale;
+      const visibleNodes = activeNodes.filter(node => {
+        const screenX = (node.x * activeTransform.scale) + activeTransform.x;
+        const screenY = (node.y * activeTransform.scale) + activeTransform.y;
+        const nodeSize = 140 * activeTransform.scale;
         
         return screenX >= -nodeSize && screenX <= width + nodeSize &&
                screenY >= -nodeSize && screenY <= height + nodeSize;
@@ -974,7 +1080,7 @@ const CanvasPerformanceGraph = ({
 
 
       let renderedNodeCount = 0;
-      positionedNodes.forEach(node => {
+      activeNodes.forEach(node => {
       // Mode-specific rendering
       if (mode === 'opening') {
         // Opening tree mode rendering
@@ -987,9 +1093,9 @@ const CanvasPerformanceGraph = ({
         const y = node.y - node.height/2;
         
         // Check if node is potentially visible before expensive rendering
-        const screenX = (node.x * transform.scale) + transform.x;
-        const screenY = (node.y * transform.scale) + transform.y;
-        const nodeSize = 140 * transform.scale;
+        const screenX = (node.x * activeTransform.scale) + activeTransform.x;
+        const screenY = (node.y * activeTransform.scale) + activeTransform.y;
+        const nodeSize = 140 * activeTransform.scale;
         
         // Skip rendering nodes that are completely off-screen for performance
         if (screenX < -nodeSize*2 || screenX > width + nodeSize*2 ||
@@ -1006,7 +1112,7 @@ const CanvasPerformanceGraph = ({
         
         if (isCurrentNode) {
           // INTENSE GLOW: Draw multiple layers with shadow for selected node
-          ctx.shadowColor = 'rgba(59, 130, 246, 1.0)'; // Blue glow
+          ctx.shadowColor = 'rgba(236, 72, 153, 1.0)'; // Pink glow
           ctx.shadowBlur = 20;
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = 0;
@@ -1019,15 +1125,14 @@ const CanvasPerformanceGraph = ({
           }
           ctx.stroke();
           ctx.shadowBlur = 0; // Reset shadow
-        } else if (isHoveredNextMove || node.data.isMainLine) {
-          // INTENSE GLOW for hovered next moves - match selected node intensity
-          const glowColor = isHoveredNextMove ? '#8b5cf6' : '#8b5cf6'; // Purple glow
-          ctx.shadowColor = glowColor;
-          ctx.shadowBlur = 20; // Match selected node blur
+        } else if (isHoveredNextMove) {
+          // INTENSE GLOW for hovered next moves only
+          ctx.shadowColor = 'rgba(59, 130, 246, 1.0)'; // Blue glow
+          ctx.shadowBlur = 20;
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = 0;
           
-          // Draw 8 layers for very intense glow - match selected node intensity
+          // Draw 8 layers for very intense glow
           for (let i = 0; i < 8; i++) {
             ctx.beginPath();
             ctx.roundRect(x, y, node.width, node.height, 12);
@@ -1191,9 +1296,9 @@ const CanvasPerformanceGraph = ({
         const y = node.y - node.height/2;
         
         // Check if node is potentially visible before expensive rendering
-        const screenX = (node.x * transform.scale) + transform.x;
-        const screenY = (node.y * transform.scale) + transform.y;
-        const nodeSize = 140 * transform.scale;
+        const screenX = (node.x * activeTransform.scale) + activeTransform.x;
+        const screenY = (node.y * activeTransform.scale) + activeTransform.y;
+        const nodeSize = 140 * activeTransform.scale;
         
         // Skip rendering nodes that are completely off-screen for performance
         if (screenX < -nodeSize*2 || screenX > width + nodeSize*2 ||
@@ -1215,7 +1320,7 @@ const CanvasPerformanceGraph = ({
         
         if (isCurrentNode) {
           // INTENSE GLOW: Draw multiple layers with shadow for selected node
-          ctx.shadowColor = 'rgba(34, 197, 94, 1.0)'; // Green glow
+          ctx.shadowColor = 'rgba(236, 72, 153, 1.0)'; // Pink glow
           ctx.shadowBlur = 25;
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = 0;
@@ -1230,7 +1335,7 @@ const CanvasPerformanceGraph = ({
           ctx.shadowBlur = 0; // Reset shadow
         } else if (isHoveredNextMove) {
           // INTENSE GLOW for hovered next moves - match selected node intensity
-          ctx.shadowColor = 'rgba(251, 146, 60, 1.0)'; // Orange glow
+          ctx.shadowColor = 'rgba(59, 130, 246, 1.0)'; // Blue glow
           ctx.shadowBlur = 20; // Match selected node blur
           ctx.shadowOffsetX = 0;
           ctx.shadowOffsetY = 0;
@@ -1355,11 +1460,26 @@ const CanvasPerformanceGraph = ({
     const canvasX = clientX - rect.left;
     const canvasY = clientY - rect.top;
 
-    // Transform to world coordinates
-    const worldX = (canvasX - transform.x) / transform.scale;
-    const worldY = (canvasY - transform.y) / transform.scale;
+    // Use the same active transform as the render function
+    const activeTransform = (!isInitialPositioningComplete && optimalTransformRef.current) 
+      ? optimalTransformRef.current 
+      : transform;
 
-    return positionedNodes.find(node => {
+    // Don't process clicks if we don't have a proper transform yet
+    if (!activeTransform) {
+      return null;
+    }
+
+    // Transform to world coordinates
+    const worldX = (canvasX - activeTransform.x) / activeTransform.scale;
+    const worldY = (canvasY - activeTransform.y) / activeTransform.scale;
+
+    // Use active nodes (refs during initial positioning, state during interactions)
+    const activeNodes = (!isInitialPositioningComplete && currentPositionedNodesRef.current.length > 0) 
+      ? currentPositionedNodesRef.current 
+      : positionedNodes;
+    
+    return activeNodes.find(node => {
       const nodeLeft = node.x - node.width/2;
       const nodeRight = node.x + node.width/2;
       const nodeTop = node.y - node.height/2;
@@ -1380,9 +1500,19 @@ const CanvasPerformanceGraph = ({
     const canvasX = clientX - rect.left;
     const canvasY = clientY - rect.top;
 
+    // Use the same active transform as the render function
+    const activeTransform = (!isInitialPositioningComplete && optimalTransformRef.current) 
+      ? optimalTransformRef.current 
+      : transform;
+
+    // Don't process clicks if we don't have a proper transform yet
+    if (!activeTransform) {
+      return null;
+    }
+
     // Transform to world coordinates
-    const worldX = (canvasX - transform.x) / transform.scale;
-    const worldY = (canvasY - transform.y) / transform.scale;
+    const worldX = (canvasX - activeTransform.x) / activeTransform.scale;
+    const worldY = (canvasY - activeTransform.y) / activeTransform.scale;
 
     // Check clusters in reverse order (top to bottom in rendering)
     for (let i = clusterPathsData.length - 1; i >= 0; i--) {
@@ -1418,7 +1548,6 @@ const CanvasPerformanceGraph = ({
   const zoomTo = useCallback((target = 'all') => {
     // Prevent zoom during resize transitions or initialization
     if (isResizing || isInitializing) {
-      console.log('⏸️ Zoom prevented during resize/initialization');
       return;
     }
     
@@ -1473,7 +1602,7 @@ const CanvasPerformanceGraph = ({
         const resetOptimalTransform = { x: 0, y: 0, scale: 1 };
         
         // Apply reset transform with smooth animation
-        const resetStartTransform = { ...currentTransformRef.current };
+        const resetStartTransform = { ...(currentTransformRef.current || transform || { x: 0, y: 0, scale: 1 }) };
         const resetStartTime = Date.now();
         const resetDuration = 300;
         
@@ -1491,6 +1620,8 @@ const CanvasPerformanceGraph = ({
           };
           
           setTransform(newTransform);
+          // Update refs too for consistency
+          currentTransformRef2.current = newTransform;
           
           if (progress < 1) {
             animationStateRef.current = requestAnimationFrame(resetAnimate);
@@ -1531,35 +1662,37 @@ const CanvasPerformanceGraph = ({
     const clusterPadding = (target === 'clusters' && currentPositionClusters.length > 0) ? 120 : 50;
     const optimalTransform = calculateOptimalTransform(targetNodes, dimensions, clusterPadding);
 
-    // Apply transform with smooth animation - simplified to prevent conflicts
-    const startTransform = { ...currentTransformRef.current };
-    const startTime = Date.now();
-    const duration = 300;
-    
-    const animate = () => {
-      const elapsed = Date.now() - startTime;
-      const progress = Math.min(elapsed / duration, 1);
+          // Apply transform with smooth animation - simplified to prevent conflicts
+      const startTransform = { ...(currentTransformRef.current || transform || { x: 0, y: 0, scale: 1 }) };
+      const startTime = Date.now();
+      const duration = 300;
       
-      // Use easing function for smoother animation
-      const easeProgress = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-      
-      const newTransform = {
-        x: startTransform.x + (optimalTransform.x - startTransform.x) * easeProgress,
-        y: startTransform.y + (optimalTransform.y - startTransform.y) * easeProgress,
-        scale: startTransform.scale + (optimalTransform.scale - startTransform.scale) * easeProgress
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Use easing function for smoother animation
+        const easeProgress = 1 - Math.pow(1 - progress, 3); // ease-out cubic
+        
+        const newTransform = {
+          x: startTransform.x + (optimalTransform.x - startTransform.x) * easeProgress,
+          y: startTransform.y + (optimalTransform.y - startTransform.y) * easeProgress,
+          scale: startTransform.scale + (optimalTransform.scale - startTransform.scale) * easeProgress
+        };
+        
+        setTransform(newTransform);
+        // Update refs too for consistency
+        currentTransformRef2.current = newTransform;
+        
+        if (progress < 1) {
+          animationStateRef.current = requestAnimationFrame(animate);
+        } else {
+          animationStateRef.current = null;
+        }
       };
       
-      setTransform(newTransform);
-      
-      if (progress < 1) {
-        animationStateRef.current = requestAnimationFrame(animate);
-      } else {
-        animationStateRef.current = null;
-      }
-    };
-    
-    // Start animation immediately
-    animationStateRef.current = requestAnimationFrame(animate);
+      // Start animation immediately
+      animationStateRef.current = requestAnimationFrame(animate);
   }, [dimensions, isResizing, isInitializing, positionClusters]); // Stable dependencies only
 
   // Convenience functions for backward compatibility and cleaner API
@@ -1599,11 +1732,16 @@ const CanvasPerformanceGraph = ({
         isDraggingRef.current = true;
       }
 
-      setTransform(prev => ({
-        ...prev,
-        x: prev.x + deltaX,
-        y: prev.y + deltaY
-      }));
+      setTransform(prev => {
+        const newTransform = {
+          ...prev,
+          x: prev.x + deltaX,
+          y: prev.y + deltaY
+        };
+        // Update refs too for consistency
+        currentTransformRef2.current = newTransform;
+        return newTransform;
+      });
       
       setLastMouse({ x: e.clientX, y: e.clientY });
     } else {
@@ -1675,11 +1813,14 @@ const CanvasPerformanceGraph = ({
       onNodeClick(e, node);
     }
     
+    // Auto-zoom is now handled entirely by the useCanvasState hook
+    // when updateCurrentPosition is called from onNodeClick
+    
     // Close context menu when clicking on canvas (but not on nodes)
     if (contextMenu && !node) {
       setContextMenu(null);
     }
-  }, [getNodeAtPosition, onNodeClick, contextMenu]);
+  }, [getNodeAtPosition, onNodeClick, contextMenu, autoZoomOnClick, positionClusters, zoomTo]);
 
   // NEW: Handle right-click events
   const handleRightClick = useCallback((e) => {
@@ -1774,21 +1915,29 @@ const CanvasPerformanceGraph = ({
   const handleWheel = useCallback((e) => {
     e.preventDefault();
     
+    // Don't process wheel events if we don't have a proper transform yet
+    if (!transform) return;
+    
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
     const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
-    // Allow manual zoom out to 1% minimum (much more generous than the old 5% limit)
-    const newScale = Math.min(Math.max(transform.scale * scaleFactor, 0.01), 2.0);
+    // Allow manual zoom out to 1% minimum, but limit zoom in to reasonable level
+    const newScale = Math.min(Math.max(transform.scale * scaleFactor, 0.01), 5.0);
     
-    setTransform(prev => ({
-      x: mouseX - (mouseX - prev.x) * (newScale / prev.scale),
-      y: mouseY - (mouseY - prev.y) * (newScale / prev.scale),
-      scale: newScale
-    }));
-  }, [transform.scale]);
+    setTransform(prev => {
+      const newTransform = {
+        x: mouseX - (mouseX - prev.x) * (newScale / prev.scale),
+        y: mouseY - (mouseY - prev.y) * (newScale / prev.scale),
+        scale: newScale
+      };
+      // Update refs too for consistency
+      currentTransformRef2.current = newTransform;
+      return newTransform;
+    });
+  }, [transform]);
 
   // Manually attach wheel event listener with { passive: false } to allow preventDefault
   useEffect(() => {
@@ -1874,7 +2023,7 @@ const CanvasPerformanceGraph = ({
         className="w-full h-full block"
         style={{ 
           cursor: mousePressed ? 'grabbing' : cursorStyle,
-          opacity: isInitializing ? 0 : 1,
+          opacity: (isInitializing || (!isInitialPositioningComplete && positionedNodes.length > 0) || dimensions.width === 0 || dimensions.height === 0 || !transform || !hasValidTransform) ? 0 : 1,
           transition: 'opacity 200ms ease-in-out'
         }}
         onMouseDown={handleMouseDown}
@@ -1921,7 +2070,7 @@ const CanvasPerformanceGraph = ({
 
       
       {/* Graph Controls - Top Left - SHARED between modes */}
-      {!isInitializing && positionedNodes.length > 0 && (
+      {!isInitializing && positionedNodes.length > 0 && hasValidTransform && (
         <div className="absolute top-4 left-4 space-y-2 pointer-events-auto">
           <div className="flex gap-2 flex-wrap">
             <Button 
@@ -1951,29 +2100,39 @@ const CanvasPerformanceGraph = ({
               </Button>
             )}
 
-            {/* Only show position cluster controls in performance mode */}
-            {mode === 'performance' && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleTogglePositionClusters}
-                className={`${showPositionClustersRef.current ? 'bg-orange-600 border-orange-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
-                title="Toggle Position Clusters (Current Move)"
-              >
-                <Target className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
-                <span className="hidden group-hover:inline transition-opacity duration-100">Position Clusters</span>
-              </Button>
-            )}
+            {/* Show position cluster controls in both modes */}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleTogglePositionClusters}
+              className={`${showPositionClustersRef.current ? 'bg-orange-600 border-orange-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
+              title="Toggle Position Clusters (Current Move)"
+            >
+              <Target className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
+              <span className="hidden group-hover:inline transition-opacity duration-100">Position Clusters</span>
+            </Button>
+
+            {/* Auto zoom on click toggle */}
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleToggleAutoZoomOnClick}
+              className={`${autoZoomOnClick ? 'bg-blue-600 border-blue-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
+              title="Auto Zoom on Click"
+            >
+              <Search className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
+              <span className="hidden group-hover:inline transition-opacity duration-100">Auto Zoom on Click</span>
+            </Button>
           </div>
         </div>
       )}
 
       {/* Controls Show Button - Bottom Right */}
-      {mode === 'performance' && !isInitializing && positionedNodes.length > 0 && (
-        <div className="absolute bottom-4 right-4 space-y-4 max-w-sm pointer-events-auto">
+      {mode === 'performance' && !isInitializing && positionedNodes.length > 0 && hasValidTransform && (
+        <div className="absolute bottom-4 right-4 space-y-4 max-w-sm pointer-events-auto z-[150]">
           {/* Controls Card - positioned above the button */}
           {showPerformanceControls && onShowPerformanceControls && (
-          <Card className="bg-slate-800/95 border-slate-700 backdrop-blur-lg shadow-xl">
+          <Card className="bg-slate-800/95 border-slate-700 backdrop-blur-lg shadow-xl pointer-events-auto">
             <CardHeader className="pb-3">
               <CardTitle className="text-slate-200 text-lg flex items-center gap-2">
                 <Target className="w-5 h-5" />
@@ -1989,9 +2148,10 @@ const CanvasPerformanceGraph = ({
                 </Button>
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent className="space-y-4 pointer-events-auto">
               {/* Controls Row 1 */}
-              <div className="grid grid-cols-2 gap-2 text-sm">
+              <div className="space-y-4">
+                {/* Max Depth */}
                 <div>
                   <label className="text-slate-400 text-xs block mb-1">Max Depth</label>
                   <select 
@@ -2003,20 +2163,46 @@ const CanvasPerformanceGraph = ({
                   {[5, 10, 15, 20, 25, 30].map(d => (
                     <option key={d} value={d}>{d} moves</option>
                   ))}
-                </select>
+                  </select>
                 </div>
-                <div>
-                  <label className="text-slate-400 text-xs block mb-1">Min Games</label>
-                  <select 
-                    value={minGameCount} 
-                    onChange={(e) => handleMinGameCountChangeAsync(Number(e.target.value))}
-                    className={`w-full px-2 py-1 rounded ${(isGenerating || isInitializing) ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-slate-200'}`}
-                    disabled={isGenerating || isInitializing || !onMinGameCountChange}
-                  >
-                  {[1, 2, 5, 10, 20, 50, 100].map(g => (
-                    <option key={g} value={g}>{g}+ games</option>
-                  ))}
-                </select>
+                
+                {/* Min Games Slider */}
+                <div className="space-y-3 bg-slate-700/30 p-3 rounded-lg border border-slate-600/50">
+                  <div className="flex justify-between items-center">
+                    <label className="text-slate-200 text-xs font-medium">
+                      Min Games Filter
+                    </label>
+                    <span className="text-green-300 text-xs font-mono bg-slate-600/50 px-2 py-1 rounded">
+                      {tempMinGameCount}+ games
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-2 pointer-events-auto">
+                    <Slider
+                      value={[tempMinGameCount]}
+                      onValueChange={(value) => onTempMinGameCountChange && onTempMinGameCountChange(value[0])}
+                      onValueCommit={handleMinGameCountSliderRelease}
+                      min={1}
+                      max={25}
+                      step={1}
+                      className="w-full pointer-events-auto [&_[role=slider]]:bg-green-500 [&_[role=slider]]:border-green-400 [&_[role=slider]]:shadow-lg [&_.bg-primary]:bg-gradient-to-r [&_.bg-primary]:from-green-500 [&_.bg-primary]:to-green-600 [&_.bg-slate-200]:bg-slate-600/80"
+                      disabled={isGenerating || isInitializing || !onTempMinGameCountChange}
+                    />
+                    
+                    <div className="flex justify-between text-xs">
+                      <span className="text-slate-400">1 game</span>
+                      <span className="text-slate-400">8 games</span>
+                      <span className="text-slate-400">17 games</span>
+                      <span className="text-slate-400">25 games</span>
+                    </div>
+                  </div>
+                  
+
+                  
+                  {/* Explanation */}
+                  <div className="text-xs text-slate-400 leading-relaxed">
+                    Only shows moves with at least this many games.
+                  </div>
                 </div>
               </div>
 
@@ -2081,12 +2267,13 @@ const CanvasPerformanceGraph = ({
         )}
 
           {/* Show Button for Controls */}
-          <div className="flex gap-2 flex-wrap justify-end">
+          <div className="flex gap-2 flex-wrap justify-end pointer-events-auto">
             {!showPerformanceControls && onShowPerformanceControls && (
               <Button
                 onClick={() => onShowPerformanceControls(true)}
-                className="bg-slate-800/95 border border-slate-700 text-slate-200 hover:bg-slate-700/95"
+                className="bg-slate-800/95 border border-slate-700 text-slate-200 hover:bg-slate-700/95 pointer-events-auto relative z-10"
                 size="sm"
+                style={{ pointerEvents: 'auto' }}
               >
                 <Target className="w-4 h-4 mr-2" />
                 Controls ({maxDepth} moves, {minGameCount}+ games)
@@ -2097,7 +2284,7 @@ const CanvasPerformanceGraph = ({
       )}
 
       {/* Zoom indicator with keyboard shortcut */}
-      {!isInitializing && positionedNodes.length > 0 && (
+      {!isInitializing && positionedNodes.length > 0 && hasValidTransform && transform && (
         <div className="absolute bottom-4 left-4 bg-slate-800/90 border border-slate-700 text-slate-200 px-3 py-2 rounded text-xs pointer-events-none backdrop-blur-sm shadow-lg">
           <div className="flex items-center gap-3">
             <span>Zoom: {Math.round(transform.scale * 100)}%</span>
@@ -2113,7 +2300,7 @@ const CanvasPerformanceGraph = ({
       )}
 
       {/* Context menu indicator - only show when context menu actions are available and not in performance mode */}
-      {!isInitializing && positionedNodes.length > 0 && contextMenuActions && contextMenuActions.length > 0 && mode !== 'performance' && (
+      {!isInitializing && positionedNodes.length > 0 && hasValidTransform && contextMenuActions && contextMenuActions.length > 0 && mode !== 'performance' && (
         <div className="absolute bottom-4 right-4 bg-slate-800/90 border border-slate-700 text-slate-200 px-3 py-2 rounded text-xs pointer-events-none backdrop-blur-sm shadow-lg">
           <div className="flex items-center gap-2">
             <span className="text-slate-500">
@@ -2146,7 +2333,7 @@ const CanvasPerformanceGraph = ({
       )}
 
       {/* Initialization Loading Overlay - Covers initial positioning flash */}
-      {isInitializing && !isGenerating && (
+      {(isInitializing || dimensions.width === 0 || dimensions.height === 0 || !transform || !hasValidTransform) && !isGenerating && (
         <div className="absolute inset-0 bg-slate-900 flex items-center justify-center z-20">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mb-4 mx-auto"></div>

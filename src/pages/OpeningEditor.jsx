@@ -230,7 +230,7 @@ export default function OpeningEditor() {
     openingGraph: openingGraph,
     selectedPlayer: color,
     enableClustering: false, // Disable opening clustering in opening editor
-    enablePositionClusters: canvasMode === 'performance', // Only enable position clusters in performance mode
+    enablePositionClusters: true, // Enable position clusters in both modes
     enableAutoZoom: false // Disable auto-zoom in opening editor - only manual fit to all
   });
   
@@ -599,17 +599,12 @@ export default function OpeningEditor() {
       performanceState.setOpeningClusters([]);
     }
     
-    // Generate position clusters ONLY in performance mode
-    if (canvasMode === 'performance') {
-      const currentFen = performanceState.currentPositionFen;
-      if (currentFen) {
-        const positionClusters = createPositionClusters(currentGraphData.nodes, currentFen);
-        performanceState.setPositionClusters(positionClusters);
-      } else {
-        performanceState.setPositionClusters([]);
-      }
+    // Generate position clusters in both modes
+    const currentFen = performanceState.currentPositionFen;
+    if (currentFen) {
+      const positionClusters = createPositionClusters(currentGraphData.nodes, currentFen);
+      performanceState.setPositionClusters(positionClusters);
     } else {
-      // Clear position clusters in opening mode
       performanceState.setPositionClusters([]);
     }
   }, [
@@ -1763,6 +1758,8 @@ export default function OpeningEditor() {
                   onPlayerChange={setColor}
                   isClusteringLoading={false}
                   enableOpeningClusters={false}
+                  autoZoomOnClick={false}
+                  onAutoZoomOnClickChange={null}
                   className="w-full h-full"
                 />
               </div>

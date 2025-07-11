@@ -17,7 +17,6 @@ export const initGraphDB = async () => {
     request.onerror = () => reject(request.error);
     request.onsuccess = () => {
       db = request.result;
-      console.log('Graph database initialized successfully');
       resolve(db);
     };
     
@@ -54,7 +53,6 @@ export const saveOpeningGraph = async (openingGraph) => {
     const request = store.put(graphData);
     
     request.onsuccess = () => {
-      console.log(`Opening graph saved for user: ${openingGraph.username}`);
       resolve(graphData);
     };
     
@@ -78,7 +76,6 @@ export const loadOpeningGraph = async (username) => {
       if (result) {
         try {
           const openingGraph = OpeningGraph.deserialize(result.data);
-          console.log(`Opening graph loaded for user: ${username}`);
           resolve(openingGraph);
         } catch (error) {
           console.error('Error deserializing graph:', error);
@@ -121,7 +118,6 @@ export const deleteOpeningGraph = async (username) => {
     const request = store.delete(username);
     
     request.onsuccess = () => {
-      console.log(`Opening graph deleted for user: ${username}`);
       resolve(true);
     };
     
@@ -217,7 +213,6 @@ export const clearAllGraphs = async () => {
     const request = store.clear();
     
     request.onsuccess = () => {
-      console.log('All opening graphs cleared');
       resolve(true);
     };
     

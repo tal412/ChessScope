@@ -39,8 +39,8 @@ function SimpleLoginPrompt() {
         if (location.state?.returning) {
             setIsReturning(true);
             setIsVisible(false);
-            // For logout, start entrance animation immediately since navigation is now instant
-            const delay = location.state?.fromLogout ? 100 : 50;
+            // For logout, start entrance animation very quickly to prevent black screen flash
+            const delay = location.state?.fromLogout ? 50 : 50;
             setTimeout(() => {
                 setIsVisible(true);
                 setIsReturning(false);
@@ -64,11 +64,11 @@ function SimpleLoginPrompt() {
     };
     
     return (
-        <div className="h-screen flex items-center justify-center transition-all duration-500">
+        <div className="h-screen flex items-center justify-center transition-all duration-300">
             <div className="container mx-auto px-4 h-full flex items-center">
                 <div className="grid lg:grid-cols-2 gap-12 items-center w-full">
                     {/* Left Side - Main Content */}
-                    <div className={`space-y-6 transition-all duration-300 ${
+                    <div className={`space-y-6 transition-all duration-200 ${
                         isNavigating ? 'opacity-0 transform -translate-x-8' : 
                         isReturning && !isVisible ? 'opacity-0 transform translate-x-8' :
                         isVisible ? 'opacity-100 transform translate-x-0' : 
