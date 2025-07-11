@@ -1431,9 +1431,13 @@ function PerformanceGraphContent() {
     });
     
     if (targetNode) {
+      // Detect reset action (empty moves array going to root)
+      const isReset = moves.length === 0;
+      const source = isReset ? 'reset' : 'sync';
+      
       // Don't overwrite recent user clicks with 'programmatic' - preserve the original source
       // This prevents interfering with click auto-zoom detection
-      performanceState.updateCurrentPosition(targetNode.id, targetNode.data.fen, 'sync');
+      performanceState.updateCurrentPosition(targetNode.id, targetNode.data.fen, source);
     }
   };
 
@@ -1464,6 +1468,12 @@ function PerformanceGraphContent() {
     // Update direct scroll function if available
     if (movesDirectScrollFn) {
       movesDirectScrollFn(newPath);
+    }
+    
+    // Find root node and update position with reset source
+    const rootNode = nodes.find(node => node.data.isRoot);
+    if (rootNode) {
+      performanceState.updateCurrentPosition(rootNode.id, rootNode.data.fen, 'reset');
     }
   };
 

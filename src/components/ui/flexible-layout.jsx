@@ -91,8 +91,20 @@ export function calculateGridLayout(visibleComponents, componentConfig, { isMobi
       const combinationKey = sortedComponents.join('+');
       const width = config.twoActive?.[combinationKey] || config.desktopWidth || '1fr';
       return width;
+    } else if (validComponents.length === 3) {
+      // Three components - use threeActive width if available
+      const sortedComponents = [...validComponents].sort();
+      const combinationKey = sortedComponents.join('+');
+      const width = config.threeActive?.[combinationKey] || config.desktopWidth || '1fr';
+      return width;
+    } else if (validComponents.length === 4) {
+      // Four components - use fourActive width if available
+      const sortedComponents = [...validComponents].sort();
+      const combinationKey = sortedComponents.join('+');
+      const width = config.fourActive?.[combinationKey] || config.desktopWidth || '1fr';
+      return width;
     } else {
-      // Three or more components - use default desktopWidth
+      // Five or more components - use desktopWidth as fallback
       return config.desktopWidth || '1fr';
     }
   });

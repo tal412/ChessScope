@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -43,7 +43,7 @@ const getArrowColor = (winRate) => {
 };
 
 // Move button component
-const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInLastCard }) => {
+const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInLastCard, displayMode = 'performance' }) => {
   // Safely access winRate from details object with fallback
   const winRate = moveData.details?.winRate ?? moveData.winRate ?? 0;
   const buttonRef = useRef(null);
@@ -95,6 +95,12 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
     }
   }, [isInLastCard, isHovered, onHoverEnd]);
   
+  // Opening mode styling (pink theme)
+  const openingModeStyle = displayMode === 'opening' ? {
+    base: 'bg-slate-700/30 border-pink-500/60 hover:bg-pink-500/10',
+    selected: 'bg-pink-500/20 border-pink-400'
+  } : null;
+  
   return (
     <button
       ref={buttonRef}
@@ -102,43 +108,64 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       className={`w-full text-left p-3 rounded-lg border-2 transition-all duration-200 relative ${
-        isSelected ? getSelectedColor(winRate) : `bg-slate-700/30 ${getPerformanceColor(winRate)}`
+        isSelected 
+          ? (openingModeStyle ? openingModeStyle.selected : getSelectedColor(winRate))
+          : (openingModeStyle ? openingModeStyle.base : `bg-slate-700/30 ${getPerformanceColor(winRate)}`)
       }`}
     >
-      {/* Percentage badge in top-right corner */}
-      <div className="absolute top-2 right-2">
-        <Badge
-          variant="outline"
-          className={`text-xs font-semibold ${isSelected ? 'text-white border-white/30' : 'text-slate-300 border-slate-500/50'}`}
-        >
-          {winRate.toFixed(0)}%
-        </Badge>
-      </div>
+      {/* Percentage badge in top-right corner - only show in performance mode */}
+      {displayMode === 'performance' && (
+        <div className="absolute top-2 right-2">
+          <Badge
+            variant="outline"
+            className={`text-xs font-semibold ${isSelected ? 'text-white border-white/30' : 'text-slate-300 border-slate-500/50'}`}
+          >
+            {winRate.toFixed(0)}%
+          </Badge>
+        </div>
+      )}
       
       {/* Main content */}
-      <div className="pr-16"> {/* Add right padding to avoid overlap with percentage */}
+      <div className={displayMode === 'performance' ? "pr-16" : "pr-2"}> {/* Adjust padding based on mode */}
         <div className="flex items-center justify-between mb-1">
           <span className="font-bold text-white text-lg">{moveData.san}</span>
         </div>
-        <p className="text-sm text-slate-400 mb-2 line-clamp-2" title={
-          moveData.openingInfo?.eco && moveData.openingInfo?.name 
-            ? `${moveData.openingInfo.eco} ${moveData.openingInfo.name}` 
-            : (moveData.openingInfo?.name || 'Unknown Opening')
-        }>
-          {moveData.openingInfo?.eco && moveData.openingInfo?.name 
-            ? `${moveData.openingInfo.eco} ${moveData.openingInfo.name}` 
-            : (moveData.openingInfo?.name || 'Unknown Opening')}
-        </p>
-        <div className="text-left text-xs text-slate-500">
-          {moveData.gameCount}g
-        </div>
+        
+        {/* Opening info - only show in performance mode */}
+        {displayMode === 'performance' && (
+          <p className="text-sm text-slate-400 mb-2 line-clamp-2" title={
+            moveData.openingInfo?.eco && moveData.openingInfo?.name 
+              ? `${moveData.openingInfo.eco} ${moveData.openingInfo.name}` 
+              : (moveData.openingInfo?.name || 'Unknown Opening')
+          }>
+            {moveData.openingInfo?.eco && moveData.openingInfo?.name 
+              ? `${moveData.openingInfo.eco} ${moveData.openingInfo.name}` 
+              : (moveData.openingInfo?.name || 'Unknown Opening')}
+          </p>
+        )}
+        
+        {/* Opening info for opening mode - show opening name as subtitle */}
+        {displayMode === 'opening' && (
+          <p className="text-sm text-slate-400 mb-2 line-clamp-2">
+            {moveData.openingInfo?.eco && moveData.openingInfo?.name 
+              ? `${moveData.openingInfo.eco} ${moveData.openingInfo.name}`
+              : (moveData.openingInfo?.name || 'User Opening Move')}
+          </p>
+        )}
+        
+        {/* Game count - only show in performance mode */}
+        {displayMode === 'performance' && (
+          <div className="text-left text-xs text-slate-500">
+            {moveData.gameCount}g
+          </div>
+        )}
       </div>
     </button>
   );
 };
 
 // Chunk component for displaying moves at a specific depth with simple list layout
-const GraphChunk = ({ title, moves, onMoveSelect, selectedMove, depth, onMoveHover, onMoveHoverEnd, isLastCard }) => {
+const GraphChunk = ({ title, moves, onMoveSelect, selectedMove, depth, onMoveHover, onMoveHoverEnd, isLastCard, displayMode = 'performance' }) => {
   // Sort moves by game count (descending) - most played moves first
   const sortedMoves = [...moves].sort((a, b) => b.gameCount - a.gameCount);
 
@@ -173,6 +200,7 @@ const GraphChunk = ({ title, moves, onMoveSelect, selectedMove, depth, onMoveHov
                 onHover={() => onMoveHover && onMoveHover(moveData)}
                 onHoverEnd={() => onMoveHoverEnd && onMoveHoverEnd()}
                 isInLastCard={isLastCard}
+                displayMode={displayMode}
               />
             ))}
           </div>
@@ -184,6 +212,7 @@ const GraphChunk = ({ title, moves, onMoveSelect, selectedMove, depth, onMoveHov
 
 export default function ChunkVisualization({ 
   openingGraph,
+  customMoveTree = null, // NEW: Custom move tree for opening mode
   isWhiteTree = true,
   onCurrentMovesChange,
   externalMoves = [],
@@ -194,7 +223,9 @@ export default function ChunkVisualization({
   // NEW: Filtering parameters to sync with performance graph
   maxDepth = 20,
   minGameCount = 1,
-  winRateFilter = [0, 100]
+  winRateFilter = [0, 100],
+  displayMode = 'performance', // NEW: 'opening' | 'performance'
+  readOnly = false // NEW: Read-only mode for view-only scenarios
 }) {
   const [path, setPath] = useState(initialPath); // Array of selected moves (SAN notation)
   const [displayPath, setDisplayPath] = useState(initialPath); // Delayed path for display
@@ -222,17 +253,18 @@ export default function ChunkVisualization({
   useEffect(() => {
     if (onDirectScrollRef.current) {
       const directScrollTo = (moves) => {
-        // Instead of scrolling, we update the path state to trigger chunk change
-        
-        // Update all path states to trigger the correct chunk display
-        setPath(moves);
-        setDisplayPath(moves);
-        setChessboardPath(moves);
+        // Only update if moves are actually different to prevent loops
+        if (moves.length !== path.length || moves.some((move, index) => move !== path[index])) {
+          // Update all path states to trigger the correct chunk display
+          setPath(moves);
+          setDisplayPath(moves);
+          setChessboardPath(moves);
+        }
       };
       
       onDirectScrollRef.current(directScrollTo);
     }
-  }, [openingGraph]); // Only run when openingGraph changes
+  }, [openingGraph, path]); // Include path to ensure we have the current path when checking
 
   // Calculate current moves sequence based on chessboard path (not regular path)
   const currentMoves = useMemo(() => {
@@ -240,9 +272,18 @@ export default function ChunkVisualization({
   }, [chessboardPath]);
 
   // Notify parent of current moves changes
+  const prevCurrentMovesRef = useRef([]);
   useEffect(() => {
     if (onCurrentMovesChangeRef.current) {
-      onCurrentMovesChangeRef.current(currentMoves);
+      // Only notify if moves have actually changed to prevent circular updates
+      const prevMoves = prevCurrentMovesRef.current;
+      const movesChanged = currentMoves.length !== prevMoves.length ||
+                          currentMoves.some((move, index) => move !== prevMoves[index]);
+      
+      if (movesChanged) {
+        prevCurrentMovesRef.current = [...currentMoves];
+        onCurrentMovesChangeRef.current(currentMoves);
+      }
     }
   }, [currentMoves]); // Use ref to avoid infinite loops
 
@@ -268,11 +309,6 @@ export default function ChunkVisualization({
       setPath(externalMoves);
       setDisplayPath(externalMoves);
       setChessboardPath(externalMoves);
-      
-      // Force a re-render to ensure the selection is visible
-      setTimeout(() => {
-        setDisplayPath([...externalMoves]); // Force re-render with fresh array
-      }, 10);
     }
   }, [externalMoves]); // Only depend on externalMoves
 
@@ -344,8 +380,195 @@ export default function ChunkVisualization({
     return validMoves;
   };
 
+  // Helper function to generate better opening information based on move and context
+  const generateOpeningInfo = useCallback((move, currentPath) => {
+    // If we have an openingGraph, try to get actual ECO information
+    if (openingGraph) {
+      try {
+        // Build the complete move sequence including this move
+        const fullPath = [...currentPath, move];
+        
+        // Try to get moves from the position to see if this move exists
+        const parentMoves = openingGraph.getMovesFromPosition(currentPath, isWhiteTree);
+        const matchingMove = parentMoves?.find(m => m.san === move);
+        
+        if (matchingMove && matchingMove.openingInfo) {
+          // Use the actual ECO information from the opening graph
+          const { eco, name } = matchingMove.openingInfo;
+          return {
+            eco: eco || '',
+            name: name || 'Unknown Opening'
+          };
+        }
+      } catch (error) {
+        // Fall through to custom fallback logic
+      }
+    }
+    
+    // Fallback to custom opening names when ECO data is not available
+    const fullPath = [...currentPath, move];
+    const moveNumber = Math.ceil(fullPath.length / 2);
+    
+    // Generate descriptive names based on common opening patterns
+    if (fullPath.length === 1) {
+      // First moves
+      const openingNames = {
+        'e4': { eco: 'C20', name: "King's Pawn Game" },
+        'd4': { eco: 'D00', name: "Queen's Pawn Game" }, 
+        'Nf3': { eco: 'A04', name: "Reti Opening" },
+        'c4': { eco: 'A10', name: "English Opening" },
+        'f4': { eco: 'A02', name: "Bird's Opening" },
+        'b3': { eco: 'A01', name: "Nimzo-Larsen Attack" },
+        'g3': { eco: 'A00', name: "Benko's Opening" },
+        'Nc3': { eco: 'A00', name: "Van't Kruijs Opening" }
+      };
+      return openingNames[move] || { eco: '', name: 'User Opening' };
+    } else if (fullPath.length === 2) {
+      // Second moves - respond to first move
+      const [firstMove, secondMove] = fullPath;
+      if (firstMove === 'e4') {
+        const responses = {
+          'e5': { eco: 'C20', name: "King's Pawn Game" },
+          'c5': { eco: 'B20', name: "Sicilian Defense" },
+          'e6': { eco: 'C00', name: "French Defense" },
+          'c6': { eco: 'B10', name: "Caro-Kann Defense" },
+          'd6': { eco: 'B00', name: "Pirc Defense" },
+          'Nc6': { eco: 'B00', name: "Nimzowitsch Defense" },
+          'Nf6': { eco: 'B00', name: "Alekhine Defense" }
+        };
+        return responses[secondMove] || { eco: 'C20', name: "King's Pawn Opening" };
+      } else if (firstMove === 'd4') {
+        const responses = {
+          'd5': { eco: 'D00', name: "Queen's Gambit" },
+          'Nf6': { eco: 'A40', name: "Indian Defense" },
+          'f5': { eco: 'A80', name: "Dutch Defense" },
+          'c5': { eco: 'A40', name: "Benoni Defense" },
+          'e6': { eco: 'D00', name: "Queen's Pawn Game" }
+        };
+        return responses[secondMove] || { eco: 'D00', name: "Queen's Pawn Opening" };
+      }
+      return { eco: '', name: 'Opening Development' };
+    } else {
+      // Later moves - more generic descriptions
+      return { 
+        eco: '', 
+        name: moveNumber <= 6 ? `Opening Move ${moveNumber}` : 'Middle Game' 
+      };
+    }
+  }, [openingGraph, isWhiteTree]);
+
+  // Helper function to get moves from custom move tree
+  const getMovesFromCustomTree = (path, isWhiteTree) => {
+    if (!customMoveTree) return [];
+    
+    // Start from root and follow the path
+    let currentNode = customMoveTree;
+    
+    // Navigate to the current position
+    for (const move of path) {
+      const childNode = currentNode.children.find(child => child.san === move);
+      if (childNode) {
+        currentNode = childNode;
+      } else {
+        return []; // Path doesn't exist in tree
+      }
+    }
+    
+    // Return available moves from current position with better opening info
+    return currentNode.children.map(child => ({
+      san: child.san,
+      toFen: child.fen,
+      gameCount: 1, // Default count for opening mode
+      details: { winRate: 50 }, // Default neutral win rate
+      winRate: 50,
+      openingInfo: generateOpeningInfo(child.san, path)
+    }));
+  };
+
+  // Helper function to filter performance moves to only show those that exist in the opening tree
+  const filterPerformanceMovesToOpeningTree = (performanceMoves, currentPath) => {
+    if (!customMoveTree || !performanceMoves || performanceMoves.length === 0) {
+      return performanceMoves;
+    }
+    
+    // Navigate to the current position in the custom tree
+    let currentNode = customMoveTree;
+    for (const move of currentPath) {
+      const childNode = currentNode.children.find(child => child.san === move);
+      if (childNode) {
+        currentNode = childNode;
+      } else {
+        // Path doesn't exist in opening tree, return empty
+        return [];
+      }
+    }
+    
+    // Get the available moves from the opening tree at this position
+    const availableMovesInTree = currentNode.children.map(child => child.san);
+    
+    // Filter performance moves to only include those that exist in the opening tree
+    return performanceMoves.filter(move => availableMovesInTree.includes(move.san));
+  };
+
   // Calculate chunks to display and global max game count
   const { chunks, globalMaxGameCount, currentChunkIndex } = useMemo(() => {
+    // Handle custom move tree mode (opening edit/view) - only when displayMode is 'opening'
+    if (customMoveTree && displayMode === 'opening') {
+      const result = [];
+      
+      // Get root moves from custom tree with improved opening info
+      const rootMoves = customMoveTree.children.map(child => ({
+        san: child.san,
+        toFen: child.fen,
+        gameCount: 1, // Default count for opening mode
+        details: { winRate: 50 }, // Default neutral win rate
+        winRate: 50,
+        openingInfo: generateOpeningInfo(child.san, [])
+      }));
+      
+      if (rootMoves.length > 0) {
+        const title = isWhiteTree ? "Your First Moves" : "Opponent's First Moves";
+        result.push({
+          title,
+          moves: rootMoves,
+          depth: 0
+        });
+      }
+      
+      // Get moves for each position in the path
+      let currentPath = [];
+      for (let i = 0; i < displayPath.length && i < maxDepth - 1; i++) {
+        currentPath = [...currentPath, displayPath[i]];
+        const availableMoves = getMovesFromCustomTree(currentPath, isWhiteTree);
+        
+        if (availableMoves.length > 0) {
+          // Determine whose turn it is to move
+          const moveNumber = currentPath.length + 1;
+          const isWhiteToMove = moveNumber % 2 === 1;
+          
+          let title;
+          if (isWhiteTree) {
+            title = isWhiteToMove ? "Your Replies" : "Opponent's Replies";
+          } else {
+            title = isWhiteToMove ? "Opponent's Replies" : "Your Replies";
+          }
+          
+          result.push({
+            title,
+            moves: availableMoves,
+            depth: i + 1
+          });
+        }
+      }
+      
+      // For opening mode, global max is always 1
+      const globalMaxGameCount = 1;
+      const currentChunkIndex = Math.min(displayPath.length, result.length - 1);
+      
+      return { chunks: result, globalMaxGameCount, currentChunkIndex };
+    }
+    
+    // Original logic for openingGraph
     if (!openingGraph) return { chunks: [], globalMaxGameCount: 0, currentChunkIndex: 0 };
     
     const result = [];
@@ -355,7 +578,12 @@ export default function ChunkVisualization({
     const rootMoves = openingGraph.getRootMoves(isWhiteTree);
     
     // Apply filtering to root moves
-    const filteredRootMoves = applyMoveFiltering(rootMoves, 0);
+    let filteredRootMoves = applyMoveFiltering(rootMoves, 0);
+    
+    // IMPORTANT: When in opening editor context, filter to only show moves that exist in the opening tree
+    if (customMoveTree) {
+      filteredRootMoves = filterPerformanceMovesToOpeningTree(filteredRootMoves, []);
+    }
     
     if (filteredRootMoves.length > 0) {
       const title = isWhiteTree ? "Your First Moves" : "Opponent's First Moves";
@@ -374,7 +602,12 @@ export default function ChunkVisualization({
       const availableMoves = openingGraph.getMovesFromPosition(currentMoves, isWhiteTree);
       
       // Apply filtering to available moves
-      const filteredMoves = applyMoveFiltering(availableMoves, i + 1);
+      let filteredMoves = applyMoveFiltering(availableMoves, i + 1);
+      
+      // IMPORTANT: When in opening editor context, filter to only show moves that exist in the opening tree
+      if (customMoveTree) {
+        filteredMoves = filterPerformanceMovesToOpeningTree(filteredMoves, currentMoves);
+      }
       
       if (filteredMoves.length > 0) {
         // Determine whose turn it is to move
@@ -405,7 +638,7 @@ export default function ChunkVisualization({
     const currentChunkIndex = Math.min(displayPath.length, result.length - 1);
     
     return { chunks: result, globalMaxGameCount, currentChunkIndex };
-  }, [openingGraph, isWhiteTree, displayPath, maxDepth, minGameCount, winRateFilter]);
+  }, [openingGraph, customMoveTree, isWhiteTree, displayPath, maxDepth, minGameCount, winRateFilter, generateOpeningInfo]);
 
   const handleMoveSelect = (moveData, depth) => {
     // Create new path immediately with the selected move
@@ -443,10 +676,14 @@ export default function ChunkVisualization({
     setChessboardPath([]);
   };
 
-  if (!openingGraph) {
+  if (!openingGraph && !customMoveTree) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-slate-400">No opening graph available</p>
+        <p className="text-slate-400">
+          {displayMode === 'opening' 
+            ? "No opening moves available" 
+            : "No opening graph available"}
+        </p>
       </div>
     );
   }
@@ -491,13 +728,18 @@ export default function ChunkVisualization({
                     // Use global max game count for relative thickness calculation
                     const enhancedMoveData = {
                       ...moveData,
-                      maxGameCount: globalMaxGameCount
+                      maxGameCount: globalMaxGameCount,
+                      // Add arrow color for opening mode
+                      arrowColor: displayMode === 'opening' ? '#ec4899' : undefined,
+                      // For pink arrows, use consistent thickness since it's not performance data
+                      fixedThickness: displayMode === 'opening' ? 14 : undefined
                     };
                     onMoveHover(enhancedMoveData);
                   }
                 }}
                 onMoveHoverEnd={onMoveHoverEnd}
                 isLastCard={currentChunkIndex === chunks.length - 1}
+                displayMode={displayMode}
               />
             </motion.div>
           )}

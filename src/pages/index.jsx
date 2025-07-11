@@ -3,7 +3,6 @@ import LoginPage from "./LoginPage";
 import PerformanceGraph from "./PerformanceGraph";
 import OpeningsBook from "./OpeningsBook";
 import OpeningEditor from "./OpeningEditor";
-import OpeningView from "./OpeningView";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2, Shield, Crown, Heart, Code, DollarSign, Users, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -243,7 +242,7 @@ function PagesContent() {
                 <Route path="openings-book" element={<OpeningsBook />} />
                 <Route path="openings-book/editor/new" element={<OpeningEditor />} />
                 <Route path="openings-book/editor/:openingId" element={<OpeningEditor />} />
-                <Route path="openings-book/opening/:openingId" element={<OpeningView />} />
+                <Route path="openings-book/opening/:openingId" element={<OpeningEditor />} />
                 {/* Redirect authenticated users away from login */}
                 <Route path="login" element={<PerformanceGraph />} />
             </Route>

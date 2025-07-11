@@ -243,9 +243,12 @@ export const useCanvasState = ({
     setCurrentNodeId(nodeId);
     setCurrentPositionFen(fen);
     
-    // DIRECT AUTO-ZOOM ON CLICK - No effect dependencies to interfere!
-    if (source === 'click' && enableAutoZoom && enableClickAutoZoom && fen) {
-      console.log('🎯 DIRECT AUTO-ZOOM ON CLICK');
+    // DIRECT AUTO-ZOOM ON CLICK OR RESET - No effect dependencies to interfere!
+    if (enableAutoZoom && fen && (
+      (source === 'click' && enableClickAutoZoom) || 
+      (source === 'reset')
+    )) {
+      console.log('🎯 DIRECT AUTO-ZOOM ON', source.toUpperCase());
       
       // Clear any existing auto-zoom timeout
       if (autoZoomTimeoutRef.current) {
@@ -308,7 +311,11 @@ export const useCanvasState = ({
     }
     
     // DISABLE auto-zoom when click auto-zoom is disabled (user wants no auto-zoom at all)
-    if (!enableClickAutoZoom) {
+    // EXCEPT for reset actions which should always trigger fit-to-view
+    const timeSinceLastPositionChange = Date.now() - lastPositionChangeTimeRef.current;
+    const wasRecentReset = lastPositionChangeSourceRef.current === 'reset' && timeSinceLastPositionChange < 1000;
+    
+    if (!enableClickAutoZoom && !wasRecentReset) {
       // Clear any existing auto-zoom timeout when disabled
       if (autoZoomTimeoutRef.current) {
         clearTimeout(autoZoomTimeoutRef.current);
@@ -339,12 +346,13 @@ export const useCanvasState = ({
     // This prevents conflicts with resize handling
     if (!positionChanged || !canvasIsReady) return;
     
-    // SKIP effect-based auto-zoom if this was a recent click (handled by direct auto-zoom)
+    // SKIP effect-based auto-zoom if this was a recent click or reset (handled by direct auto-zoom)
     const timeSinceLastChange = Date.now() - lastPositionChangeTimeRef.current;
     const wasRecentClick = lastPositionChangeSourceRef.current === 'click' && timeSinceLastChange < 1000;
+    const wasRecentResetAction = lastPositionChangeSourceRef.current === 'reset' && timeSinceLastChange < 1000;
     
-    if (wasRecentClick) {
-      console.log('⏭️ SKIPPING EFFECT-BASED AUTO-ZOOM - RECENT CLICK (handled by direct auto-zoom)');
+    if (wasRecentClick || wasRecentResetAction) {
+      console.log('⏭️ SKIPPING EFFECT-BASED AUTO-ZOOM - RECENT', lastPositionChangeSourceRef.current.toUpperCase(), '(handled by direct auto-zoom)');
       return;
     }
     

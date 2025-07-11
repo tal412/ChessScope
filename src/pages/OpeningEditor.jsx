@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useCanvasState } from '../hooks/useCanvasState';
+import { useChessboardSync } from '../hooks/useChessboardSync';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { NavigationButtons, NavigationPresets } from '@/components/ui/navigation-buttons';
 
 import { 
   FlexibleLayout, 
@@ -34,9 +36,12 @@ import {
   Edit,
   AlertTriangle,
   Edit3,
-  Star
+  Star,
+  Eye,
+  Menu
 } from 'lucide-react';
 import InteractiveChessboard from '@/components/chess/InteractiveChessboard';
+import ChunkVisualization from '@/components/opening-moves/ChunkVisualization';
 import { UserOpening, UserOpeningMove, MoveAnnotation } from '@/api/entities';
 import { Chess } from 'chess.js';
 import CanvasPerformanceGraph from '@/components/chess/CanvasPerformanceGraph';
@@ -140,6 +145,11 @@ export default function OpeningEditor() {
   const { openingId } = useParams();
   const isNewOpening = !openingId;
   
+  // Detect if we're in view mode vs edit mode based on the URL path
+  const location = useLocation();
+  const isViewMode = location.pathname.includes('/openings-book/opening/');
+  const isEditMode = location.pathname.includes('/openings-book/editor/') || isNewOpening;
+  
   // Form state - initialized from URL params for new openings
   const [name, setName] = useState('');
   const [color, setColor] = useState('white');
@@ -203,6 +213,10 @@ export default function OpeningEditor() {
   const [showBoard, setShowBoard] = useState(true);
   const [showGraph, setShowGraph] = useState(true);
   
+  // Add moves visibility state
+  const [showMoves, setShowMoves] = useState(true);
+  const [showDetails, setShowDetails] = useState(true); // Add details visibility state
+  
   // Canvas state
   const [canvasMode, setCanvasMode] = useState('opening'); // 'opening' | 'performance'
   const [openingGraph, setOpeningGraph] = useState(null); // For performance mode
@@ -210,6 +224,11 @@ export default function OpeningEditor() {
   
   // Graph data for canvas view
   const [graphData, setGraphData] = useState({ nodes: [], edges: [] });
+  
+  // Moves integration state (similar to PerformanceGraph)
+  const [movesStats, setMovesStats] = useState(null);
+  const [movesDirectScrollFn, setMovesDirectScrollFn] = useState(null);
+  const [movesCurrentPath, setMovesCurrentPath] = useState([]);
   
   // NEW: Context menu state
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
@@ -224,6 +243,22 @@ export default function OpeningEditor() {
     }
     return null;
   }, []);
+
+  // Helper function to build move sequence from a tree node
+  const buildMoveSequenceFromNode = useCallback((node) => {
+    if (!node || node.san === 'Start') return [];
+    
+    const sequence = [];
+    let current = node;
+    
+    // Build sequence by traversing up to root
+    while (current.parent) {
+      sequence.unshift(current.san);
+      current = current.parent;
+    }
+    
+    return sequence;
+  }, []);
   
   // Auto zoom on click state
   const [autoZoomOnClick, setAutoZoomOnClick] = useState(false);
@@ -235,7 +270,12 @@ export default function OpeningEditor() {
     enableClustering: false, // Disable opening clustering in opening editor
     enablePositionClusters: true, // Enable position clusters in both modes
     enableAutoZoom: true, // Enable auto-zoom functionality 
-    enableClickAutoZoom: autoZoomOnClick // Use state-controlled click auto-zoom
+    enableClickAutoZoom: autoZoomOnClick, // Use state-controlled click auto-zoom
+    // Ensure auto-fit is enabled for both view and edit modes
+    enableAutoFit: true,
+    autoFitOnResize: true,
+    autoFitOnGraphChange: true,
+    autoFitDelay: 200
   });
   
   // Derived selected node state from unified performance state
@@ -243,6 +283,30 @@ export default function OpeningEditor() {
     if (!performanceState.currentNodeId) return null;
     return findNodeById(moveTree, performanceState.currentNodeId);
   }, [performanceState.currentNodeId, moveTree, findNodeById]);
+
+  // Use shared chessboard sync hook like in PerformanceGraph
+  const chessboardSync = useChessboardSync({
+    nodes: graphData.nodes,
+    onNodeSelect: (node) => {
+      if (node) {
+        // Find the corresponding tree node
+        const treeNode = findNodeById(moveTree, node.id);
+        if (treeNode) {
+          handleNodeSelect(treeNode);
+        }
+      } else {
+        // Deselect current node
+        setCurrentNode(null);
+        setCurrentPath([]);
+        performanceState.updateCurrentPosition(null, null, 'click');
+        // Clear hover states to prevent lingering arrows
+        setHoveredMove(null);
+        setMovesHoveredMove(null);
+        performanceState.setHoveredNextMoveNodeId(null);
+      }
+    },
+    setNodes: () => {} // Not needed for opening editor
+  });
 
   // Handle drawing mode toggle
   const handleDrawingModeToggle = useCallback(() => {
@@ -272,40 +336,8 @@ export default function OpeningEditor() {
     navigate(to, options);
   }, [hasUnsavedChanges, isNavigatingAway, navigate]);
 
-  // Store pending navigation details
-  const pendingNavigationRef = useRef(null);
-
-  // Intercept all Link clicks in the document to check for unsaved changes
-  useEffect(() => {
-    const handleLinkClick = (event) => {
-      // Only intercept if we have unsaved changes and not already navigating
-      if (!hasUnsavedChanges || isNavigatingAway) return;
-      
-      // Check if the clicked element is a link or inside a link
-      const link = event.target.closest('a[href]');
-      if (!link) return;
-      
-      const href = link.getAttribute('href');
-      
-      // Only intercept internal navigation (React Router links)
-      if (href && href.startsWith('/') && !href.startsWith('//')) {
-        event.preventDefault();
-        event.stopPropagation();
-        
-        setShowUnsavedChangesDialog(true);
-        setPendingNavigation('router-navigation');
-        // Store the navigation details
-        pendingNavigationRef.current = { to: href, options: {} };
-      }
-    };
-
-    // Add event listener to capture all link clicks
-    document.addEventListener('click', handleLinkClick, true);
-    
-    return () => {
-      document.removeEventListener('click', handleLinkClick, true);
-    };
-  }, [hasUnsavedChanges, isNavigatingAway]);
+  // Handle navigation with unsaved changes check - only for programmatic navigation
+  // Note: Removed global link interception as it was breaking sidebar navigation
 
   // Load existing opening
   useEffect(() => {
@@ -314,6 +346,11 @@ export default function OpeningEditor() {
     } else {
       // Initialize performance state position for new opening
       performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'programmatic');
+      // Sync chessboard to starting position for new opening
+      chessboardSync.syncMovesToChessboard([]);
+      // Set initial tree state
+      setCurrentNode(moveTree);
+      setCurrentPath([]);
     }
   }, [openingId]);
 
@@ -353,9 +390,13 @@ export default function OpeningEditor() {
     }
   }, [isNewOpening, initialState, loading, moveTree, serializeTree]);
 
-  // Track changes - now includes tree structure changes
+  // Track changes - now includes tree structure changes (only in edit mode)
   useEffect(() => {
-    if (!initialState) return;
+    if (!initialState || isViewMode) {
+      // Don't track changes in view mode
+      setHasUnsavedChanges(false);
+      return;
+    }
     
     const currentState = {
       name,
@@ -369,7 +410,7 @@ export default function OpeningEditor() {
       currentState.treeStructure !== initialState.treeStructure;
     
     setHasUnsavedChanges(hasChanges);
-  }, [name, color, moveTree, treeChangeVersion, initialState, serializeTree]);
+  }, [name, color, moveTree, treeChangeVersion, initialState, serializeTree, isViewMode]);
 
   // Prevent navigation with unsaved changes
   useEffect(() => {
@@ -419,6 +460,12 @@ export default function OpeningEditor() {
       if (username) {
         const graph = await loadOpeningGraph(username);
         setOpeningGraph(graph);
+        
+        // Set up opening moves stats when graph is loaded
+        if (graph) {
+          const overallStats = graph.getOverallStats();
+          setMovesStats(overallStats);
+        }
       }
     };
     loadPerformanceData();
@@ -567,7 +614,38 @@ export default function OpeningEditor() {
   useEffect(() => {
     // Always update the underlying opening tree data when the tree changes
     updateGraphData();
-  }, [moveTree, openingGraph, treeVersion]); // Trigger on any tree changes (structure or content) or when opening graph loads
+    
+    // Ensure auto-fit is triggered after graph update, especially for view mode
+    if (graphData.nodes.length > 0 && isViewMode) {
+      setTimeout(() => {
+        performanceState.scheduleAutoFit('view-mode-graph-updated', 300);
+      }, 600);
+    }
+  }, [moveTree, openingGraph, treeVersion, isViewMode]); // Trigger on any tree changes (structure or content) or when opening graph loads
+
+  // Ensure initial synchronization when graph data is available
+  useEffect(() => {
+    if (graphData.nodes.length > 0 && currentNode) {
+      // Find the graph node that corresponds to the current tree node
+      const currentMoveSequence = buildMoveSequenceFromNode(currentNode);
+      const correspondingGraphNode = graphData.nodes.find(node => {
+        const nodeMoveSequence = node.data.moveSequence || [];
+        return nodeMoveSequence.length === currentMoveSequence.length &&
+               nodeMoveSequence.every((move, index) => move === currentMoveSequence[index]);
+      });
+      
+      if (correspondingGraphNode && performanceState.currentNodeId !== correspondingGraphNode.id) {
+        // Update graph selection to match current tree node
+        performanceState.updateCurrentPosition(correspondingGraphNode.id, correspondingGraphNode.data.fen, 'sync');
+      }
+      
+      // Ensure chessboard is synced with current path
+      if (chessboardSync.currentMoves.length !== currentPath.length || 
+          !chessboardSync.currentMoves.every((move, index) => move === currentPath[index])) {
+        chessboardSync.syncMovesToChessboard(currentPath);
+      }
+    }
+  }, [graphData.nodes, currentNode, currentPath, buildMoveSequenceFromNode, performanceState, chessboardSync]);
   
   // Handle performance mode overlay when graphData is updated
   useEffect(() => {
@@ -576,6 +654,17 @@ export default function OpeningEditor() {
       navigateToPerformancePosition();
     }
   }, [graphData.nodes.length, canvasMode, openingGraph]); // Trigger when graphData is actually updated
+  
+  // Ensure auto-fit is triggered when entering view mode
+  useEffect(() => {
+    if (isViewMode && graphData.nodes.length > 0 && !loading) {
+      // Give extra time for the canvas to fully initialize
+      setTimeout(() => {
+        console.log('🎯 VIEW MODE: Triggering auto-fit for view mode');
+        performanceState.fitView();
+      }, 800);
+    }
+  }, [isViewMode, graphData.nodes.length, loading, performanceState.fitView]);
   
   // Trigger canvas graph change handling only when nodes actually change
   useEffect(() => {
@@ -718,6 +807,14 @@ export default function OpeningEditor() {
       
       // Initialize unified performance state position
       performanceState.updateCurrentPosition(root.id, root.fen, 'programmatic');
+      
+      // Sync chessboard to starting position
+      chessboardSync.syncMovesToChessboard([]);
+      
+      // Ensure auto-fit is triggered after loading, especially for view mode
+      setTimeout(() => {
+        performanceState.scheduleAutoFit('opening-loaded', 300);
+      }, 500);
       
     } catch (error) {
       console.error('Error loading opening:', error);
@@ -1111,7 +1208,12 @@ export default function OpeningEditor() {
     if (newMoves.length === 0) {
       setCurrentNode(moveTree);
       setCurrentPath([]);
-      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'programmatic');
+      // Use 'reset' source to ensure fit-to-view happens regardless of autoZoomOnClick setting
+      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'reset');
+      // Clear hover states to prevent lingering arrows
+      setHoveredMove(null);
+      setMovesHoveredMove(null);
+      performanceState.setHoveredNextMoveNodeId(null);
       return;
     }
     
@@ -1130,13 +1232,18 @@ export default function OpeningEditor() {
         node = existingChild;
         i++;
       } else {
-        // Move doesn't exist, create new branch from here
-        break;
+        // Move doesn't exist, create new branch from here (only in edit mode)
+        if (!isViewMode) {
+          break;
+        } else {
+          // In view mode, don't create new moves, just navigate to the last valid position
+          break;
+        }
       }
     }
     
-    // Create any new moves from the divergence point
-    if (i < newMoves.length) {
+    // Create any new moves from the divergence point (only in edit mode)
+    if (i < newMoves.length && !isViewMode) {
       const chess = new Chess(node.fen);
       
       while (i < newMoves.length) {
@@ -1186,12 +1293,162 @@ export default function OpeningEditor() {
     }
     setCurrentPath(path);
     
+    // Sync chessboard with the selected path
+    chessboardSync.syncMovesToChessboard(path);
+    
     // Update unified performance state position - pass 'click' as source
     performanceState.updateCurrentPosition(node.id, node.fen, 'click');
     
     // Don't auto-fit on node selection - let user control the view
     // This prevents the view from jumping when user clicks nodes
   };
+
+  // Handle moves from chessboard (for creating new moves in edit mode)
+  const handleChessboardMove = useCallback((moves) => {
+    // Handle new move from chessboard - same logic as handleNewMove
+    // If empty moves array, go to start position
+    if (moves.length === 0) {
+      setCurrentNode(moveTree);
+      setCurrentPath([]);
+      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'reset');
+      chessboardSync.syncMovesToChessboard([]);
+      // Clear hover states to prevent lingering arrows
+      setHoveredMove(null);
+      setMovesHoveredMove(null);
+      performanceState.setHoveredNextMoveNodeId(null);
+      return;
+    }
+    
+    // Start from the root and follow/create the path
+    let node = moveTree;
+    let i = 0;
+    let needsUpdate = false;
+    
+    // Follow existing moves as far as possible
+    while (i < moves.length) {
+      const move = moves[i];
+      const existingChild = node.children.find(c => c.san === move);
+      
+      if (existingChild) {
+        // Move exists, follow it
+        node = existingChild;
+        i++;
+      } else {
+        // Move doesn't exist, create new branch from here (only in edit mode)
+        if (!isViewMode) {
+          break;
+        } else {
+          // In view mode, don't create new moves, just navigate to the last valid position
+          break;
+        }
+      }
+    }
+    
+    // Create any new moves from the divergence point (only in edit mode)
+    if (i < moves.length && !isViewMode) {
+      const chess = new Chess(node.fen);
+      
+      while (i < moves.length) {
+        const move = chess.move(moves[i]);
+        if (move) {
+          node = node.addChild(move.san, chess.fen());
+          needsUpdate = true;
+        }
+        i++;
+      }
+    }
+    
+    // Determine the final path based on how far we got
+    const finalPath = moves.slice(0, i); // Only the moves we actually navigated to
+    
+    // Update current position to the final node
+    setCurrentNode(node);
+    setCurrentPath([...finalPath]);
+    performanceState.updateCurrentPosition(node.id, node.fen, 'programmatic');
+    chessboardSync.syncMovesToChessboard(finalPath);
+    
+    // Only update the tree if we added new moves
+    if (needsUpdate) {
+      // Recalculate main line after adding moves
+      MoveNode.calculateMainLine(moveTree);
+      
+      // Increment version to force React to re-render
+      setTreeVersion(v => v + 1);
+      
+      // Trigger change detection
+      setTreeChangeVersion(v => v + 1);
+      
+      // Schedule auto-fit after tree update only if auto zoom is enabled
+      if (autoZoomOnClick) {
+        setTimeout(() => {
+          performanceState.scheduleAutoFit('new-move-added', 200);
+        }, 300);
+      }
+    }
+    
+    // Find corresponding graph node and update selection
+    const correspondingGraphNode = graphData.nodes.find(graphNode => {
+      const nodeMoveSequence = graphNode.data.moveSequence || [];
+      return nodeMoveSequence.length === finalPath.length &&
+             nodeMoveSequence.every((move, index) => move === finalPath[index]);
+    });
+    
+    if (correspondingGraphNode) {
+      performanceState.updateCurrentPosition(correspondingGraphNode.id, correspondingGraphNode.data.fen, 'sync');
+    } else {
+      // If no graph node found, clear the selection
+      performanceState.updateCurrentPosition(null, null, 'sync');
+    }
+  }, [chessboardSync, graphData.nodes, performanceState, moveTree, isViewMode, autoZoomOnClick]);
+
+  // Handle move selection from chessboard (for navigation)
+  const handleChessboardMoveSelect = useCallback((moves) => {
+    // Sync chessboard state
+    chessboardSync.syncMovesToChessboard(moves);
+    
+    // Navigate in the tree
+    if (moves.length === 0) {
+      // Going to root
+      setCurrentNode(moveTree);
+      setCurrentPath([]);
+      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'sync');
+      // Clear hover states to prevent lingering arrows
+      setHoveredMove(null);
+      setMovesHoveredMove(null);
+      performanceState.setHoveredNextMoveNodeId(null);
+    } else {
+      // Find the tree node corresponding to these moves
+      let treeNode = moveTree;
+      let validMoves = [];
+      
+      // Follow existing moves as far as possible
+      for (const move of moves) {
+        const existingChild = treeNode.children.find(c => c.san === move);
+        if (existingChild) {
+          treeNode = existingChild;
+          validMoves.push(move);
+        } else {
+          // In view mode or when moves don't exist, stop at last valid position
+          break;
+        }
+      }
+      
+      // Update tree state
+      setCurrentNode(treeNode);
+      setCurrentPath([...validMoves]);
+      
+      // Find corresponding graph node and update selection
+      const correspondingGraphNode = graphData.nodes.find(node => {
+        const nodeMoveSequence = node.data.moveSequence || [];
+        return nodeMoveSequence.length === validMoves.length &&
+               nodeMoveSequence.every((move, index) => move === validMoves[index]);
+      });
+      
+      if (correspondingGraphNode) {
+        performanceState.updateCurrentPosition(correspondingGraphNode.id, correspondingGraphNode.data.fen, 'sync');
+      }
+    }
+  }, [chessboardSync, moveTree, performanceState, graphData.nodes]);
   
   const handleNodeDelete = (node) => {
     if (node.parent) {
@@ -1230,24 +1487,50 @@ export default function OpeningEditor() {
             setCurrentPath([]);
             // Clear performance state position
             performanceState.updateCurrentPosition(null, null, 'click');
+            // Reset chessboard to starting position
+            chessboardSync.syncMovesToChessboard([]);
+            // Clear hover states to prevent lingering arrows
+            setHoveredMove(null);
+            setMovesHoveredMove(null);
+            performanceState.setHoveredNextMoveNodeId(null);
             return;
           }
         }
+        
+        // Extract move sequence from tree node
+        const moveSequence = buildMoveSequenceFromNode(treeNode);
+        
+        // Use chessboard sync to update position
+        chessboardSync.syncMovesToChessboard(moveSequence);
+        
+        // Select the node
         handleNodeSelect(treeNode);
       }
     } else if (canvasMode === 'performance' && node.data) {
       // Check if clicking on currently selected node - if so, deselect it
       if (performanceState.currentNodeId === node.id) {
-        // Deselect the current node
-        performanceState.updateCurrentPosition(null, null, 'click');
-        return;
+              // Deselect the current node
+      performanceState.updateCurrentPosition(null, null, 'click');
+      // Reset chessboard to starting position
+      chessboardSync.syncMovesToChessboard([]);
+      // Clear hover states to prevent lingering arrows
+      setHoveredMove(null);
+      setMovesHoveredMove(null);
+      performanceState.setHoveredNextMoveNodeId(null);
+      return;
       }
+      
+      // Extract move sequence from node data
+      const moveSequence = node.data.moveSequence || [];
+      
+      // Use chessboard sync to update position
+      chessboardSync.syncMovesToChessboard(moveSequence);
+      
       // Update performance state position for auto-zoom functionality - pass 'click' as source
       performanceState.updateCurrentPosition(node.id, node.data.fen, 'click');
       
       // Also update the local tree state to match the selected performance node
       // Find the corresponding tree node by move sequence
-      const moveSequence = node.data.moveSequence || [];
       if (moveSequence.length === 0) {
         // Root node
         setCurrentNode(moveTree);
@@ -1267,7 +1550,7 @@ export default function OpeningEditor() {
         setCurrentPath([...moveSequence]);
       }
     }
-  }, [canvasMode, handleNodeSelect, performanceState.updateCurrentPosition, performanceState.currentNodeId, moveTree]);
+  }, [canvasMode, handleNodeSelect, performanceState.updateCurrentPosition, performanceState.currentNodeId, moveTree, chessboardSync, findNodeById]);
 
   // Hover handlers for showing arrows on chessboard
   const handleCanvasNodeHover = useCallback((e, node) => {
@@ -1306,7 +1589,9 @@ export default function OpeningEditor() {
         },
         winRate: node.data.winRate || null,
         // Use pink arrow color for opening mode or missing data
-        arrowColor: shouldUsePinkArrow ? '#ec4899' : undefined // Pink color (pink-500)
+        arrowColor: shouldUsePinkArrow ? '#ec4899' : undefined, // Pink color (pink-500)
+        // For pink arrows, use consistent thickness since it's not performance data
+        fixedThickness: shouldUsePinkArrow ? 14 : undefined // Standard thickness for opening mode
       };
       
       setHoveredMove(moveData);
@@ -1324,6 +1609,10 @@ export default function OpeningEditor() {
     setLayoutInfo(layoutData);
   }, []);
 
+  const toggleMoves = () => {
+    setShowMoves(!showMoves);
+  };
+
   const toggleBoard = () => {
     setShowBoard(!showBoard);
   };
@@ -1332,10 +1621,16 @@ export default function OpeningEditor() {
     setShowGraph(!showGraph);
   };
 
-  // Component visibility state for flexible layout (removed details)
+  const toggleDetails = () => {
+    setShowDetails(!showDetails);
+  };
+
+  // Component visibility state for flexible layout (includes moves)
   const componentVisibility = {
+    moves: showMoves,
     board: showBoard,
-    graph: showGraph
+    graph: showGraph,
+    details: showDetails
   };
 
   // Navigation handlers with unsaved changes check
@@ -1361,14 +1656,8 @@ export default function OpeningEditor() {
     setIsNavigatingAway(true);
     setShowUnsavedChangesDialog(false);
     
-    // Handle different types of navigation
-    if (pendingNavigation === 'router-navigation' && pendingNavigationRef.current) {
-      // For React Router navigation, use the stored navigation details
-      const { to, options } = pendingNavigationRef.current;
-      navigate(to, options);
-      pendingNavigationRef.current = null;
-    } else if (pendingNavigation === 'back' || pendingNavigation === 'cancel') {
-      // For other navigation types, use navigate
+    // Handle navigation based on pending type
+    if (pendingNavigation === 'back' || pendingNavigation === 'cancel') {
       navigate('/openings-book');
     }
     
@@ -1381,12 +1670,7 @@ export default function OpeningEditor() {
     
     try {
       await handleSave();
-      // handleSave already navigates on success, but if we have a blocked navigation, proceed with it
-      if (pendingNavigation === 'router-navigation' && pendingNavigationRef.current) {
-        const { to, options } = pendingNavigationRef.current;
-        navigate(to, options);
-        pendingNavigationRef.current = null;
-      }
+      // handleSave already navigates on success for normal navigation
     } catch (error) {
       setIsNavigatingAway(false);
       console.error('Error saving before navigation:', error);
@@ -1397,16 +1681,12 @@ export default function OpeningEditor() {
 
   const handleCancelNavigation = () => {
     setShowUnsavedChangesDialog(false);
-    
-    // Clear the pending navigation to cancel it
-    pendingNavigationRef.current = null;
-    
     setPendingNavigation(null);
   };
 
-  // NEW: Context menu actions for opening mode
+  // NEW: Context menu actions for opening mode (only in edit mode)
   const contextMenuActions = useMemo(() => {
-    if (canvasMode !== 'opening') {
+    if (canvasMode !== 'opening' || isViewMode) {
       return null;
     }
     
@@ -1432,7 +1712,7 @@ export default function OpeningEditor() {
         disabled: (node) => node.data.isRoot || !node.data.san
       }
     ];
-  }, [canvasMode, moveTree]);
+  }, [canvasMode, moveTree, isViewMode]);
 
   // NEW: Handle confirmed node deletion
   const handleConfirmDelete = useCallback(() => {
@@ -1560,6 +1840,218 @@ export default function OpeningEditor() {
     }
   }, [canvasMode]);
 
+  // Moves integration handlers (similar to PerformanceGraph)
+  const handleMovesCurrentMovesChange = (moves) => {
+    // Store moves path persistently
+    setMovesCurrentPath(moves);
+    
+    // Check if moves are actually different from current chessboard state
+    const currentMoves = chessboardSync.currentMoves || [];
+    const movesChanged = moves.length !== currentMoves.length ||
+                        moves.some((move, index) => move !== currentMoves[index]);
+    
+    if (movesChanged) {
+      // Update chessboard to reflect moves selection
+      chessboardSync.syncMovesToChessboard(moves);
+    }
+    
+    // Navigate to the position in the tree
+    if (moves.length === 0) {
+      // Going to root
+      setCurrentNode(moveTree);
+      setCurrentPath([]);
+      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'reset');
+      // Clear hover states to prevent lingering arrows
+      setHoveredMove(null);
+      setMovesHoveredMove(null);
+      performanceState.setHoveredNextMoveNodeId(null);
+    } else {
+      // Find the tree node corresponding to these moves
+      let treeNode = moveTree;
+      let validMoves = [];
+      
+      // Follow existing moves as far as possible
+      for (const move of moves) {
+        const existingChild = treeNode.children.find(c => c.san === move);
+        if (existingChild) {
+          treeNode = existingChild;
+          validMoves.push(move);
+        } else {
+          // Stop at last valid position
+          break;
+        }
+      }
+      
+      // Update tree state
+      setCurrentNode(treeNode);
+      setCurrentPath([...validMoves]);
+      
+      // Find corresponding graph node and update selection
+      const correspondingGraphNode = graphData.nodes.find(node => {
+        const nodeMoveSequence = node.data.moveSequence || [];
+        return nodeMoveSequence.length === validMoves.length &&
+               nodeMoveSequence.every((move, index) => move === validMoves[index]);
+      });
+      
+      if (correspondingGraphNode) {
+        performanceState.updateCurrentPosition(correspondingGraphNode.id, correspondingGraphNode.data.fen, 'sync');
+      }
+    }
+  };
+
+  // Navigation handlers for opening moves NavigationButtons
+  const handleMovesPrevious = () => {
+    if (movesCurrentPath.length > 0) {
+      const newPath = movesCurrentPath.slice(0, -1);
+      setMovesCurrentPath(newPath);
+      chessboardSync.syncMovesToChessboard(newPath);
+      
+      // Update direct scroll function if available
+      if (movesDirectScrollFn) {
+        movesDirectScrollFn(newPath);
+      }
+    }
+  };
+
+  const handleMovesNext = () => {
+    // For opening moves, next navigation is typically done by clicking moves
+    // This could be enhanced to go to the most popular next move
+  };
+
+  const handleMovesReset = () => {
+    const newPath = [];
+    setMovesCurrentPath(newPath);
+    chessboardSync.syncMovesToChessboard(newPath);
+    
+    // Update direct scroll function if available
+    if (movesDirectScrollFn) {
+      movesDirectScrollFn(newPath);
+    }
+    
+    // Find root node and update position with reset source
+    setCurrentNode(moveTree);
+    setCurrentPath([]);
+    performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'reset');
+    
+    // Clear hover states to prevent lingering arrows
+    setHoveredMove(null);
+    setMovesHoveredMove(null);
+    performanceState.setHoveredNextMoveNodeId(null);
+  };
+
+  // Universal flip handler that flips both board orientation AND player perspective
+  const handleUniversalFlip = () => {
+    // Switch player perspective (White Moves ↔ Black Moves)
+    const newColor = color === 'white' ? 'black' : 'white';
+    setColor(newColor);
+    
+    // Trigger change detection for edit mode
+    if (!isViewMode) {
+      setTreeChangeVersion(v => v + 1);
+    }
+  };
+
+  // Alias for moves flip
+  const handleMovesFlip = handleUniversalFlip;
+
+  const handleMovesDirectScroll = (scrollFn) => {
+    setMovesDirectScrollFn(() => scrollFn);
+  };
+
+  const handleMovesMoveHover = (moveData) => {
+    setMovesHoveredMove(moveData);
+    
+    // Find the corresponding node in the graph for the hovered move
+    if (moveData && moveData.san) {
+      // Get current path from chessboard
+      const currentPath = chessboardSync.currentMoves || [];
+      // The next move would be current path + hovered move
+      const nextMovePath = [...currentPath, moveData.san];
+      
+      // Find the node that matches this move sequence
+      const hoveredNode = graphData.nodes.find(node => {
+        const nodeMoves = node.data.moveSequence || [];
+        return nodeMoves.length === nextMovePath.length && 
+               nodeMoves.every((move, index) => move === nextMovePath[index]);
+      });
+      
+      if (hoveredNode) {
+        // Set a state to track which node should glow
+        performanceState.setHoveredNextMoveNodeId(hoveredNode.id);
+      } else {
+        performanceState.setHoveredNextMoveNodeId(null);
+      }
+    } else {
+      performanceState.setHoveredNextMoveNodeId(null);
+    }
+    
+    // Also update the main hovered move state with appropriate arrow color
+    if (moveData) {
+      // In opening mode, always use pink arrows with consistent thickness
+      const shouldUsePinkArrow = canvasMode === 'opening';
+      
+      const enhancedMoveData = {
+        ...moveData,
+        arrowColor: shouldUsePinkArrow ? '#ec4899' : undefined, // Pink color for opening mode
+        // For pink arrows, use consistent thickness since it's not performance data
+        fixedThickness: shouldUsePinkArrow ? 14 : undefined // Standard thickness for opening mode
+      };
+      
+      setHoveredMove(enhancedMoveData);
+    }
+  };
+
+  const handleMovesMoveHoverEnd = () => {
+    setMovesHoveredMove(null);
+    performanceState.setHoveredNextMoveNodeId(null);
+  };
+
+  // Sync moves with chessboard moves
+  const prevChessboardMovesRef = useRef([]);
+  useEffect(() => {
+    if (movesDirectScrollFn && chessboardSync.currentMoves && showMoves) {
+      // Only update if moves have actually changed to prevent circular updates
+      const prevMoves = prevChessboardMovesRef.current;
+      const movesChanged = chessboardSync.currentMoves.length !== prevMoves.length ||
+                          chessboardSync.currentMoves.some((move, index) => move !== prevMoves[index]);
+      
+      if (movesChanged) {
+        prevChessboardMovesRef.current = [...chessboardSync.currentMoves];
+        // Update moves to show current position - only when moves is visible
+        setTimeout(() => {
+          movesDirectScrollFn(chessboardSync.currentMoves);
+        }, 100);
+      }
+    }
+  }, [chessboardSync.currentMoves, movesDirectScrollFn, showMoves]);
+
+  // Sync movesCurrentPath with current chessboard position
+  useEffect(() => {
+    if (chessboardSync.currentMoves.length !== movesCurrentPath.length ||
+        !chessboardSync.currentMoves.every((move, index) => move === movesCurrentPath[index])) {
+      setMovesCurrentPath([...chessboardSync.currentMoves]);
+    }
+  }, [chessboardSync.currentMoves, movesCurrentPath.length]);
+
+  // Ensure the moves component reflects the current position when it becomes visible
+  const prevShowMovesStateRef = useRef({ showMoves: false, moves: [] });
+  useEffect(() => {
+    if (showMoves && movesDirectScrollFn && chessboardSync.currentMoves) {
+      // Only update if showMoves state changed or moves changed
+      const prevState = prevShowMovesStateRef.current;
+      const shouldUpdate = showMoves !== prevState.showMoves ||
+                          chessboardSync.currentMoves.length !== prevState.moves.length ||
+                          chessboardSync.currentMoves.some((move, index) => move !== prevState.moves[index]);
+      
+      if (shouldUpdate) {
+        prevShowMovesStateRef.current = { showMoves, moves: [...chessboardSync.currentMoves] };
+        setTimeout(() => {
+          movesDirectScrollFn(chessboardSync.currentMoves);
+        }, 100);
+      }
+    }
+  }, [showMoves, movesDirectScrollFn, chessboardSync.currentMoves]);
+
   if (loading) {
     return (
       <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
@@ -1571,20 +2063,28 @@ export default function OpeningEditor() {
     );
   }
 
-  // Component toggle configuration (removed details)
+  // Component toggle configuration (includes moves)
   const componentToggleConfig = {
+    moves: { icon: Menu, label: 'Moves' },
     board: { icon: Grid3x3, label: 'Board' },
-    graph: { icon: Network, label: 'Graph' }
+    graph: { icon: Network, label: 'Graph' },
+    details: { icon: FileText, label: 'Details' }
   };
 
   // Handle component toggles
   const handleComponentToggle = (componentKey) => {
     switch (componentKey) {
+      case 'moves':
+        toggleMoves();
+        break;
       case 'board':
         toggleBoard();
         break;
       case 'graph':
         toggleGraph();
+        break;
+      case 'details':
+        toggleDetails();
         break;
     }
   };
@@ -1609,15 +2109,22 @@ export default function OpeningEditor() {
           <FlexibleLayout
             title={
               <div className="flex items-center gap-2">
-                {isNewOpening ? `Create Opening: ${name || 'Untitled'}` : `Edit Opening: ${name || 'Untitled'}`}
+                {isNewOpening ? `Create Opening: ${name || 'Untitled'}` : 
+                 isViewMode ? `View Opening: ${name || 'Untitled'}` : 
+                 `Edit Opening: ${name || 'Untitled'}`}
                 {hasUnsavedChanges && (
                   <Badge variant="secondary" className="bg-amber-500/20 text-amber-400 border-amber-500/30">
                     Unsaved Changes
                   </Badge>
                 )}
+                {isViewMode && (
+                  <Badge variant="outline" className="bg-blue-500/20 text-blue-400 border-blue-500/30">
+                    View Mode
+                  </Badge>
+                )}
               </div>
             }
-            icon={Edit}
+            icon={isViewMode ? Eye : Edit}
             leftControls={
               <Button
                 variant="ghost"
@@ -1629,33 +2136,58 @@ export default function OpeningEditor() {
               </Button>
             }
             rightControls={
-              <Button
-                onClick={handleSave}
-                disabled={saving}
-                size="sm"
-                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
-              >
-                {saving ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <Save className="w-4 h-4 mr-2" />
-                )}
-                Save Opening
-              </Button>
+              isViewMode ? (
+                <Button
+                  onClick={() => navigate(`/openings-book/editor/${openingId}`)}
+                  size="sm"
+                  className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Opening
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleSave}
+                  disabled={saving}
+                  size="sm"
+                  className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+                >
+                  {saving ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <Save className="w-4 h-4 mr-2" />
+                  )}
+                  Save Opening
+                </Button>
+              )
             }
                     components={componentVisibility}
         componentConfig={{
-          board: {
-            desktopWidth: '1fr',
+          moves: {
+            desktopWidth: '1fr', // More compact width for moves list
             twoActive: {
-              'board+graph': '1fr'
+              'moves+board': '1fr',
+              'moves+details': '1.5fr'
+            },
+            oneActive: '1fr'
+          },
+          board: {
+            desktopWidth: '2fr', // Board gets the most space by default
+            twoActive: {
+              'board+moves': '2fr',
+              'board+details': '2fr'
             },
             oneActive: '1fr'
           },
           graph: {
-            desktopWidth: '1fr',
+            desktopWidth: '1.5fr', // Standard width for graph
+            oneActive: '1fr'
+          },
+          details: {
+            desktopWidth: '1fr', // Compact for details
             twoActive: {
-              'board+graph': '1fr'
+              'details+moves': '1fr',
+              'board+details': '1fr'
             },
             oneActive: '1fr'
           }
@@ -1665,6 +2197,69 @@ export default function OpeningEditor() {
             onLayoutChange={handleLayoutChange}
           >
         {{
+          moves: (
+            <LayoutSection
+              key="moves"
+              headerControls={
+                <div className="max-w-sm">
+                  <NavigationButtons
+                    currentIndex={movesCurrentPath.length}
+                    totalCount={movesCurrentPath.length}
+                    onPrevious={handleMovesPrevious}
+                    onNext={handleMovesNext}
+                    onReset={handleMovesReset}
+                    onFlip={handleMovesFlip}
+                    features={NavigationPresets.chessboard.features}
+                    labels={{
+                      ...NavigationPresets.chessboard.labels,
+                      previous: "Back one move",
+                      next: "Forward one move", 
+                      reset: "Reset to root position",
+                      flip: "Flip moves view"
+                    }}
+                    disabled={!openingGraph && canvasMode === 'performance'}
+                    styling={{
+                      size: "sm",
+                      className: "max-w-full"
+                    }}
+                  />
+                </div>
+              }
+            >
+              {openingGraph || canvasMode === 'opening' ? (
+                <div className="h-full w-full">
+                  <ChunkVisualization
+                    openingGraph={openingGraph} // Pass openingGraph in both modes for ECO data
+                    customMoveTree={moveTree} // ALWAYS pass moveTree to enable filtering in both modes
+                    isWhiteTree={color === 'white'}
+                    onCurrentMovesChange={handleMovesCurrentMovesChange}
+                    externalMoves={chessboardSync.currentMoves}
+                    onMoveHover={handleMovesMoveHover}
+                    onMoveHoverEnd={handleMovesMoveHoverEnd}
+                    onDirectScroll={handleMovesDirectScroll}
+                    initialPath={movesCurrentPath}
+                    maxDepth={canvasMode === 'performance' ? performanceState.maxDepth : 50}
+                    minGameCount={canvasMode === 'performance' ? performanceState.minGameCount : 0}
+                    winRateFilter={canvasMode === 'performance' ? performanceState.winRateFilter : [0, 100]}
+                    displayMode={canvasMode === 'opening' ? 'opening' : 'performance'}
+                    readOnly={isViewMode}
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center p-4">
+                    <Menu className="w-8 h-8 text-slate-500 mx-auto mb-2" />
+                    <p className="text-slate-400 text-xs">
+                      {canvasMode === 'opening' ? "Opening moves" : "Loading moves..."}
+                    </p>
+                    {canvasMode === 'performance' && !openingGraph && (
+                      <p className="text-slate-500 text-xs">Import games for stats</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </LayoutSection>
+          ),
 
           board: (
             <LayoutSection
@@ -1673,20 +2268,22 @@ export default function OpeningEditor() {
             >
               <div className="h-full w-full flex items-center justify-center p-4">
                                   <InteractiveChessboard
-                  currentMoves={currentPath}
-                  onNewMove={handleNewMove}
-                  onMoveSelect={(moves) => {
-                    // When user navigates via chessboard, sync with tree
-                    handleNewMove(moves);
-                  }}
+                  currentMoves={chessboardSync.currentMoves}
+                  onNewMove={handleChessboardMove}
+                  onMoveSelect={handleChessboardMoveSelect}
                   isWhiteTree={color === 'white'}
                   hoveredMove={movesHoveredMove || hoveredMove}
                   customArrows={currentNode?.arrows || []}
-                  onArrowDraw={handleArrowDraw}
-                  drawingMode={drawingMode}
-                  onDrawingModeChange={handleDrawingModeToggle}
+                  onArrowDraw={isViewMode ? null : handleArrowDraw}
+                  drawingMode={isViewMode ? false : drawingMode}
+                  onDrawingModeChange={isViewMode ? null : handleDrawingModeToggle}
                   className="w-full max-w-none"
                   showPositionMessage={false}
+                  showOpeningGraphMessage={isViewMode}
+                  showOpeningSelector={false}
+                  openingGraph={openingGraph}
+                  graphNodes={graphData.nodes}
+                  readOnly={isViewMode}
                 />
               </div>
             </LayoutSection>
@@ -1713,11 +2310,13 @@ export default function OpeningEditor() {
                       performanceState.scheduleAutoFit('mode-change', 200);
                     }, 300);
                   }}
-                  className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600"
+                  className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 group transition-all duration-100"
                   title={`Switch to ${canvasMode === 'opening' ? 'Performance' : 'Opening'} view`}
                 >
-                  <Network className="w-4 h-4 mr-2" />
-                  {canvasMode === 'opening' ? 'Performance' : 'Opening'}
+                  <Network className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
+                  <span className="hidden group-hover:inline transition-opacity duration-100">
+                    {canvasMode === 'opening' ? 'Performance' : 'Opening'}
+                  </span>
                 </Button>
                 </div>
                 
@@ -1769,33 +2368,38 @@ export default function OpeningEditor() {
                 />
               </div>
             </LayoutSection>
+          ),
+
+          details: (
+            <LayoutSection
+              key="details"
+              className="bg-slate-800"
+            >
+              <div className="h-full">
+                <MoveDetailsPanel
+                  selectedNode={selectedNode}
+                  onUpdateNode={isViewMode ? null : () => {
+                    setTreeVersion(v => v + 1);
+                    setTreeChangeVersion(v => v + 1);
+                  }}
+                  onSetMainLine={isViewMode ? null : (node) => {
+                    // Set the main line to go through the selected node
+                    MoveNode.setMainLineToNode(moveTree, node);
+                    // Increment version to force re-render
+                    setTreeVersion(v => v + 1);
+                    // Trigger change detection
+                    setTreeChangeVersion(v => v + 1);
+                  }}
+                  moveTree={moveTree}
+                  drawingMode={drawingMode}
+                  onDrawingModeToggle={handleDrawingModeToggle}
+                  readOnly={isViewMode}
+                />
+              </div>
+            </LayoutSection>
           )
         }}
       </FlexibleLayout>
-        </div>
-        
-        {/* Sidebar for Move Details */}
-        <div className="w-80 bg-slate-800 border-l border-slate-700 flex-shrink-0">
-          <div className="h-full p-4">
-            <MoveDetailsPanel
-              selectedNode={selectedNode}
-              onUpdateNode={() => {
-                setTreeVersion(v => v + 1);
-                setTreeChangeVersion(v => v + 1);
-              }}
-              onSetMainLine={(node) => {
-                // Set the main line to go through the selected node
-                MoveNode.setMainLineToNode(moveTree, node);
-                // Increment version to force re-render
-                setTreeVersion(v => v + 1);
-                // Trigger change detection
-                setTreeChangeVersion(v => v + 1);
-              }}
-              moveTree={moveTree}
-              drawingMode={drawingMode}
-              onDrawingModeToggle={handleDrawingModeToggle}
-            />
-          </div>
         </div>
       </div>
 
@@ -1883,4 +2487,4 @@ export default function OpeningEditor() {
       </AlertDialog>
     </div>
   );
-} 
+}
