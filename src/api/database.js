@@ -3,9 +3,37 @@ import initSqlJs from 'sql.js';
 // Global database instance
 let db = null;
 let SQL = null;
+let isInitializing = false;
+let isInitialized = false;
+
+// Check if database is ready
+export const isDatabaseReady = () => {
+  return isInitialized && db !== null;
+};
+
+// Wait for database to be ready
+export const waitForDatabase = async (maxWaitTime = 10000) => {
+  const startTime = Date.now();
+  
+  while (!isDatabaseReady() && (Date.now() - startTime) < maxWaitTime) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
+  if (!isDatabaseReady()) {
+    throw new Error('Database initialization timeout');
+  }
+  
+  return true;
+};
 
 // Initialize SQL.js and database
 export const initDatabase = async () => {
+  if (isInitializing || isInitialized) {
+    return;
+  }
+  
+  isInitializing = true;
+  
   try {
     // Initialize SQL.js
     SQL = await initSqlJs({
@@ -26,6 +54,9 @@ export const initDatabase = async () => {
 
     // Create tables
     await createTables();
+    
+    isInitialized = true;
+    isInitializing = false;
   } catch (error) {
     console.error('Error initializing database:', error);
     // Fallback: create new database even if loading fails
@@ -33,7 +64,9 @@ export const initDatabase = async () => {
       db = new SQL.Database();
       await createTables();
       console.log('Created fallback database');
+      isInitialized = true;
     }
+    isInitializing = false;
     throw error;
   }
 };
@@ -540,5 +573,20 @@ export const deleteOldGames = async (keepRecentCount = 1000) => {
   }
 };
 
-// Initialize database on module load
-initDatabase().catch(console.error); 
+// Initialize database on module load with better error handling
+initDatabase().catch(error => {
+  console.error('Failed to initialize database on startup:', error);
+  // Set a flag so components know initialization failed
+  isInitializing = false;
+  isInitialized = false;
+});
+
+// Retry database initialization after a delay if it failed
+setTimeout(() => {
+  if (!isInitialized && !isInitializing) {
+    console.log('Retrying database initialization...');
+    initDatabase().catch(error => {
+      console.error('Retry database initialization failed:', error);
+    });
+  }
+}, 2000); // Retry after 2 seconds 

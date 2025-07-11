@@ -1,4 +1,4 @@
-import { BaseModel } from './database';
+import { BaseModel, isDatabaseReady, waitForDatabase } from './database';
 
 // UserOpening model for managing user's repertoire
 export class UserOpening extends BaseModel {
@@ -18,6 +18,16 @@ export class UserOpening extends BaseModel {
   }
 
   async getByUsername(username) {
+    // Check if database is ready, if not wait for it
+    if (!isDatabaseReady()) {
+      try {
+        await waitForDatabase(5000); // Wait max 5 seconds
+      } catch (error) {
+        console.warn('Database not ready for getByUsername:', error);
+        return [];
+      }
+    }
+    
     return this.filter({ username }, '-updated_at');
   }
 
@@ -121,9 +131,22 @@ export const userOpening = new UserOpening();
 export const userOpeningMove = new UserOpeningMove();
 export const moveAnnotation = new MoveAnnotation();
 
+// Re-export database readiness functions for convenience
+export { isDatabaseReady, waitForDatabase } from './database';
+
 // Helper function to check if a FEN position exists in user's openings
 export const checkPositionInOpenings = async (fen, username) => {
   try {
+    // Check if database is ready, if not wait for it
+    if (!isDatabaseReady()) {
+      try {
+        await waitForDatabase(5000); // Wait max 5 seconds
+      } catch (error) {
+        console.warn('Database not ready for position check:', error);
+        return [];
+      }
+    }
+    
     // Get all user openings
     const openings = await userOpening.getByUsername(username);
     const openingIds = openings.map(o => o.id);
@@ -161,6 +184,16 @@ export const checkPositionInOpenings = async (fen, username) => {
 // Helper to get all positions for a specific opening
 export const getOpeningPositions = async (openingId) => {
   try {
+    // Check if database is ready, if not wait for it
+    if (!isDatabaseReady()) {
+      try {
+        await waitForDatabase(5000); // Wait max 5 seconds
+      } catch (error) {
+        console.warn('Database not ready for opening positions:', error);
+        return [];
+      }
+    }
+    
     const moves = await userOpeningMove.getByOpeningId(openingId);
     return moves.map(move => move.fen);
   } catch (error) {

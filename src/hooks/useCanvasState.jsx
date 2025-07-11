@@ -122,6 +122,9 @@ export const useCanvasState = ({
   const scheduleAutoFit = useCallback((reason = 'unknown', delay = autoFitDelay) => {
     if (!enableAutoFit) return;
     
+    // Skip auto-fit when click auto-zoom is disabled (user wants no auto-zoom at all)
+    if (!enableClickAutoZoom) return;
+    
     // Clear existing timeout
     if (autoFitTimeoutRef.current) {
       clearTimeout(autoFitTimeoutRef.current);
@@ -135,11 +138,14 @@ export const useCanvasState = ({
       }
       autoFitTimeoutRef.current = null;
     }, delay);
-  }, [enableAutoFit, autoFitDelay]);
+  }, [enableAutoFit, autoFitDelay, enableClickAutoZoom]);
   
   // Handle graph changes
   const handleGraphChange = useCallback((graphData) => {
     if (!autoFitOnGraphChange) return;
+    
+    // Skip auto-fit when click auto-zoom is disabled (user wants no auto-zoom at all)
+    if (!enableClickAutoZoom) return;
     
     const currentGraphSignature = JSON.stringify({
       nodeCount: graphData?.nodes?.length || 0,
@@ -151,7 +157,7 @@ export const useCanvasState = ({
       lastGraphChangeRef.current = currentGraphSignature;
       scheduleAutoFit('graph-change');
     }
-  }, [autoFitOnGraphChange, scheduleAutoFit]);
+  }, [autoFitOnGraphChange, scheduleAutoFit, enableClickAutoZoom]);
   
   // Performance control handlers
   const handleMaxDepthChange = useCallback((newDepth) => {
@@ -242,6 +248,16 @@ export const useCanvasState = ({
       return;
     }
     
+    // DISABLE auto-zoom when click auto-zoom is disabled (user wants no auto-zoom at all)
+    if (!enableClickAutoZoom) {
+      // Clear any existing auto-zoom timeout when disabled
+      if (autoZoomTimeoutRef.current) {
+        clearTimeout(autoZoomTimeoutRef.current);
+        autoZoomTimeoutRef.current = null;
+      }
+      return;
+    }
+    
     if (!canvasZoomToClustersRef.current && !canvasFitViewRef.current) return;
     
     // Clear any existing auto-zoom timeout
@@ -270,21 +286,6 @@ export const useCanvasState = ({
     // This prevents conflicts with resize handling
     if (!positionChanged || !canvasIsReady) return;
     
-    // Check if this is a user click and if click auto-zoom is disabled
-    const isUserClick = lastPositionChangeSourceRef.current === 'click';
-    console.log('🔍 AUTO-ZOOM CHECK:', {
-      isUserClick,
-      enableClickAutoZoom,
-      shouldSkip: isUserClick && !enableClickAutoZoom,
-      source: lastPositionChangeSourceRef.current
-    });
-    
-    if (isUserClick && !enableClickAutoZoom) {
-      console.log('🚫 SKIPPING AUTO-ZOOM - CLICK AUTO-ZOOM DISABLED');
-      // User clicked but click auto-zoom is disabled - skip auto-zoom
-      return;
-    }
-    
     // Auto-zoom logic: 
     // - If we have position clusters enabled and a current position, zoom to clusters
     // - If we have a current position but no position clusters enabled, fit to all nodes
@@ -292,22 +293,12 @@ export const useCanvasState = ({
     const shouldFitToAll = (!enablePositionClusters || positionClusters.length === 0) && currentPositionFen;
     
     if (shouldZoomToClusters || shouldFitToAll) {
-      console.log('🚨 AUTO-ZOOM LOGIC REACHED - THIS SHOULD NOT HAPPEN FOR CLICKS!', {
-        shouldZoomToClusters,
-        shouldFitToAll,
-        source: lastPositionChangeSourceRef.current,
-        enableClickAutoZoom,
-        isUserClick
-      });
-      
       // Debounce auto-zoom calls to prevent conflicts
       autoZoomTimeoutRef.current = setTimeout(() => {
         try {
           if (shouldZoomToClusters && canvasZoomToClustersRef.current) {
-            console.log('🎯 EXECUTING: ZOOM TO CLUSTERS');
             canvasZoomToClustersRef.current();
           } else if (shouldFitToAll && canvasFitViewRef.current) {
-            console.log('🎯 EXECUTING: FIT ALL');
             canvasFitViewRef.current();
           }
         } catch (error) {
@@ -340,22 +331,8 @@ export const useCanvasState = ({
     // Schedule appropriate zoom when resize completes - controlled by autoFitOnResize only
     if (!isResizing && autoFitOnResize) {
       setTimeout(() => {
-        // Check if this resize was triggered by a recent user click and if click auto-zoom is disabled
-        const timeSinceLastPositionChange = Date.now() - lastPositionChangeTimeRef.current;
-        const isRecentClickTriggeredResize = lastPositionChangeSourceRef.current === 'click' && 
-                                            timeSinceLastPositionChange < 500; // 500ms window
-        
-        console.log('🔍 RESIZE AUTO-ZOOM CHECK:', {
-          lastSource: lastPositionChangeSourceRef.current,
-          timeSinceLastChange: timeSinceLastPositionChange,
-          isRecentClickTriggered: isRecentClickTriggeredResize,
-          enableClickAutoZoom,
-          shouldSkip: isRecentClickTriggeredResize && !enableClickAutoZoom
-        });
-        
-        if (isRecentClickTriggeredResize && !enableClickAutoZoom) {
-          // Skip auto-zoom for click-triggered resizes when click auto-zoom is disabled
-          console.log('🚫 SKIPPING RESIZE AUTO-ZOOM - CLICK AUTO-ZOOM DISABLED (recent click)');
+        // Skip auto-zoom when click auto-zoom is disabled (user wants no auto-zoom at all)
+        if (!enableClickAutoZoom) {
           return;
         }
         
@@ -363,10 +340,8 @@ export const useCanvasState = ({
         // - If auto-zoom is enabled: zoom to clusters when available, otherwise fit all
         // - If auto-zoom is disabled: always fit to all (don't zoom to clusters)
         if (enableAutoZoom && enablePositionClusters && positionClusters.length > 0 && currentPositionFen && canvasZoomToClustersRef.current) {
-          console.log('🎯 RESIZE AUTO-ZOOM: ZOOM TO CLUSTERS');
           canvasZoomToClustersRef.current();
         } else if (canvasFitViewRef.current) {
-          console.log('🎯 RESIZE AUTO-ZOOM: FIT ALL');
           canvasFitViewRef.current();
         }
       }, 300); // Use longer delay for resize to ensure canvas is stable
