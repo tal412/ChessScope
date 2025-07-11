@@ -428,15 +428,8 @@ const CanvasPerformanceGraph = ({
     let lastDPR = window.devicePixelRatio;
     let resizeObserver = null;
     
-    const scheduleAutoFit = (reason) => {
-      // COMPLETELY DISABLE auto-fit to prevent all zoom conflicts
-      
-      // Clear any existing timeout just in case
-      if (resizeTimeout) {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = null;
-      }
-    };
+    // Auto-fit is now handled by the parent component through onResizeStateChange callback
+    // Remove the local scheduleAutoFit function that was disabling auto-fit
     
     const updateSize = (reason = 'resize') => {
       if (containerRef.current) {
@@ -476,7 +469,7 @@ const CanvasPerformanceGraph = ({
             setIsResizing(false);
           }, 300); // 300ms after resize stops
           
-          scheduleAutoFit(reason);
+          // Auto-fit is handled by the parent component through onResizeStateChange callback
         }
       }
     };
