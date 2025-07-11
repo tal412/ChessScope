@@ -25,7 +25,7 @@ import {
   Filter
 } from 'lucide-react';
 import { userOpening } from '@/api/openingEntities';
-import { Chessground } from 'react-chessground';
+import Chessground from 'react-chessground';
 import 'react-chessground/dist/styles/chessground.css';
 import {
   AlertDialog,
@@ -216,8 +216,8 @@ export default function OpeningsBook() {
         }
       />
 
-      <div className="flex-1 p-6">
-        <div className="max-w-7xl mx-auto">
+      <div className="flex-1 p-6 pl-6 pr-12">
+        <div className="w-full">
 
         {/* Empty State */}
         {filteredOpenings.length === 0 && (
@@ -249,7 +249,7 @@ export default function OpeningsBook() {
         )}
 
         {/* Openings Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
           {filteredOpenings.map((opening) => (
             <Card 
               key={opening.id}

@@ -49,10 +49,12 @@ export default function InteractiveChessboard({
   graphNodes = [], // Performance graph nodes to check position existence
   onFlip = null, // External flip handler (optional)
   showPositionMessage = true, // Control whether to show "Position not in performance graph" message
+  showOpeningGraphMessage = false, // Control whether to show "Position not in opening graph" message
   customArrows = [], // Array of {from, to, color} for custom arrows
   onArrowDraw = null, // Callback for when user draws an arrow
   drawingMode = false, // Whether drawing mode is active
-  onDrawingModeChange = null // Callback when drawing mode changes
+  onDrawingModeChange = null, // Callback when drawing mode changes
+  showOpeningSelector = true // Control whether to show the opening selector book icon
 }) {
   const containerRef = useRef(null);
   const isInternalMoveRef = useRef(false); // Track if move change is internal
@@ -103,6 +105,7 @@ export default function InteractiveChessboard({
   // Opening and position tracking state
   const [currentOpeningInfo, setCurrentOpeningInfo] = useState({ eco: "", name: "Starting Position" });
   const [positionExistsInGraph, setPositionExistsInGraph] = useState(true);
+  const [positionExistsInOpeningGraph, setPositionExistsInOpeningGraph] = useState(true);
   const [openingLoadingCache, setOpeningLoadingCache] = useState(new Map()); // Cache for opening lookups
   const [positionInOpenings, setPositionInOpenings] = useState([]); // Track which openings contain this position
   
@@ -182,7 +185,8 @@ export default function InteractiveChessboard({
           const gameCount = hoveredMove.gameCount ?? 0;
           // Check for custom arrow color first, otherwise use win rate-based color
           let arrowColor, brushKey;
-          const thickness = getArrowThickness(gameCount, hoveredMove.maxGameCount || gameCount);
+          // Use fixed thickness if provided, otherwise calculate based on game count
+          const thickness = hoveredMove.fixedThickness || getArrowThickness(gameCount, hoveredMove.maxGameCount || gameCount);
           
           if (hoveredMove.arrowColor) {
             // Use custom color - create a special brush key
@@ -210,7 +214,8 @@ export default function InteractiveChessboard({
           const gameCount = hoveredMove.gameCount ?? 0;
           // Check for custom arrow color first, otherwise use win rate-based color
           let arrowColor, brushKey;
-          const thickness = getArrowThickness(gameCount, hoveredMove.maxGameCount || gameCount);
+          // Use fixed thickness if provided, otherwise calculate based on game count
+          const thickness = hoveredMove.fixedThickness || getArrowThickness(gameCount, hoveredMove.maxGameCount || gameCount);
           
           if (hoveredMove.arrowColor) {
             // Use custom color - create a special brush key
@@ -401,6 +406,8 @@ export default function InteractiveChessboard({
           setCurrentOpeningInfo(cached.openingInfo);
         }
         setPositionExistsInGraph(cached.existsInGraph);
+        // Default to true if not cached to avoid false positives
+        setPositionExistsInOpeningGraph(cached.existsInOpeningGraph ?? true);
         setPositionInOpenings(cached.inOpenings || []);
         return;
       }
@@ -409,45 +416,71 @@ export default function InteractiveChessboard({
        try {
          const openingInfo = await getOpeningFromFen(currentFen);
          
-         // Check if current position exists in performance graph nodes
-         const positionExists = graphNodes.some(node => 
+                // Check if current position exists in performance graph nodes
+       const positionExists = graphNodes.some(node => 
+         node.data && node.data.fen === currentFen
+       );
+       
+              // Check if position exists in the CURRENT OPENING TREE being viewed (not entire game history)
+       let positionExistsInOpening = false;
+       if (graphNodes && graphNodes.length > 0) {
+         positionExistsInOpening = graphNodes.some(node => 
            node.data && node.data.fen === currentFen
          );
          
-         // Check if position exists in user's saved openings
-         const username = localStorage.getItem('chesscope_username');
-         const inOpenings = username ? await checkPositionInOpenings(currentFen, username) : [];
-         
-         // Only update opening info if we found a valid opening in the database
-         if (openingInfo && openingInfo.name) {
-           const formattedOpening = {
-             eco: openingInfo.eco || "",
-             name: openingInfo.name
-           };
-           
-           // Cache the result
-           const cacheEntry = {
-             openingInfo: formattedOpening,
-             existsInGraph: positionExists,
-             inOpenings: inOpenings
-           };
-           setOpeningLoadingCache(prev => new Map(prev.set(currentFen, cacheEntry)));
-           
-           // Update state with found opening
-           setCurrentOpeningInfo(formattedOpening);
-         } else {
-           // No opening found, just update graph existence but keep current opening name
-           const cacheEntry = {
-             openingInfo: null, // Don't cache incomplete info
-             existsInGraph: positionExists,
-             inOpenings: inOpenings
-           };
-           setOpeningLoadingCache(prev => new Map(prev.set(currentFen, cacheEntry)));
+         // Debug logging for first few moves
+         if (currentMoves.length <= 3) {
+           console.log(`🐛 Opening tree position check for move ${currentMoves.length}:`, {
+             currentMove: currentMoves[currentMoves.length - 1] || 'none',
+             currentFen: currentFen,
+             inCurrentOpeningTree: positionExistsInOpening,
+             openingTreeSize: graphNodes.length,
+             showOpeningGraphMessage,
+             willShowMessage: !positionExistsInOpening && currentFen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' && showOpeningGraphMessage
+           });
          }
+       } else {
+         // If no opening tree loaded, assume position exists to avoid false positives
+         positionExistsInOpening = true;
+       }
+       
+       // Check if position exists in user's saved openings
+       const username = localStorage.getItem('chesscope_username');
+       const inOpenings = username ? await checkPositionInOpenings(currentFen, username) : [];
+       
+       // Only update opening info if we found a valid opening in the database
+       if (openingInfo && openingInfo.name) {
+         const formattedOpening = {
+           eco: openingInfo.eco || "",
+           name: openingInfo.name
+         };
          
-         // Always update position existence and openings
-         setPositionExistsInGraph(positionExists);
-         setPositionInOpenings(inOpenings);
+         // Cache the result
+         const cacheEntry = {
+           openingInfo: formattedOpening,
+           existsInGraph: positionExists,
+           existsInOpeningGraph: positionExistsInOpening,
+           inOpenings: inOpenings
+         };
+         setOpeningLoadingCache(prev => new Map(prev.set(currentFen, cacheEntry)));
+         
+         // Update state with found opening
+         setCurrentOpeningInfo(formattedOpening);
+       } else {
+         // No opening found, just update graph existence but keep current opening name
+         const cacheEntry = {
+           openingInfo: null, // Don't cache incomplete info
+           existsInGraph: positionExists,
+           existsInOpeningGraph: positionExistsInOpening,
+           inOpenings: inOpenings
+         };
+         setOpeningLoadingCache(prev => new Map(prev.set(currentFen, cacheEntry)));
+       }
+       
+       // Always update position existence and openings
+       setPositionExistsInGraph(positionExists);
+       setPositionExistsInOpeningGraph(positionExistsInOpening);
+       setPositionInOpenings(inOpenings);
          
        } catch (error) {
          console.warn('Error getting opening info from database:', error);
@@ -457,7 +490,19 @@ export default function InteractiveChessboard({
            node.data && node.data.fen === currentFen
          );
          
+         // Check if position exists in the CURRENT OPENING TREE being viewed (not entire game history)
+         let positionExistsInOpening = false;
+         if (graphNodes && graphNodes.length > 0) {
+           positionExistsInOpening = graphNodes.some(node => 
+             node.data && node.data.fen === currentFen
+           );
+         } else {
+           // If no opening tree loaded, assume position exists to avoid false positives
+           positionExistsInOpening = true;
+         }
+         
          setPositionExistsInGraph(positionExists);
+         setPositionExistsInOpeningGraph(positionExistsInOpening);
          setPositionInOpenings([]);
        }
     };
@@ -1039,11 +1084,17 @@ export default function InteractiveChessboard({
                 </CardTitle>
               </div>
               {/* Reserved space for Position Status Indicator - prevents layout shifts */}
-              <div className="h-4">
+              <div className="h-8 flex flex-col justify-start">
                 {!positionExistsInGraph && currentMoves.length > 0 && showPositionMessage && (
                   <div className="flex items-center gap-1">
                     <AlertTriangle className="w-3 h-3 text-amber-400" />
                     <span className="text-xs text-amber-400">Position not in performance graph</span>
+                  </div>
+                )}
+                {!positionExistsInOpeningGraph && game.fen() !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' && showOpeningGraphMessage && (
+                  <div className="flex items-center gap-1">
+                    <AlertTriangle className="w-3 h-3 text-orange-400" />
+                    <span className="text-xs text-orange-400">Position not in opening graph</span>
                   </div>
                 )}
               </div>
@@ -1135,8 +1186,8 @@ export default function InteractiveChessboard({
                     pink: { key: 'k', color: '#ec4899', opacity: 0.8, lineWidth: 10 },
                     cyan: { key: 'c', color: '#06b6d4', opacity: 0.8, lineWidth: 10 },
                     ...dynamicBrushes,
-                    // Add custom brushes for pink arrows if needed
-                    ...(hoveredMove?.arrowColor ? generateCustomBrush(hoveredMove.arrowColor, getArrowThickness(hoveredMove.gameCount || 0, hoveredMove.maxGameCount || 0)) : {})
+                        // Add custom brushes for pink arrows if needed
+    ...(hoveredMove?.arrowColor ? generateCustomBrush(hoveredMove.arrowColor, hoveredMove.fixedThickness || getArrowThickness(hoveredMove.gameCount || 0, hoveredMove.maxGameCount || 0)) : {})
                   },
                   // Use onChange to capture arrow drawing
                   onChange: handleDrawableChange
@@ -1215,7 +1266,7 @@ export default function InteractiveChessboard({
 
           {/* Right side - Position Info Button and Book Icon */}
           <div className="flex items-center gap-1">
-            {positionInOpenings.length > 0 && (
+            {showOpeningSelector && positionInOpenings.length > 0 && (
               <OpeningSelector fen={game.fen()}>
                 <Button
                   variant="outline"

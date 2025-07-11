@@ -16,7 +16,9 @@ import {
   Edit3,
   Copy,
   MoreHorizontal,
-  Search
+  Search,
+  Settings,
+  ZoomIn
 } from 'lucide-react';
 
 // Performance color constants
@@ -2295,12 +2297,13 @@ const CanvasPerformanceGraph = ({
             {!showPerformanceControls && onShowPerformanceControls && (
               <Button
                 onClick={() => onShowPerformanceControls(true)}
-                className="bg-slate-800/95 border border-slate-700 text-slate-200 hover:bg-slate-700/95 pointer-events-auto relative z-10"
+                className="bg-slate-800/95 border border-slate-700 text-slate-200 hover:bg-slate-700/95 pointer-events-auto relative z-10 group transition-all duration-100"
                 size="sm"
                 style={{ pointerEvents: 'auto' }}
+                title="Show Controls"
               >
-                <Target className="w-4 h-4 mr-2" />
-                Controls ({maxDepth} moves, {minGameCount}+ games)
+                <Settings className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
+                <span className="hidden group-hover:inline transition-opacity duration-100">Controls ({maxDepth} moves, {minGameCount}+ games)</span>
               </Button>
             )}
           </div>
@@ -2309,16 +2312,19 @@ const CanvasPerformanceGraph = ({
 
       {/* Zoom indicator with keyboard shortcut */}
       {!isInitializing && positionedNodes.length > 0 && hasValidTransform && transform && (
-        <div className="absolute bottom-4 left-4 bg-slate-800/90 border border-slate-700 text-slate-200 px-3 py-2 rounded text-xs pointer-events-none backdrop-blur-sm shadow-lg">
-          <div className="flex items-center gap-3">
-            <span>Zoom: {Math.round(transform.scale * 100)}%</span>
-            <span className="text-slate-500">
-              <kbd className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 font-mono text-xs">R</kbd>
-              <span className="mx-1">or</span>
-              <span className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 text-xs">MMB</span>
-              <span className="mx-1">–</span>
-              Fit
-            </span>
+        <div className="absolute bottom-4 left-4 pointer-events-auto">
+          <div className="bg-slate-800/90 border border-slate-700 text-slate-200 px-3 py-2 rounded text-xs backdrop-blur-sm shadow-lg group transition-all duration-100">
+            <div className="flex items-center gap-2">
+              <ZoomIn className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
+              <span>{Math.round(transform.scale * 100)}%</span>
+              <span className="text-slate-500 hidden group-hover:inline transition-opacity duration-100">
+                <kbd className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 font-mono text-xs">R</kbd>
+                <span className="mx-1">or</span>
+                <span className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 text-xs">MMB</span>
+                <span className="mx-1">–</span>
+                Fit
+              </span>
+            </div>
           </div>
         </div>
       )}
