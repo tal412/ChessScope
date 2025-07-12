@@ -62,6 +62,17 @@ export default function InteractiveChessboard({
   const [currentMoveIndex, setCurrentMoveIndex] = useState(currentMoves.length);
   const [orientation, setOrientation] = useState(isWhiteTree ? 'white' : 'black');
   
+  // Debug prop changes
+  useEffect(() => {
+    console.log(`🔍 InteractiveChessboard props changed:`, {
+      currentMoves,
+      currentMovesLength: currentMoves.length,
+      showOpeningGraphMessage,
+      openingGraph: !!openingGraph,
+      graphNodes: graphNodes.length
+    });
+  }, [currentMoves, showOpeningGraphMessage, openingGraph, graphNodes.length]);
+  
   // Sync orientation with isWhiteTree when using external flip control
   useEffect(() => {
     if (onFlip) {
@@ -399,6 +410,13 @@ export default function InteractiveChessboard({
     const updatePositionInfo = async () => {
       const currentFen = game.fen();
       
+      console.log(`🔍 updatePositionInfo called:`, {
+        currentFen,
+        currentMoves,
+        gameHistory: game.history(),
+        showOpeningGraphMessage
+      });
+      
       // Check if we already have this FEN cached
       if (openingLoadingCache.has(currentFen)) {
         const cached = openingLoadingCache.get(currentFen);
@@ -409,40 +427,79 @@ export default function InteractiveChessboard({
         // Default to true if not cached to avoid false positives
         setPositionExistsInOpeningGraph(cached.existsInOpeningGraph ?? true);
         setPositionInOpenings(cached.inOpenings || []);
+        console.log(`🔍 Used cached result for FEN:`, cached);
         return;
       }
       
              // Get opening info from database using efficient FEN lookup
        try {
+         console.log(`🔍 Starting main try block for FEN:`, currentFen);
+         console.log(`🔍 About to call getOpeningFromFen with:`, { currentFen, hasOpeningGraph: !!openingGraph });
          const openingInfo = await getOpeningFromFen(currentFen);
+         console.log(`🔍 getOpeningFromFen returned:`, openingInfo);
          
                 // Check if current position exists in performance graph nodes
        const positionExists = graphNodes.some(node => 
          node.data && node.data.fen === currentFen
        );
        
-              // Check if position exists in the CURRENT OPENING TREE being viewed (not entire game history)
-       let positionExistsInOpening = false;
-       if (graphNodes && graphNodes.length > 0) {
-         positionExistsInOpening = graphNodes.some(node => 
-           node.data && node.data.fen === currentFen
-         );
-         
-         // Debug logging for first few moves
-         if (currentMoves.length <= 3) {
-           console.log(`🐛 Opening tree position check for move ${currentMoves.length}:`, {
-             currentMove: currentMoves[currentMoves.length - 1] || 'none',
-             currentFen: currentFen,
-             inCurrentOpeningTree: positionExistsInOpening,
-             openingTreeSize: graphNodes.length,
-             showOpeningGraphMessage,
-             willShowMessage: !positionExistsInOpening && currentFen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' && showOpeningGraphMessage
-           });
+                       // Check if position exists in the OPENING GRAPH (performance statistics)
+         let positionExistsInOpening = true; // Default to true when no opening graph
+         if (openingGraph) {
+           try {
+                            // Use actual game history instead of currentMoves prop for position checking
+               const actualMoves = game.history();
+               console.log(`🔍 Starting opening graph check (error path) - actualMoves:`, actualMoves, 'currentMoves prop:', currentMoves);
+               
+               // Get the move sequence to reach this position
+               const moveSequence = actualMoves; // Use actual game history directly
+             
+             console.log(`🔍 Built move sequence (error path):`, moveSequence);
+             
+             // Check if this position exists in the opening graph
+             if (moveSequence.length > 0) {
+               const parentSequence = moveSequence.slice(0, -1);
+               console.log(`🔍 Checking parent sequence (error path):`, parentSequence);
+               
+               const moves = openingGraph.getMovesFromPosition(parentSequence, true); // Check white moves
+               const movesBlack = openingGraph.getMovesFromPosition(parentSequence, false); // Check black moves
+               
+               const lastMove = moveSequence[moveSequence.length - 1];
+               const hasMove = (moves && moves.some(m => m.san === lastMove)) || 
+                             (movesBlack && movesBlack.some(m => m.san === lastMove));
+               
+               positionExistsInOpening = hasMove;
+               
+                                // Debug logging
+                 console.log(`🔍 Opening graph check for move ${actualMoves.length} (error path):`, {
+                 moveSequence,
+                 parentSequence,
+                 lastMove,
+                 whiteMoves: moves ? moves.map(m => m.san) : null,
+                 blackMoves: movesBlack ? movesBlack.map(m => m.san) : null,
+                 hasMove,
+                 positionExistsInOpening,
+                 showOpeningGraphMessage
+               });
+             } else {
+               // Root position - root position should always exist if there's any performance data
+               console.log(`🔍 Root position check (error path) - checking if opening graph has any data`);
+               const whiteMoves = openingGraph.getMovesFromPosition([], true);
+               const blackMoves = openingGraph.getMovesFromPosition([], false);
+               positionExistsInOpening = (whiteMoves && whiteMoves.length > 0) || (blackMoves && blackMoves.length > 0);
+               
+               console.log(`🔍 Root position check (error path):`, {
+                 whiteMoves: whiteMoves ? whiteMoves.length : 0,
+                 blackMoves: blackMoves ? blackMoves.length : 0,
+                 positionExistsInOpening,
+                 showOpeningGraphMessage
+               });
+             }
+           } catch (error) {
+             console.warn('🚨 Error checking position in opening graph (error path):', error);
+             positionExistsInOpening = true; // Default to true on error
+           }
          }
-       } else {
-         // If no opening tree loaded, assume position exists to avoid false positives
-         positionExistsInOpening = true;
-       }
        
        // Check if position exists in user's saved openings
        const username = localStorage.getItem('chesscope_username');
@@ -483,23 +540,72 @@ export default function InteractiveChessboard({
        setPositionInOpenings(inOpenings);
          
        } catch (error) {
-         console.warn('Error getting opening info from database:', error);
+         console.error('🚨 Error in main try block - getting opening info from database:', error);
+         console.error('🚨 Main try block error stack:', error.stack);
          
          // On error, just check graph existence but don't change opening name
          const positionExists = graphNodes.some(node => 
            node.data && node.data.fen === currentFen
          );
          
-         // Check if position exists in the CURRENT OPENING TREE being viewed (not entire game history)
-         let positionExistsInOpening = false;
-         if (graphNodes && graphNodes.length > 0) {
-           positionExistsInOpening = graphNodes.some(node => 
-             node.data && node.data.fen === currentFen
-           );
-         } else {
-           // If no opening tree loaded, assume position exists to avoid false positives
-           positionExistsInOpening = true;
+                // Check if position exists in the OPENING GRAPH (performance statistics)
+       let positionExistsInOpening = true; // Default to true when no opening graph
+       if (openingGraph) {
+         try {
+           // Use actual game history instead of currentMoves prop for position checking
+           const actualMoves = game.history();
+           console.log(`🔍 Starting opening graph check - actualMoves:`, actualMoves, 'currentMoves prop:', currentMoves);
+           
+           // Get the move sequence to reach this position
+           const moveSequence = actualMoves; // Use actual game history directly
+           
+           console.log(`🔍 Built move sequence:`, moveSequence);
+           
+           // Check if this position exists in the opening graph
+           if (moveSequence.length > 0) {
+             const parentSequence = moveSequence.slice(0, -1);
+             console.log(`🔍 Checking parent sequence:`, parentSequence);
+             
+             const moves = openingGraph.getMovesFromPosition(parentSequence, true); // Check white moves
+             const movesBlack = openingGraph.getMovesFromPosition(parentSequence, false); // Check black moves
+             
+             const lastMove = moveSequence[moveSequence.length - 1];
+             const hasMove = (moves && moves.some(m => m.san === lastMove)) || 
+                           (movesBlack && movesBlack.some(m => m.san === lastMove));
+             
+             positionExistsInOpening = hasMove;
+             
+             // Debug logging
+             console.log(`🔍 Opening graph check for move ${actualMoves.length}:`, {
+               moveSequence,
+               parentSequence,
+               lastMove,
+               whiteMoves: moves ? moves.map(m => m.san) : null,
+               blackMoves: movesBlack ? movesBlack.map(m => m.san) : null,
+               hasMove,
+               positionExistsInOpening,
+               showOpeningGraphMessage
+             });
+           } else {
+             // Root position - root position should always exist if there's any performance data
+             console.log(`🔍 Root position check - checking if opening graph has any data`);
+             const whiteMoves = openingGraph.getMovesFromPosition([], true);
+             const blackMoves = openingGraph.getMovesFromPosition([], false);
+             positionExistsInOpening = (whiteMoves && whiteMoves.length > 0) || (blackMoves && blackMoves.length > 0);
+             
+             console.log(`🔍 Root position check:`, {
+               whiteMoves: whiteMoves ? whiteMoves.length : 0,
+               blackMoves: blackMoves ? blackMoves.length : 0,
+               positionExistsInOpening,
+               showOpeningGraphMessage
+             });
+           }
+         } catch (error) {
+           console.error('🚨 Error checking position in opening graph:', error);
+           console.error('🚨 Error stack:', error.stack);
+           positionExistsInOpening = true; // Default to true on error
          }
+       }
          
          setPositionExistsInGraph(positionExists);
          setPositionExistsInOpeningGraph(positionExistsInOpening);
@@ -649,10 +755,8 @@ export default function InteractiveChessboard({
       onMoveSelect(movesToApply);
     }
     
-    // THEN: Update chessboard AFTER scroll animation completes
-    setTimeout(() => {
-      setCurrentMoveIndex(clampedIndex);
-    }, 200); // Faster timing for snappier animation
+    // Update the chessboard position immediately – remove the previous 200 ms delay
+    setCurrentMoveIndex(clampedIndex);
   };
 
   const handleNextMove = () => {
