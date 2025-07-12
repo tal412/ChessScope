@@ -339,12 +339,43 @@ export default function OpeningEditor() {
   // Handle navigation with unsaved changes check - only for programmatic navigation
   // Note: Removed global link interception as it was breaking sidebar navigation
 
-  // Load existing opening
+  // Load existing opening (but only if we don't already have the data)
+  const loadedOpeningIdRef = useRef(null);
   useEffect(() => {
     if (!isNewOpening) {
-      loadOpening();
+      const currentOpeningId = parseInt(openingId);
+      
+      // Check if we already have this exact opening loaded (to avoid unnecessary reload during mode switch)
+      const hasTreeData = moveTree && moveTree.children.length > 0;
+      const isSameOpening = loadedOpeningIdRef.current === currentOpeningId;
+      
+      // Additional check: if the opening name matches what we expect for this ID and we have tree data,
+      // then we likely already have the right data loaded (this handles component remounting)
+      const hasValidOpeningData = hasTreeData && name && name.trim() !== '';
+      
+      const isAlreadyLoaded = (isSameOpening && hasTreeData) || hasValidOpeningData;
+      
+      console.log('🔍 RELOAD CHECK:', {
+        currentOpeningId,
+        loadedId: loadedOpeningIdRef.current,
+        hasTreeData,
+        isSameOpening,
+        hasValidOpeningData,
+        isAlreadyLoaded,
+        openingName: name
+      });
+      
+      if (!isAlreadyLoaded) {
+        console.log('📥 LOADING OPENING FROM DATABASE:', currentOpeningId);
+        loadOpening();
+      } else {
+        console.log('✅ OPENING ALREADY LOADED - SKIPPING RELOAD:', currentOpeningId);
+        // Ensure the loaded ref is set correctly even if component was remounted
+        loadedOpeningIdRef.current = currentOpeningId;
+      }
     } else {
       // Initialize performance state position for new opening
+      loadedOpeningIdRef.current = null;
       performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'programmatic');
       // Sync chessboard to starting position for new opening
       chessboardSync.syncMovesToChessboard([]);
@@ -353,6 +384,8 @@ export default function OpeningEditor() {
       setCurrentPath([]);
     }
   }, [openingId]);
+
+
 
   // Helper function to serialize tree for change detection
   const serializeTree = useCallback((node) => {
@@ -623,8 +656,11 @@ export default function OpeningEditor() {
     }
   }, [moveTree, openingGraph, treeVersion, isViewMode]); // Trigger on any tree changes (structure or content) or when opening graph loads
 
-  // Ensure initial synchronization when graph data is available
+  // Ensure initial synchronization when graph data is available (with guards to prevent circular updates)
   useEffect(() => {
+    // Skip synchronization during save process to prevent move replay
+    if (saving) return;
+    
     if (graphData.nodes.length > 0 && currentNode) {
       // Find the graph node that corresponds to the current tree node
       const currentMoveSequence = buildMoveSequenceFromNode(currentNode);
@@ -639,13 +675,20 @@ export default function OpeningEditor() {
         performanceState.updateCurrentPosition(correspondingGraphNode.id, correspondingGraphNode.data.fen, 'sync');
       }
       
-      // Ensure chessboard is synced with current path
-      if (chessboardSync.currentMoves.length !== currentPath.length || 
-          !chessboardSync.currentMoves.every((move, index) => move === currentPath[index])) {
-        chessboardSync.syncMovesToChessboard(currentPath);
+      // Only sync chessboard if there's a significant difference (to prevent minor circular updates)
+      const movesAreDifferent = chessboardSync.currentMoves.length !== currentPath.length || 
+                                !chessboardSync.currentMoves.every((move, index) => move === currentPath[index]);
+      
+      if (movesAreDifferent) {
+        // Use a timeout to debounce the sync and prevent rapid updates
+        const timeoutId = setTimeout(() => {
+          chessboardSync.syncMovesToChessboard(currentPath);
+        }, 50);
+        
+        return () => clearTimeout(timeoutId);
       }
     }
-  }, [graphData.nodes, currentNode, currentPath, buildMoveSequenceFromNode, performanceState, chessboardSync]);
+  }, [graphData.nodes.length, currentNode?.id, currentPath.length, saving]);
   
   // Handle performance mode overlay when graphData is updated
   useEffect(() => {
@@ -655,16 +698,27 @@ export default function OpeningEditor() {
     }
   }, [graphData.nodes.length, canvasMode, openingGraph]); // Trigger when graphData is actually updated
   
-  // Ensure auto-fit is triggered when entering view mode
+  // Ensure auto-fit is triggered when entering view mode (but not during mode switch)
+  const previousViewModeRef = useRef(isViewMode);
   useEffect(() => {
     if (isViewMode && graphData.nodes.length > 0 && !loading) {
-      // Give extra time for the canvas to fully initialize
-      setTimeout(() => {
-        console.log('🎯 VIEW MODE: Triggering auto-fit for view mode');
-        performanceState.fitView();
-      }, 800);
+      // Only auto-fit if we're transitioning from non-view mode or initial load
+      const isInitialLoad = !previousViewModeRef.current && isViewMode;
+      const isTransitionToViewMode = previousViewModeRef.current !== isViewMode && isViewMode;
+      
+      if (isInitialLoad && !currentNode) {
+        // Only auto-fit on initial load when no position is set
+        setTimeout(() => {
+          console.log('🎯 VIEW MODE: Triggering auto-fit for initial load');
+          performanceState.fitView();
+        }, 800);
+      } else {
+        console.log('🔇 SKIPPING AUTO-FIT - POSITION ALREADY SET');
+      }
     }
-  }, [isViewMode, graphData.nodes.length, loading, performanceState.fitView]);
+    
+    previousViewModeRef.current = isViewMode;
+  }, [isViewMode, graphData.nodes.length, loading, currentNode, performanceState.fitView]);
   
   // Trigger canvas graph change handling only when nodes actually change
   useEffect(() => {
@@ -711,6 +765,9 @@ export default function OpeningEditor() {
 
   // Handle mode switching - ensure current position is valid in the new mode
   useEffect(() => {
+    // Skip synchronization during save process to prevent move replay
+    if (saving) return;
+    
     if (!currentNode) return;
     
     const currentGraphData = canvasMode === 'opening' ? graphData : performanceGraphData;
@@ -743,7 +800,7 @@ export default function OpeningEditor() {
       // Clear the current position if no matching node found
       performanceState.updateCurrentPosition(null, null, 'programmatic');
     }
-  }, [canvasMode, currentNode, currentPath, graphData.nodes, performanceGraphData.nodes]);
+  }, [canvasMode, currentNode, currentPath, graphData.nodes, performanceGraphData.nodes, saving]);
 
   const loadOpening = async () => {
     try {
@@ -804,6 +861,10 @@ export default function OpeningEditor() {
       
       setMoveTree(root);
       setCurrentNode(root);
+      
+      // Mark this opening as loaded to prevent unnecessary reloads
+      loadedOpeningIdRef.current = parseInt(openingId);
+      console.log('✅ OPENING LOADED AND MARKED:', loadedOpeningIdRef.current);
       
       // Initialize unified performance state position
       performanceState.updateCurrentPosition(root.id, root.fen, 'programmatic');
@@ -1079,6 +1140,7 @@ export default function OpeningEditor() {
       setError('Opening name is required');
       return;
     }
+
     
     try {
       setSaving(true);
@@ -1173,8 +1235,9 @@ export default function OpeningEditor() {
         treeStructure: serializeTree(moveTree)
       });
       
-      // Navigate to the opening view
-      navigate(`/openings-book/opening/${savedOpening.id}`);
+      // Simple URL update to switch to view mode - no navigation, no state loss
+      console.log('🔄 SWITCHING FROM EDIT TO VIEW MODE - ID:', savedOpening.id, 'Current loaded:', loadedOpeningIdRef.current);
+      navigate(`/openings-book/opening/${savedOpening.id}`, { replace: true });
       
     } catch (error) {
       console.error('Error saving opening:', error);
@@ -1208,8 +1271,8 @@ export default function OpeningEditor() {
     if (newMoves.length === 0) {
       setCurrentNode(moveTree);
       setCurrentPath([]);
-      // Use 'reset' source to ensure fit-to-view happens regardless of autoZoomOnClick setting
-      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'reset');
+      // Use 'programmatic' instead of 'reset' to avoid excessive auto-zoom
+      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'programmatic');
       // Clear hover states to prevent lingering arrows
       setHoveredMove(null);
       setMovesHoveredMove(null);
@@ -1310,7 +1373,7 @@ export default function OpeningEditor() {
     if (moves.length === 0) {
       setCurrentNode(moveTree);
       setCurrentPath([]);
-      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'reset');
+      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'programmatic');
       chessboardSync.syncMovesToChessboard([]);
       // Clear hover states to prevent lingering arrows
       setHoveredMove(null);
@@ -1572,6 +1635,9 @@ export default function OpeningEditor() {
       
       const nextMove = hoveredMoves[hoveredMoves.length - 1];
       
+      // Set the hovered next move node ID for graph highlighting
+      performanceState.setHoveredNextMoveNodeId(node.id);
+      
       // Determine if we should use pink arrows
       const shouldUsePinkArrow = canvasMode === 'opening' || 
                                  node.data.isMissing || 
@@ -1595,12 +1661,16 @@ export default function OpeningEditor() {
       };
       
       setHoveredMove(moveData);
+    } else {
+      // Clear the hovered next move node ID if not a valid next move
+      performanceState.setHoveredNextMoveNodeId(null);
     }
-  }, [performanceState.currentNodeId, graphData.nodes, performanceGraphData.nodes, canvasMode]);
+  }, [performanceState.currentNodeId, performanceState.setHoveredNextMoveNodeId, graphData.nodes, performanceGraphData.nodes, canvasMode]);
 
   const handleCanvasNodeHoverEnd = useCallback(() => {
     setHoveredMove(null);
-  }, []);
+    performanceState.setHoveredNextMoveNodeId(null);
+  }, [performanceState.setHoveredNextMoveNodeId]);
 
 
 
@@ -1841,7 +1911,7 @@ export default function OpeningEditor() {
   }, [canvasMode]);
 
   // Moves integration handlers (similar to PerformanceGraph)
-  const handleMovesCurrentMovesChange = (moves) => {
+  const handleMovesCurrentMovesChange = useCallback((moves) => {
     // Store moves path persistently
     setMovesCurrentPath(moves);
     
@@ -1860,7 +1930,8 @@ export default function OpeningEditor() {
       // Going to root
       setCurrentNode(moveTree);
       setCurrentPath([]);
-      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'reset');
+      // Use 'programmatic' instead of 'reset' to avoid excessive auto-zoom
+      performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'programmatic');
       // Clear hover states to prevent lingering arrows
       setHoveredMove(null);
       setMovesHoveredMove(null);
@@ -1897,12 +1968,14 @@ export default function OpeningEditor() {
         performanceState.updateCurrentPosition(correspondingGraphNode.id, correspondingGraphNode.data.fen, 'sync');
       }
     }
-  };
+  }, [moveTree, chessboardSync, performanceState, graphData.nodes]);
 
   // Navigation handlers for opening moves NavigationButtons
-  const handleMovesPrevious = () => {
+  const handleMovesPrevious = useCallback(() => {
     if (movesCurrentPath.length > 0) {
       const newPath = movesCurrentPath.slice(0, -1);
+      
+      // Update state and sync chessboard
       setMovesCurrentPath(newPath);
       chessboardSync.syncMovesToChessboard(newPath);
       
@@ -1910,8 +1983,43 @@ export default function OpeningEditor() {
       if (movesDirectScrollFn) {
         movesDirectScrollFn(newPath);
       }
+      
+      // Update tree state to match the new path
+      if (newPath.length === 0) {
+        setCurrentNode(moveTree);
+        setCurrentPath([]);
+        performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'programmatic');
+      } else {
+        // Find the tree node corresponding to the new path
+        let treeNode = moveTree;
+        let validMoves = [];
+        
+        for (const move of newPath) {
+          const existingChild = treeNode.children.find(c => c.san === move);
+          if (existingChild) {
+            treeNode = existingChild;
+            validMoves.push(move);
+          } else {
+            break;
+          }
+        }
+        
+        setCurrentNode(treeNode);
+        setCurrentPath([...validMoves]);
+        
+        // Update performance state
+        const correspondingGraphNode = graphData.nodes.find(node => {
+          const nodeMoveSequence = node.data.moveSequence || [];
+          return nodeMoveSequence.length === validMoves.length &&
+                 nodeMoveSequence.every((move, index) => move === validMoves[index]);
+        });
+        
+        if (correspondingGraphNode) {
+          performanceState.updateCurrentPosition(correspondingGraphNode.id, correspondingGraphNode.data.fen, 'programmatic');
+        }
+      }
     }
-  };
+  }, [movesCurrentPath, chessboardSync, movesDirectScrollFn, moveTree, performanceState, graphData.nodes]);
 
   const handleMovesNext = () => {
     // For opening moves, next navigation is typically done by clicking moves
@@ -1928,10 +2036,10 @@ export default function OpeningEditor() {
       movesDirectScrollFn(newPath);
     }
     
-    // Find root node and update position with reset source
+    // Find root node and update position - use 'click' to enable auto-zoom for user actions
     setCurrentNode(moveTree);
     setCurrentPath([]);
-    performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'reset');
+    performanceState.updateCurrentPosition(moveTree.id, moveTree.fen, 'click');
     
     // Clear hover states to prevent lingering arrows
     setHoveredMove(null);
@@ -2009,6 +2117,9 @@ export default function OpeningEditor() {
   // Sync moves with chessboard moves
   const prevChessboardMovesRef = useRef([]);
   useEffect(() => {
+    // Skip synchronization during save process to prevent move replay
+    if (saving) return;
+    
     if (movesDirectScrollFn && chessboardSync.currentMoves && showMoves) {
       // Only update if moves have actually changed to prevent circular updates
       const prevMoves = prevChessboardMovesRef.current;
@@ -2023,19 +2134,25 @@ export default function OpeningEditor() {
         }, 100);
       }
     }
-  }, [chessboardSync.currentMoves, movesDirectScrollFn, showMoves]);
+  }, [chessboardSync.currentMoves, movesDirectScrollFn, showMoves, saving]);
 
-  // Sync movesCurrentPath with current chessboard position
+  // Sync movesCurrentPath with current chessboard position (with guard to prevent infinite loops)
   useEffect(() => {
+    // Skip synchronization during save process to prevent move replay
+    if (saving) return;
+    
     if (chessboardSync.currentMoves.length !== movesCurrentPath.length ||
         !chessboardSync.currentMoves.every((move, index) => move === movesCurrentPath[index])) {
       setMovesCurrentPath([...chessboardSync.currentMoves]);
     }
-  }, [chessboardSync.currentMoves, movesCurrentPath.length]);
+  }, [chessboardSync.currentMoves, saving]);
 
   // Ensure the moves component reflects the current position when it becomes visible
   const prevShowMovesStateRef = useRef({ showMoves: false, moves: [] });
   useEffect(() => {
+    // Skip synchronization during save process to prevent move replay
+    if (saving) return;
+    
     if (showMoves && movesDirectScrollFn && chessboardSync.currentMoves) {
       // Only update if showMoves state changed or moves changed
       const prevState = prevShowMovesStateRef.current;
@@ -2050,7 +2167,7 @@ export default function OpeningEditor() {
         }, 100);
       }
     }
-  }, [showMoves, movesDirectScrollFn, chessboardSync.currentMoves]);
+  }, [showMoves, movesDirectScrollFn, chessboardSync.currentMoves, saving]);
 
   if (loading) {
     return (
@@ -2329,6 +2446,7 @@ export default function OpeningEditor() {
                   onNodeRightClick={handleNodeRightClick}
                   contextMenuActions={contextMenuActions}
                   currentNodeId={performanceState.currentNodeId}
+                  hoveredNextMoveNodeId={performanceState.hoveredNextMoveNodeId}
                   isGenerating={false}
 
                   showPerformanceControls={performanceState.showPerformanceControls}
