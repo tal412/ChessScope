@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,6 +10,7 @@ import {
   Plus, 
   X, 
   Star,
+  Play,
   FileText,
   Info,
   Pencil,
@@ -19,16 +20,93 @@ import {
 import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 
+// Shared button component for both edit and view modes
+const MoveActionButton = ({ 
+  icon: Icon, 
+  label, 
+  isActive, 
+  onClick, 
+  disabled, 
+  readOnly 
+}) => {
+  return (
+    <div className="relative group">
+      <Button
+        size="sm"
+        variant="ghost"
+        disabled={false}
+        onClick={readOnly || disabled ? null : onClick}
+        className={cn(
+          "h-8 w-8 p-0 transition-colors",
+          isActive 
+            ? "text-white bg-gradient-to-br from-amber-400 to-orange-500 border border-amber-300 shadow-lg shadow-amber-400/50" 
+            : "text-slate-400",
+          !readOnly && !disabled && "hover:text-amber-400 hover:bg-amber-400/10"
+        )}
+      >
+        <Icon className={cn(
+          "w-4 h-4 transition-all stroke-2",
+          isActive ? "stroke-white drop-shadow-md filter brightness-125" : "stroke-current",
+          "fill-none"
+        )} />
+      </Button>
+      
+      {/* Tooltip - always show */}
+      <div className="absolute right-0 bottom-full mb-2 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-slate-200 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-lg">
+        {readOnly ? (
+          // View mode - just show the label
+          isActive ? `${label.charAt(0).toUpperCase() + label.slice(1)}` : `Not ${label}`
+        ) : (
+          // Edit mode - show action text
+          isActive ? `Already ${label}` : `Set as ${label}`
+        )}
+        <div className="absolute -bottom-1 right-3 w-2 h-2 bg-slate-800 border-r border-b border-slate-600 transform rotate-45"></div>
+      </div>
+    </div>
+  );
+};
+
 export default function MoveDetailsPanel({ 
   selectedNode, 
   onUpdateNode, 
   onSetMainLine,
+  onSetInitialMove,
   moveTree,
   className = "",
   drawingMode = false,
   onDrawingModeToggle = null,
   readOnly = false
 }) {
+  // Local state for comment input to prevent recreating component on every keystroke
+  const [commentValue, setCommentValue] = useState('');
+  const commentTimeoutRef = useRef(null);
+  
+  // Local state for links to ensure proper re-rendering
+  const [linksValue, setLinksValue] = useState([]);
+  
+  // Sync comment and links values with selectedNode when it changes
+  useEffect(() => {
+    // If we're switching nodes and there's a pending comment update, commit it immediately
+    if (commentTimeoutRef.current) {
+      clearTimeout(commentTimeoutRef.current);
+      commentTimeoutRef.current = null;
+    }
+    
+    if (selectedNode) {
+      setCommentValue(selectedNode.comment || '');
+      setLinksValue(selectedNode.links || []);
+    }
+  }, [selectedNode?.id]);
+  
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (commentTimeoutRef.current) {
+        clearTimeout(commentTimeoutRef.current);
+      }
+    };
+  }, []);
+  
   if (!selectedNode || selectedNode.san === 'Start') {
     return (
       <div className={cn("h-full flex items-center justify-center", className)}>
@@ -45,28 +123,63 @@ export default function MoveDetailsPanel({
 
   const handleCommentChange = (value) => {
     if (readOnly) return;
-    selectedNode.comment = value;
-    onUpdateNode();
+    
+    // Update local state immediately for responsive UI
+    setCommentValue(value);
+    
+    // Clear existing timeout
+    if (commentTimeoutRef.current) {
+      clearTimeout(commentTimeoutRef.current);
+    }
+    
+    // Set new timeout for debounced update
+    commentTimeoutRef.current = setTimeout(() => {
+      selectedNode.comment = value;
+      if (onUpdateNode) {
+        onUpdateNode();
+      }
+    }, 300); // 300ms delay
   };
 
   const handleLinkChange = (index, field, value) => {
     if (readOnly) return;
-    if (!selectedNode.links) selectedNode.links = [];
-    selectedNode.links[index][field] = value;
-    onUpdateNode();
+    
+    // Update local state
+    const newLinks = [...linksValue];
+    newLinks[index][field] = value;
+    setLinksValue(newLinks);
+    
+    // Update selectedNode immediately
+    selectedNode.links = newLinks;
+    if (onUpdateNode) {
+      onUpdateNode();
+    }
   };
 
   const handleAddLink = () => {
     if (readOnly) return;
-    if (!selectedNode.links) selectedNode.links = [];
-    selectedNode.links.push({ title: '', url: '' });
-    onUpdateNode();
+    
+    // Update local state
+    const newLinks = [...linksValue, { title: '', url: '' }];
+    setLinksValue(newLinks);
+    
+    // Update selectedNode immediately
+    selectedNode.links = newLinks;
+    if (onUpdateNode) {
+      onUpdateNode();
+    }
   };
 
   const handleRemoveLink = (index) => {
     if (readOnly) return;
-    if (selectedNode.links) {
-      selectedNode.links.splice(index, 1);
+    
+    // Update local state
+    const newLinks = linksValue.filter((_, i) => i !== index);
+    setLinksValue(newLinks);
+    
+    // Update selectedNode immediately
+    selectedNode.links = newLinks;
+    if (onUpdateNode) {
       onUpdateNode();
     }
   };
@@ -74,6 +187,13 @@ export default function MoveDetailsPanel({
   const handleSetAsMainLine = () => {
     if (readOnly) return;
     onSetMainLine(selectedNode);
+  };
+
+  const handleSetAsInitialPosition = () => {
+    if (readOnly) return;
+    if (onSetInitialMove) {
+      onSetInitialMove(selectedNode);
+    }
   };
 
   const handleArrowsChange = (newArrows) => {
@@ -96,41 +216,27 @@ export default function MoveDetailsPanel({
         <CardHeader className="pb-3">
           <CardTitle className="text-slate-100 text-lg flex items-center justify-between">
             <span>Move: {selectedNode.san}</span>
-            {!readOnly && (
-              <div className="relative group">
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  disabled={selectedNode.isMainLine}
-                  onClick={handleSetAsMainLine}
-                  className={cn(
-                    "h-8 w-8 p-0 transition-colors",
-                    selectedNode.isMainLine 
-                      ? "text-amber-400 bg-amber-400/10" 
-                      : "text-slate-400 hover:text-amber-400 hover:bg-amber-400/10"
-                  )}
-                >
-                  <Star className={cn(
-                    "w-4 h-4 transition-all",
-                    selectedNode.isMainLine ? "fill-amber-400" : "fill-none"
-                  )} />
-                </Button>
-                
-                {/* Custom tooltip */}
-                <div className="absolute right-0 bottom-full mb-2 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-slate-200 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-lg">
-                  {selectedNode.isMainLine 
-                    ? 'Already on main line' 
-                    : 'Set as main line'}
-                  <div className="absolute -bottom-1 right-3 w-2 h-2 bg-slate-800 border-r border-b border-slate-600 transform rotate-45"></div>
-                </div>
-              </div>
-            )}
-            {readOnly && selectedNode.isMainLine && (
-              <div className="flex items-center gap-2 text-amber-400">
-                <Star className="w-4 h-4 fill-amber-400" />
-                <span className="text-sm">Main Line</span>
-              </div>
-            )}
+                        <div className="flex items-center gap-2">
+              {/* Main Line Button */}
+              <MoveActionButton
+                icon={Star}
+                label="main line"
+                isActive={selectedNode.isMainLine}
+                onClick={handleSetAsMainLine}
+                disabled={selectedNode.isMainLine}
+                readOnly={readOnly}
+              />
+
+              {/* Initial Position Button */}
+              <MoveActionButton
+                icon={Play}
+                label="initial position"
+                isActive={selectedNode.isInitialMove}
+                onClick={handleSetAsInitialPosition}
+                disabled={selectedNode.isInitialMove}
+                readOnly={readOnly}
+              />
+            </div>
           </CardTitle>
         </CardHeader>
       </Card>
@@ -152,9 +258,9 @@ export default function MoveDetailsPanel({
             </Label>
             {readOnly ? (
               <div className="bg-slate-700 border border-slate-600 rounded-md p-3 flex-1 min-h-0 overflow-y-auto">
-                {selectedNode.comment ? (
+                {commentValue ? (
                   <div className="text-slate-100 whitespace-pre-wrap break-words">
-                    {selectedNode.comment}
+                    {commentValue}
                   </div>
                 ) : (
                   <div className="text-slate-400 italic">No comment for this move</div>
@@ -162,7 +268,7 @@ export default function MoveDetailsPanel({
               </div>
             ) : (
               <Textarea
-                value={selectedNode.comment || ''}
+                value={commentValue}
                 onChange={(e) => handleCommentChange(e.target.value)}
                 placeholder="Add notes about this move..."
                 className="bg-slate-700 border-slate-600 text-slate-100 flex-1 resize-none"
@@ -263,8 +369,8 @@ export default function MoveDetailsPanel({
             <div className="flex-1 overflow-y-auto space-y-2">
               {readOnly ? (
                 <>
-                  {selectedNode.links && selectedNode.links.length > 0 ? (
-                    selectedNode.links.map((link, index) => (
+                  {linksValue && linksValue.length > 0 ? (
+                    linksValue.map((link, index) => (
                       <div key={index} className="bg-slate-700 border border-slate-600 rounded-md p-3">
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
@@ -294,7 +400,7 @@ export default function MoveDetailsPanel({
                 </>
               ) : (
                 <>
-                  {selectedNode.links?.map((link, index) => (
+                  {linksValue?.map((link, index) => (
                     <div key={index} className="flex gap-2">
                       <Input
                         value={link.title}

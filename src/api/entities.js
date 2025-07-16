@@ -88,7 +88,7 @@ class OpeningNodeModel extends BaseModel {
 class UserOpeningModel extends BaseModel {
   constructor() {
     super('user_openings', [
-      'username', 'name', 'color', 'initial_fen', 'initial_moves'
+      'username', 'name', 'color', 'initial_fen', 'initial_moves', 'initial_view_fen'
     ]);
   }
   
@@ -124,7 +124,7 @@ class UserOpeningMoveModel extends BaseModel {
   constructor() {
     super('user_opening_moves', [
       'opening_id', 'fen', 'san', 'uci', 'move_number', 'parent_fen',
-      'is_main_line', 'evaluation', 'comment', 'arrows', 'highlights'
+      'is_main_line', 'is_initial_move', 'evaluation', 'comment', 'arrows', 'highlights'
     ]);
   }
   

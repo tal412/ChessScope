@@ -275,6 +275,12 @@ const CanvasPerformanceGraph = ({
   // Auto zoom on click props
   autoZoomOnClick = false, // Whether auto zoom on click is enabled
   onAutoZoomOnClickChange = null, // Callback to change auto zoom on click state
+  
+  // Auto-fit completion callback
+  onAutoFitComplete = null, // Callback when auto-fit completes
+  
+  // Auto-fit pending state
+  isAutoFitPending = false, // Whether auto-fit is scheduled/pending
 }) => {
   const canvasRef = useRef();
   const containerRef = useRef();
@@ -442,10 +448,19 @@ const CanvasPerformanceGraph = ({
         };
         const newDPR = window.devicePixelRatio;
         
-        // Check if dimensions actually changed significantly (more sensitive for screen changes)
-        const widthChanged = Math.abs(newDimensions.width - lastDimensions.width) > 3; // More sensitive
-        const heightChanged = Math.abs(newDimensions.height - lastDimensions.height) > 3; // More sensitive
+        // Check if dimensions actually changed significantly (less sensitive to prevent zoom conflicts)
+        const widthChanged = Math.abs(newDimensions.width - lastDimensions.width) > 10; // Less sensitive to prevent zoom conflicts
+        const heightChanged = Math.abs(newDimensions.height - lastDimensions.height) > 10; // Less sensitive to prevent zoom conflicts
         const dprChanged = Math.abs(newDPR - lastDPR) > 0.01; // DPI change detection
+        
+        console.log('🔄 UPDATE SIZE:', { 
+          reason, 
+          newDimensions, 
+          lastDimensions, 
+          widthChanged, 
+          heightChanged, 
+          dprChanged 
+        });
         
         if (widthChanged || heightChanged || dprChanged) {
           // Mark as resizing
@@ -492,9 +507,13 @@ const CanvasPerformanceGraph = ({
     // Multiple event listeners for comprehensive detection
     const handleWindowResize = () => updateSize('window-resize');
     const handleVisibilityChange = () => {
+      console.log('🔄 VISIBILITY CHANGE:', { hidden: document.hidden });
       if (!document.hidden) {
         // Page became visible - check if dimensions changed while hidden
-        setTimeout(() => updateSize('visibility-change'), 50);
+        setTimeout(() => {
+          console.log('🔄 CHECKING SIZE AFTER VISIBILITY CHANGE');
+          updateSize('visibility-change');
+        }, 50);
       }
     };
     const handleScreenChange = () => updateSize('screen-change');
@@ -625,6 +644,78 @@ const CanvasPerformanceGraph = ({
   // Track core graph data (excluding cluster background nodes) to detect real changes
   const coreGraphDataRef = useRef(null);
   
+    // Helper function to check if canvas interactions should be blocked
+  const isCanvasInteractionBlocked = useCallback(() => {
+    // Block interactions when:
+    // 1. We're initializing
+    // 2. We don't have positioned nodes yet (even if positioning is "complete")
+    // 3. We have nodes but positioning isn't complete yet
+    // 4. Canvas dimensions aren't ready
+    // 5. Transform isn't calculated yet
+    // 6. Auto-fit is pending (to lock user interactions during autofit)
+    const blocked = isInitializing || 
+           positionedNodes.length === 0 ||  // Block when no nodes yet
+           (!isInitialPositioningComplete && positionedNodes.length > 0) ||  // Block when nodes exist but positioning incomplete
+           dimensions.width === 0 || 
+           dimensions.height === 0 || 
+           !transform || 
+           !hasValidTransform ||
+           isAutoFitPending;  // Block user interactions while auto-fit is scheduled/pending
+    
+    // Debug logging for blocking state (throttled to reduce spam)
+    if (blocked) {
+      const now = Date.now();
+      const lastLogTime = window.lastCanvasBlockedLog || 0;
+      if (now - lastLogTime > 1000) { // Only log once per second
+        console.log('🚫 CANVAS BLOCKED:', { 
+          isInitializing, 
+          isInitialPositioningComplete, 
+          positionedNodesLength: positionedNodes.length,
+          dimensionsWidth: dimensions.width,
+          dimensionsHeight: dimensions.height,
+          hasTransform: !!transform,
+          hasValidTransform,
+          isAutoFitPending
+        });
+        window.lastCanvasBlockedLog = now;
+      }
+      // Reset unblocked flag when blocked again
+      window.canvasUnblockedLogged = false;
+    } else {
+      // Log when canvas becomes unblocked
+      if (window.lastCanvasBlockedLog && !window.canvasUnblockedLogged) {
+        console.log('✅ CANVAS UNBLOCKED - INTERACTIONS ALLOWED:', { 
+          isInitializing, 
+          isInitialPositioningComplete, 
+          positionedNodesLength: positionedNodes.length,
+          dimensionsWidth: dimensions.width,
+          dimensionsHeight: dimensions.height,
+          hasTransform: !!transform,
+          hasValidTransform,
+          isAutoFitPending
+        });
+        window.canvasUnblockedLogged = true;
+      }
+    }
+    
+    return blocked;
+  }, [isInitializing, isInitialPositioningComplete, positionedNodes.length, dimensions.width, dimensions.height, transform, hasValidTransform, isAutoFitPending]);
+
+  // Helper function to check if canvas cursor should show "not-allowed" (excludes auto-fit)
+  const isCanvasCursorBlocked = useCallback(() => {
+    // Block cursor when truly initializing, but not during auto-fit
+    const blocked = isInitializing || 
+           positionedNodes.length === 0 ||  // Block when no nodes yet
+           (!isInitialPositioningComplete && positionedNodes.length > 0) ||  // Block when nodes exist but positioning incomplete
+           dimensions.width === 0 || 
+           dimensions.height === 0 || 
+           !transform || 
+           !hasValidTransform;
+           // NOTE: isAutoFitPending is intentionally excluded here
+    
+    return blocked;
+  }, [isInitializing, isInitialPositioningComplete, positionedNodes.length, dimensions.width, dimensions.height, transform, hasValidTransform]);
+  
   // Process graph data and calculate positions with immediate optimal transform
   useEffect(() => {
     // console.log('📊 GRAPH PROCESSING EFFECT:', { dimensions, graphDataNodes: graphData.nodes?.length || 0 });
@@ -712,6 +803,14 @@ const CanvasPerformanceGraph = ({
       setHasValidTransform(true); // Mark that we now have a valid transform
       setIsInitializing(false);
       setIsInitialPositioningComplete(true);
+      
+      // Call completion callback after initial positioning is complete
+      // Use setTimeout to ensure state updates are processed first
+      setTimeout(() => {
+        if (onAutoFitComplete) {
+          onAutoFitComplete();
+        }
+      }, 0);
     } else {
       // console.log('⚠️ SKIPPING TRANSFORM CALCULATION - UPDATING NODES ONLY');
       // Just update positioned nodes without changing transform (for resize or cluster updates)
@@ -872,14 +971,16 @@ const CanvasPerformanceGraph = ({
   useEffect(() => {
     hoveredNodeRef.current = hoveredNode;
     // Update cursor when hover state changes
-    setCursorStyle(hoveredNode || hoveredCluster ? 'pointer' : 'grab');
-  }, [hoveredNode, hoveredCluster]);
+    const isCursorBlocked = isCanvasCursorBlocked();
+    setCursorStyle(isCursorBlocked ? 'not-allowed' : (hoveredNode || hoveredCluster ? 'pointer' : 'grab'));
+  }, [hoveredNode, hoveredCluster, isCanvasCursorBlocked]);
   
   useEffect(() => {
     hoveredClusterRef.current = hoveredCluster;
     // Update cursor when hover state changes
-    setCursorStyle(hoveredNode || hoveredCluster ? 'pointer' : 'grab');
-  }, [hoveredCluster, hoveredNode]);
+    const isCursorBlocked = isCanvasCursorBlocked();
+    setCursorStyle(isCursorBlocked ? 'not-allowed' : (hoveredNode || hoveredCluster ? 'pointer' : 'grab'));
+  }, [hoveredCluster, hoveredNode, isCanvasCursorBlocked]);
   
   useEffect(() => {
     showOpeningClustersRef.current = showOpeningClusters;
@@ -888,6 +989,12 @@ const CanvasPerformanceGraph = ({
   useEffect(() => {
     showPositionClustersRef.current = showPositionClusters;
   }, [showPositionClusters]);
+  
+  // Update cursor style when initialization state changes
+  useEffect(() => {
+    const isCursorBlocked = isCanvasCursorBlocked();
+    setCursorStyle(isCursorBlocked ? 'not-allowed' : (hoveredNode || hoveredCluster ? 'pointer' : 'grab'));
+  }, [isCanvasCursorBlocked, hoveredNode, hoveredCluster]);
 
   // Canvas rendering function - HIGH DPI SUPPORT - Optimized dependencies
   const render = useCallback(() => {
@@ -1137,20 +1244,37 @@ const CanvasPerformanceGraph = ({
         ctx.lineWidth = isCurrentNode || isHoveredNextMove ? 8 : (isHovered ? 6 : 4);
         
         if (isCurrentNode) {
-          // INTENSE GLOW: Draw multiple layers with shadow for selected node
-          ctx.shadowColor = 'rgba(236, 72, 153, 1.0)'; // Pink glow
-          ctx.shadowBlur = 20;
-          ctx.shadowOffsetX = 0;
-          ctx.shadowOffsetY = 0;
-          
-          // Draw 8 layers for very intense glow
-          for (let i = 0; i < 8; i++) {
-            ctx.beginPath();
-            ctx.roundRect(x, y, node.width, node.height, 12);
-            ctx.fill();
+          if (node.data.isInitialMove) {
+            // ORANGE GLOW for selected initial position nodes
+            ctx.shadowColor = 'rgba(249, 115, 22, 1.0)'; // Orange glow
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            
+            // Draw 8 layers for very intense orange glow
+            for (let i = 0; i < 8; i++) {
+              ctx.beginPath();
+              ctx.roundRect(x, y, node.width, node.height, 12);
+              ctx.fill();
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0; // Reset shadow
+          } else {
+            // PINK GLOW for regular selected nodes
+            ctx.shadowColor = 'rgba(236, 72, 153, 1.0)'; // Pink glow
+            ctx.shadowBlur = 20;
+            ctx.shadowOffsetX = 0;
+            ctx.shadowOffsetY = 0;
+            
+            // Draw 8 layers for very intense glow
+            for (let i = 0; i < 8; i++) {
+              ctx.beginPath();
+              ctx.roundRect(x, y, node.width, node.height, 12);
+              ctx.fill();
+            }
+            ctx.stroke();
+            ctx.shadowBlur = 0; // Reset shadow
           }
-          ctx.stroke();
-          ctx.shadowBlur = 0; // Reset shadow
         } else if (isHoveredNextMove) {
           // INTENSE GLOW for hovered next moves only
           ctx.shadowColor = 'rgba(59, 130, 246, 1.0)'; // Blue glow
@@ -1166,6 +1290,20 @@ const CanvasPerformanceGraph = ({
           }
           ctx.stroke();
           ctx.shadowBlur = 0; // Reset shadow
+        } else if (node.data.isInitialMove) {
+          // ORANGE STROKE for unselected initial position nodes
+          ctx.beginPath();
+          ctx.roundRect(x, y, node.width, node.height, 12);
+          ctx.fill();
+          
+          // Add beautiful orange stroke
+          ctx.strokeStyle = '#f97316'; // Orange-500
+          ctx.lineWidth = 6;
+          ctx.stroke();
+          
+          // Reset stroke style for other elements
+          ctx.strokeStyle = nodeColor.border;
+          ctx.lineWidth = 4;
         } else {
           // Normal node - no glow
           ctx.beginPath();
@@ -1571,9 +1709,14 @@ const CanvasPerformanceGraph = ({
   const zoomToRef = useRef();
 
   // Unified zoom function that can handle different targets
-  const zoomTo = useCallback((target = 'all') => {
-    // Prevent zoom during resize transitions or initialization
-    if (isResizing || isInitializing) {
+  const zoomTo = useCallback((target = 'all', options = {}) => {
+    // Block zoom during initialization, but allow autofit to bypass interaction blocking
+    if (isCanvasInteractionBlocked() && !options.bypassInteractionBlocking) {
+      return;
+    }
+    
+    // Prevent zoom during resize transitions or initialization, but allow autofit to bypass
+    if ((isResizing || isInitializing) && !options.bypassInteractionBlocking) {
       return;
     }
     
@@ -1719,11 +1862,11 @@ const CanvasPerformanceGraph = ({
       
       // Start animation immediately
       animationStateRef.current = requestAnimationFrame(animate);
-  }, [dimensions, isResizing, isInitializing, positionClusters]); // Stable dependencies only
+  }, [dimensions, isResizing, isInitializing, positionClusters, isCanvasInteractionBlocked]); // Added isCanvasInteractionBlocked dependency
 
   // Convenience functions for backward compatibility and cleaner API
-  const fitView = useCallback(() => zoomTo('all'), [zoomTo]);
-  const zoomToClusters = useCallback(() => zoomTo('clusters'), [zoomTo]);
+  const fitView = useCallback((options = {}) => zoomTo('all', options), [zoomTo]);
+  const zoomToClusters = useCallback((options = {}) => zoomTo('clusters', options), [zoomTo]);
 
   // Store the functions in refs to avoid recreating them
   useEffect(() => {
@@ -1732,6 +1875,12 @@ const CanvasPerformanceGraph = ({
 
   // Simplified mouse event handlers
   const handleMouseDown = useCallback((e) => {
+    // Block all mouse interactions during initialization
+    if (isCanvasInteractionBlocked()) {
+      e.preventDefault();
+      return;
+    }
+    
     // Handle middle mouse button click for reset
     if (e.button === 1) { // Middle mouse button
       e.preventDefault();
@@ -1746,16 +1895,23 @@ const CanvasPerformanceGraph = ({
     setLastMouse({ x: e.clientX, y: e.clientY });
     // Reset drag flag at the beginning of a new interaction
     isDraggingRef.current = false;
-  }, [zoomTo]);
+  }, [zoomTo, isCanvasInteractionBlocked]);
 
   const handleMouseMove = useCallback((e) => {
-    if (mousePressed && (e.buttons & 1)) { // Check if left mouse button is pressed
+          if (mousePressed && (e.buttons & 1)) { // Check if left mouse button is pressed
+        // Block panning during initialization
+        if (isCanvasInteractionBlocked()) {
+          return;
+        }
+      
       const deltaX = e.clientX - lastMouse.x;
       const deltaY = e.clientY - lastMouse.y;
       
       // Mark as dragging if movement exceeds a small threshold (3px total)
       if (!isDraggingRef.current && (Math.abs(deltaX) + Math.abs(deltaY) > 3)) {
         isDraggingRef.current = true;
+        
+        // Manual zoom tracking removed - now handled by grace period
       }
 
       setTransform(prev => {
@@ -1774,6 +1930,7 @@ const CanvasPerformanceGraph = ({
       // Clear mouse pressed state if button isn't pressed
       if (mousePressed) setMousePressed(false);
       
+      // Allow hover detection even during initialization (for better UX)
       // Handle node hover first (nodes take priority over clusters)
       const node = getNodeAtPosition(e.clientX, e.clientY);
       if (node !== hoveredNodeRef.current) {
@@ -1809,7 +1966,7 @@ const CanvasPerformanceGraph = ({
         }
       }
     }
-  }, [mousePressed, lastMouse, getNodeAtPosition, getClusterAtPosition, onNodeHover, onNodeHoverEnd, onClusterHover, onClusterHoverEnd]); // Removed refs from dependencies
+  }, [mousePressed, lastMouse, getNodeAtPosition, getClusterAtPosition, onNodeHover, onNodeHoverEnd, onClusterHover, onClusterHoverEnd, isCanvasInteractionBlocked]); // Added isCanvasInteractionBlocked dependency
 
   const handleMouseUp = useCallback(() => {
     setMousePressed(false);
@@ -1828,6 +1985,12 @@ const CanvasPerformanceGraph = ({
   }, [onNodeHoverEnd, onClusterHoverEnd]);
 
   const handleClick = useCallback((e) => {
+    // Block clicks during initialization
+    if (isCanvasInteractionBlocked()) {
+      e.preventDefault();
+      return;
+    }
+    
     // Suppress clicks that immediately follow a drag.
     if (isDraggingRef.current) {
       isDraggingRef.current = false; // reset for next interaction
@@ -1846,11 +2009,16 @@ const CanvasPerformanceGraph = ({
     if (contextMenu && !node) {
       setContextMenu(null);
     }
-  }, [getNodeAtPosition, onNodeClick, contextMenu, autoZoomOnClick, positionClusters, zoomTo]);
+  }, [getNodeAtPosition, onNodeClick, contextMenu, autoZoomOnClick, positionClusters, zoomTo, isCanvasInteractionBlocked]);
 
   // NEW: Handle right-click events
   const handleRightClick = useCallback((e) => {
     e.preventDefault(); // Prevent default context menu
+    
+    // Block right-clicks during initialization
+    if (isCanvasInteractionBlocked()) {
+      return;
+    }
     
     // Only show context menu if we have actions defined
     if (!contextMenuActions || contextMenuActions.length === 0) {
@@ -1880,7 +2048,7 @@ const CanvasPerformanceGraph = ({
       // Close context menu if right-clicking on empty space
       setContextMenu(null);
     }
-  }, [contextMenuActions, onNodeRightClick, getNodeAtPosition]);
+  }, [contextMenuActions, onNodeRightClick, getNodeAtPosition, isCanvasInteractionBlocked]);
 
   // NEW: Handle context menu action clicks
   const handleContextMenuAction = useCallback((action, node) => {
@@ -1941,8 +2109,15 @@ const CanvasPerformanceGraph = ({
   const handleWheel = useCallback((e) => {
     e.preventDefault();
     
+    // Block wheel zoom during initialization
+    if (isCanvasInteractionBlocked()) {
+      return;
+    }
+    
     // Don't process wheel events if we don't have a proper transform yet
     if (!transform) return;
+    
+    // Manual zoom tracking removed - now handled by grace period
     
     const canvas = canvasRef.current;
     const rect = canvas.getBoundingClientRect();
@@ -1963,7 +2138,7 @@ const CanvasPerformanceGraph = ({
       currentTransformRef2.current = newTransform;
       return newTransform;
     });
-  }, [transform]);
+  }, [transform, isCanvasInteractionBlocked]); // Added isCanvasInteractionBlocked dependency
 
   // Manually attach wheel event listener with { passive: false } to allow preventDefault
   useEffect(() => {
@@ -1984,6 +2159,11 @@ const CanvasPerformanceGraph = ({
   // Add keyboard shortcut for fit view
   useEffect(() => {
       const handleKeyPress = (event) => {
+    // Block keyboard shortcuts during initialization
+    if (isCanvasInteractionBlocked()) {
+      return;
+    }
+    
     if ((event.key === 'R' || event.key === 'r') && 
         !event.target.matches('input, textarea, select')) {
       event.preventDefault();
@@ -1998,37 +2178,28 @@ const CanvasPerformanceGraph = ({
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [zoomTo]);
+  }, [zoomTo, isCanvasInteractionBlocked]);
 
   // Expose fitView function to parent
   useEffect(() => {
-    if (onFitView && zoomToRef.current) {
-      onFitView(() => {
-        if (zoomToRef.current) {
-          zoomToRef.current('all');
-        }
-      });
+    if (onFitView) {
+      onFitView(fitView);
     }
-  }, [onFitView, zoomToRef.current]); // Expose as soon as zoomTo is available
+  }, [onFitView, fitView]); // Expose the actual fitView function that accepts options
 
   // Expose zoomToClusters function to parent
   useEffect(() => {
-    if (onZoomToClusters && zoomToRef.current) {
-      // Direct call - this should work immediately
-      onZoomToClusters(() => {
-        if (zoomToRef.current) {
-          zoomToRef.current('clusters');
-        }
-      });
+    if (onZoomToClusters) {
+      onZoomToClusters(zoomToClusters);
     }
-  }, [onZoomToClusters, zoomToRef.current]); // Expose as soon as zoomTo is available
+  }, [onZoomToClusters, zoomToClusters]); // Expose the actual zoomToClusters function that accepts options
   
   // Expose generic zoomTo function to parent
   useEffect(() => {
-    if (onZoomTo && zoomToRef.current) {
-      onZoomTo(zoomToRef.current);
+    if (onZoomTo) {
+      onZoomTo(zoomTo);
     }
-  }, [onZoomTo, zoomToRef.current]); // Expose as soon as zoomTo is available
+  }, [onZoomTo, zoomTo]); // Expose the actual zoomTo function that accepts options
 
   // Cleanup animation on unmount
   useEffect(() => {
@@ -2038,6 +2209,8 @@ const CanvasPerformanceGraph = ({
       }
     };
   }, []);
+ 
+  // Auto-fit completion is now handled entirely by useCanvasState hook
 
   return (
     <div 
@@ -2048,8 +2221,8 @@ const CanvasPerformanceGraph = ({
         ref={canvasRef}
         className="w-full h-full block"
         style={{ 
-          cursor: mousePressed ? 'grabbing' : cursorStyle,
-          opacity: (isInitializing || (!isInitialPositioningComplete && positionedNodes.length > 0) || dimensions.width === 0 || dimensions.height === 0 || !transform || !hasValidTransform) ? 0 : 1,
+          cursor: isCanvasCursorBlocked() ? 'not-allowed' : (mousePressed ? 'grabbing' : cursorStyle),
+          opacity: (isInitializing || positionedNodes.length === 0 || (!isInitialPositioningComplete && positionedNodes.length > 0) || dimensions.width === 0 || dimensions.height === 0 || !transform || !hasValidTransform) ? 0 : 1,
           transition: 'opacity 200ms ease-in-out'
         }}
         onMouseDown={handleMouseDown}
@@ -2105,7 +2278,7 @@ const CanvasPerformanceGraph = ({
               onClick={() => zoomTo('all')}
               className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600"
               title="Fit graph to view"
-              disabled={isGenerating}
+              disabled={isGenerating || isCanvasInteractionBlocked()}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
@@ -2120,6 +2293,7 @@ const CanvasPerformanceGraph = ({
                 onClick={handleToggleOpeningClusters}
                 className={`${showOpeningClustersRef.current ? 'bg-purple-600 border-purple-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
                 title="Toggle Opening Clusters"
+                disabled={isCanvasInteractionBlocked()}
               >
                 <Layers className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
                 <span className="hidden group-hover:inline transition-opacity duration-100">Opening Clusters</span>
@@ -2133,6 +2307,7 @@ const CanvasPerformanceGraph = ({
               onClick={handleTogglePositionClusters}
               className={`${showPositionClustersRef.current ? 'bg-orange-600 border-orange-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
               title="Toggle Position Clusters (Current Move)"
+              disabled={isCanvasInteractionBlocked()}
             >
               <Target className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
               <span className="hidden group-hover:inline transition-opacity duration-100">Position Clusters</span>
@@ -2145,6 +2320,7 @@ const CanvasPerformanceGraph = ({
               onClick={handleToggleAutoZoomOnClick}
               className={`${autoZoomOnClick ? 'bg-blue-600 border-blue-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
               title="Auto Zoom on Click"
+              disabled={isCanvasInteractionBlocked()}
             >
               <Search className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
               <span className="hidden group-hover:inline transition-opacity duration-100">Auto Zoom on Click</span>
@@ -2169,6 +2345,7 @@ const CanvasPerformanceGraph = ({
                   onClick={() => onShowPerformanceControls(false)}
                   className="ml-auto text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 p-1"
                   title="Hide controls"
+                  disabled={isCanvasInteractionBlocked()}
                 >
                   <EyeOff className="w-4 h-4" />
                 </Button>
@@ -2183,8 +2360,8 @@ const CanvasPerformanceGraph = ({
                   <select 
                     value={maxDepth} 
                     onChange={(e) => handleMaxDepthChangeAsync(Number(e.target.value))}
-                    className={`w-full px-2 py-1 rounded ${(isGenerating || isInitializing) ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-slate-200'}`}
-                    disabled={isGenerating || isInitializing || !onMaxDepthChange}
+                    className={`w-full px-2 py-1 rounded ${(isGenerating || isCanvasInteractionBlocked()) ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-slate-200'}`}
+                    disabled={isGenerating || isCanvasInteractionBlocked() || !onMaxDepthChange}
                   >
                   {[5, 10, 15, 20, 25, 30].map(d => (
                     <option key={d} value={d}>{d} moves</option>
@@ -2212,7 +2389,7 @@ const CanvasPerformanceGraph = ({
                       max={25}
                       step={1}
                       className="w-full pointer-events-auto [&_[role=slider]]:bg-green-500 [&_[role=slider]]:border-green-400 [&_[role=slider]]:shadow-lg [&_.bg-primary]:bg-gradient-to-r [&_.bg-primary]:from-green-500 [&_.bg-primary]:to-green-600 [&_.bg-slate-200]:bg-slate-600/80"
-                      disabled={isGenerating || isInitializing || !onTempMinGameCountChange}
+                      disabled={isGenerating || isCanvasInteractionBlocked() || !onTempMinGameCountChange}
                     />
                     
                     <div className="flex justify-between text-xs">
@@ -2252,7 +2429,7 @@ const CanvasPerformanceGraph = ({
                     max={100}
                     step={5}
                     className="w-full [&_[role=slider]]:bg-blue-500 [&_[role=slider]]:border-blue-400 [&_[role=slider]]:shadow-lg [&_.bg-primary]:bg-gradient-to-r [&_.bg-primary]:from-blue-500 [&_.bg-primary]:to-blue-600 [&_.bg-slate-200]:bg-slate-600/80"
-                    disabled={isGenerating || isInitializing || !onTempWinRateFilterChange}
+                    disabled={isGenerating || isCanvasInteractionBlocked() || !onTempWinRateFilterChange}
                   />
                     {/* Performance zone indicators on the slider track */}
                     <div className="absolute top-2 left-0 right-0 flex justify-between pointer-events-none">
@@ -2276,7 +2453,7 @@ const CanvasPerformanceGraph = ({
                 <Button 
                   size="sm" 
                   onClick={handleApplyWinRateFilterAsync}
-                  disabled={isGenerating || isInitializing || !onApplyWinRateFilter || (tempWinRateFilter[0] === winRateFilter[0] && tempWinRateFilter[1] === winRateFilter[1])}
+                  disabled={isGenerating || isCanvasInteractionBlocked() || !onApplyWinRateFilter || (tempWinRateFilter[0] === winRateFilter[0] && tempWinRateFilter[1] === winRateFilter[1])}
                   className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-slate-600 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-medium shadow-lg transition-all duration-200"
                 >
                 Apply Filter ({tempWinRateFilter[0]}% - {tempWinRateFilter[1]}%)
@@ -2301,6 +2478,7 @@ const CanvasPerformanceGraph = ({
                 size="sm"
                 style={{ pointerEvents: 'auto' }}
                 title="Show Controls"
+                disabled={isCanvasInteractionBlocked()}
               >
                 <Settings className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
                 <span className="hidden group-hover:inline transition-opacity duration-100">Controls ({maxDepth} moves, {minGameCount}+ games)</span>
@@ -2331,10 +2509,10 @@ const CanvasPerformanceGraph = ({
 
       {/* Context menu indicator - only show when context menu actions are available and not in performance mode */}
       {!isInitializing && positionedNodes.length > 0 && hasValidTransform && contextMenuActions && contextMenuActions.length > 0 && mode !== 'performance' && (
-        <div className="absolute bottom-4 right-4 bg-slate-800/90 border border-slate-700 text-slate-200 px-3 py-2 rounded text-xs pointer-events-none backdrop-blur-sm shadow-lg">
+        <div className="absolute bottom-4 right-4 bg-gradient-to-r from-amber-900/30 to-orange-900/30 border border-amber-500/50 text-amber-200 px-3 py-2 rounded text-xs pointer-events-none backdrop-blur-sm shadow-lg">
           <div className="flex items-center gap-2">
-            <span className="text-slate-500">
-              <span className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 text-xs">Right&nbsp;Click</span>
+            <span className="text-amber-300">
+              <span className="px-1 py-0.5 bg-amber-700/50 border border-amber-500/50 rounded text-amber-100 text-xs">Right&nbsp;Click</span>
               <span className="mx-1">–</span>
               Delete Move
             </span>
@@ -2363,16 +2541,36 @@ const CanvasPerformanceGraph = ({
       )}
 
       {/* Initialization Loading Overlay - Covers initial positioning flash */}
-      {(isInitializing || dimensions.width === 0 || dimensions.height === 0 || !transform || !hasValidTransform) && !isGenerating && (
+      {(isInitializing || positionedNodes.length === 0 || (!isInitialPositioningComplete && positionedNodes.length > 0) || dimensions.width === 0 || dimensions.height === 0 || !transform || !hasValidTransform) && !isGenerating && (
         <div className="absolute inset-0 bg-slate-900 flex items-center justify-center z-20">
           <div className="text-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mb-4 mx-auto"></div>
-            <div className="text-slate-200 text-base font-medium">Positioning Graph</div>
-            <div className="text-slate-400 text-sm">Setting up optimal view...</div>
+            <div className="text-slate-200 text-base font-medium">
+              Positioning Graph
+            </div>
+            <div className="text-slate-400 text-sm">
+              Setting up optimal view...
+            </div>
           </div>
         </div>
       )}
 
+      {/* Autofit Loading Overlay - Subtle overlay during autofit */}
+      {isAutoFitPending && !isInitializing && positionedNodes.length > 0 && (
+        <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[1px] flex items-center justify-center z-15 transition-opacity duration-200">
+          <div className="bg-slate-800/90 backdrop-blur-sm rounded-lg px-6 py-4 shadow-xl border border-slate-700/50">
+            <div className="flex items-center gap-3">
+              <div className="relative">
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-400 absolute inset-0"></div>
+              </div>
+              <div className="text-slate-200 text-sm font-medium">
+                Adjusting view...
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
