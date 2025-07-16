@@ -230,6 +230,7 @@ export function FlexibleLayout({
   components = {},
   componentConfig = {},
   className = "",
+  headerClassName = "",
   onLayoutChange,
   // AppBar props
   title,
@@ -314,6 +315,7 @@ export function FlexibleLayout({
         icon={Icon}
         leftControls={leftControls}
         rightControls={combinedRightControls}
+        className={headerClassName}
       />
       
       {/* Main Content */}

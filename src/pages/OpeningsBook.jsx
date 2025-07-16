@@ -249,38 +249,38 @@ export default function OpeningsBook() {
         )}
 
         {/* Openings Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 items-start">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
           {filteredOpenings.map((opening) => (
             <Card 
               key={opening.id}
               className="bg-slate-800 border-slate-700 hover:border-amber-500/50 transition-all cursor-pointer group"
               onClick={() => handleOpeningClick(opening.id)}
             >
-              <CardHeader className="pb-3">
+              <CardHeader className="pb-2 pt-3 px-3">
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg text-slate-100 truncate">
+                    <CardTitle className="text-sm text-slate-100 truncate leading-tight">
                       {opening.name}
                     </CardTitle>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge variant="outline" className={opening.color === 'white' ? 'border-amber-500/50 text-amber-400' : 'border-slate-500 text-slate-400'}>
+                    <div className="flex items-center gap-1 mt-1">
+                      <Badge variant="outline" className={`text-xs px-1.5 py-0.5 ${opening.color === 'white' ? 'border-amber-500/50 text-amber-400' : 'border-slate-500 text-slate-400'}`}>
                         {opening.color === 'white' ? (
-                          <Crown className="w-3 h-3 mr-1" />
+                          <Crown className="w-2.5 h-2.5 mr-1" />
                         ) : (
-                          <Shield className="w-3 h-3 mr-1" />
+                          <Shield className="w-2.5 h-2.5 mr-1" />
                         )}
                         {opening.color}
                       </Badge>
                     </div>
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
                       size="sm"
                       variant="ghost"
                       onClick={(e) => handleEditOpening(e, opening.id)}
-                      className="h-8 w-8 p-0"
+                      className="h-6 w-6 p-0"
                     >
-                      <Edit className="w-4 h-4" />
+                      <Edit className="w-3 h-3" />
                     </Button>
                     <Button
                       size="sm"
@@ -289,18 +289,18 @@ export default function OpeningsBook() {
                         e.stopPropagation();
                         setDeleteOpening(opening);
                       }}
-                      className="h-8 w-8 p-0 text-red-400 hover:text-red-300"
+                      className="h-6 w-6 p-0 text-red-400 hover:text-red-300"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3 h-3" />
                     </Button>
                   </div>
                 </div>
               </CardHeader>
-              <CardContent className="pb-4">
+              <CardContent className="pb-3 px-3">
                 {/* Mini Chessboard Preview */}
-                <div className="aspect-square mb-3 rounded-lg overflow-hidden bg-slate-900">
+                <div className="aspect-square mb-2 rounded-md overflow-hidden bg-slate-900">
                   <Chessground
-                    fen={opening.initial_fen}
+                    fen={opening.initial_view_fen || opening.initial_fen}
                     orientation={opening.color}
                     viewOnly={true}
                     coordinates={false}
@@ -311,11 +311,9 @@ export default function OpeningsBook() {
                   />
                 </div>
                 
-
-                
                 <div className="flex items-center justify-between text-xs text-slate-500">
                   <span>{opening.initial_moves?.length || 0} moves</span>
-                  <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity" />
+                  <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
                 </div>
               </CardContent>
             </Card>

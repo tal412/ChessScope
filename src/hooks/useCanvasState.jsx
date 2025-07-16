@@ -24,6 +24,9 @@ export const useCanvasState = ({
   enableContextMenu = false,
   contextMenuActions = null,
   
+  // Callbacks
+  onAutoFitComplete = null, // NEW: Callback when auto-fit completes
+  
   // Default control values
   defaultMaxDepth = 20,
   defaultMinGameCount = 1,
@@ -37,6 +40,7 @@ export const useCanvasState = ({
   // Canvas state tracking
   const [isCanvasResizing, setIsCanvasResizing] = useState(false);
   const [isCanvasInitializing, setIsCanvasInitializing] = useState(false);
+  const [isAutoFitPending, setIsAutoFitPending] = useState(false); // NEW: Track when auto-fit is scheduled/pending
   
   // Performance controls state
   const [maxDepth, setMaxDepth] = useState(defaultMaxDepth);
@@ -51,11 +55,16 @@ export const useCanvasState = ({
     return savedState ? JSON.parse(savedState) : enableClustering;
   });
   const [openingClusters, setOpeningClusters] = useState([]);
-  const [positionClusters, setPositionClusters] = useState([]);
+  const [positionClusters, setPositionClustersState] = useState([]);
   const [showPositionClusters, setShowPositionClusters] = useState(() => {
     const savedState = localStorage.getItem('canvas-position-clusters-enabled');
     return savedState ? JSON.parse(savedState) : true;
   });
+  
+  // Wrap setPositionClusters with debugging
+  const setPositionClusters = useCallback((clusters) => {
+    setPositionClustersState(clusters);
+  }, []);
   
   // Ref to store current position clusters for immediate access in auto-zoom
   const positionClustersRef = useRef([]);
@@ -105,7 +114,7 @@ export const useCanvasState = ({
   // Update position clusters ref when position clusters change
   useEffect(() => {
     positionClustersRef.current = positionClusters;
-  }, [positionClusters]);
+  }, [positionClusters, currentPositionFen, enablePositionClusters]);
   
   // Canvas control functions
   const fitView = useCallback(() => {
@@ -126,28 +135,83 @@ export const useCanvasState = ({
     }
   }, []);
   
-  // Auto-fit with debouncing
+  // Auto-fit with debouncing - IMPROVED: Better pending state management
   const scheduleAutoFit = useCallback((reason = 'unknown', delay = autoFitDelay) => {
     if (!enableAutoFit) return;
     
-    // scheduleAutoFit is for programmatic graph changes (new moves, deletions, mode changes, resize)
-    // It should work regardless of click auto-zoom setting since these are not user clicks
-    // Click-based auto-zoom is handled separately by the auto-zoom effect
-    
-    // Clear existing timeout
+    // Clear existing timeout and reset pending state to prevent conflicts
     if (autoFitTimeoutRef.current) {
       clearTimeout(autoFitTimeoutRef.current);
+      autoFitTimeoutRef.current = null;
     }
     
-    // Schedule auto-fit (check state at execution time using refs)
+    // Set pending state IMMEDIATELY when auto-fit is scheduled for any reason
+    // But only if we're not already in initial positioning (to avoid double blocking)
+    // Skip setting if already pending (e.g., from immediate resize lock)
+    if (!isCanvasInitializingRef.current) {
+      setIsAutoFitPending(prev => {
+        if (!prev) {
+          console.log('⏳ AUTO-FIT PENDING IMMEDIATELY - Manual zoom blocked until completion');
+          return true;
+        }
+        return prev; // Already pending
+      });
+    }
+    
+    // Schedule auto-fit
     autoFitTimeoutRef.current = setTimeout(() => {
-      // Check state at execution time using refs to avoid stale closures
-      if (canvasFitViewRef.current && !isCanvasResizingRef.current && !isCanvasInitializingRef.current) {
-        canvasFitViewRef.current();
+      console.log('🎯 AUTO-FIT EXECUTING:', { 
+        reason, 
+        hasFitViewFn: !!canvasFitViewRef.current,
+        isCanvasResizing: isCanvasResizingRef.current,
+        isCanvasInitializing: isCanvasInitializingRef.current 
+      });
+      
+      if (canvasFitViewRef.current && !isCanvasInitializingRef.current) {
+        // Context-aware auto-fit: respect current position and position clusters
+        const currentPositionClusters = positionClustersRef.current;
+        const shouldZoomToClusters = enablePositionClusters && currentPositionClusters.length > 0 && !!currentPositionFen;
+        
+        if (shouldZoomToClusters && canvasZoomToClustersRef.current) {
+          console.log('🎯 AUTO-FIT: Zooming to position clusters');
+          canvasZoomToClustersRef.current({ bypassInteractionBlocking: true });
+        } else {
+          console.log('🎯 AUTO-FIT: Fitting to all nodes');
+          canvasFitViewRef.current({ bypassInteractionBlocking: true });
+        }
+        
+        // Clear pending state after animation completes (300ms animation + small buffer)
+        setTimeout(() => {
+          setIsAutoFitPending(false);
+          console.log('🧹 AUTO-FIT PENDING STATE CLEARED - Animation completed');
+          
+          // Call completion callback after animation finishes
+          if (onAutoFitComplete) {
+            onAutoFitComplete();
+          }
+          
+          console.log('✅ AUTO-FIT COMPLETED SUCCESSFULLY');
+        }, 350); // 300ms animation + 50ms buffer
+        
+      } else {
+        console.log('⚠️ AUTO-FIT SKIPPED - Conditions not met:', {
+          hasFitViewFn: !!canvasFitViewRef.current,
+          isCanvasInitializing: isCanvasInitializingRef.current
+        });
+        
+        // Clear pending state immediately if skipped
+        setIsAutoFitPending(false);
+        console.log('🧹 AUTO-FIT PENDING STATE CLEARED - Skipped execution');
+        
+        // Completion callback is still called even if skipped to unlock UI
+        if (onAutoFitComplete) {
+          onAutoFitComplete();
+        }
       }
+      
       autoFitTimeoutRef.current = null;
     }, delay);
-  }, [enableAutoFit, autoFitDelay]);
+  }, [enableAutoFit, autoFitDelay, enablePositionClusters, currentPositionFen, onAutoFitComplete]);
   
   // Handle graph changes
   const handleGraphChange = useCallback((graphData) => {
@@ -276,11 +340,11 @@ export const useCanvasState = ({
           
           if (shouldZoomToClusters && canvasZoomToClustersRef.current) {
             console.log('📞 CALLING canvasZoomToClustersRef.current() (DIRECT)');
-            canvasZoomToClustersRef.current();
+            canvasZoomToClustersRef.current({ bypassInteractionBlocking: true });
             console.log('✅ ZOOM TO CLUSTERS CALLED (DIRECT)');
           } else if (shouldFitToAll && canvasFitViewRef.current) {
             console.log('📞 CALLING canvasFitViewRef.current() (DIRECT)');
-            canvasFitViewRef.current();
+            canvasFitViewRef.current({ bypassInteractionBlocking: true });
             console.log('✅ FIT TO ALL CALLED (DIRECT)');
           } else {
             console.log('❌ NO ZOOM FUNCTION AVAILABLE (DIRECT)', {
@@ -290,13 +354,18 @@ export const useCanvasState = ({
               hasFitView: !!canvasFitViewRef.current
             });
           }
+          
+          // NEW: Call completion callback for direct auto-zoom
+          if (onAutoFitComplete) {
+            onAutoFitComplete();
+          }
         } catch (error) {
           console.error('❌ Error executing direct auto-zoom:', error);
         }
         autoZoomTimeoutRef.current = null;
       }, 150);
     }
-  }, [enableAutoZoom, enableClickAutoZoom, enablePositionClusters]);
+  }, [enableAutoZoom, enableClickAutoZoom, enablePositionClusters, onAutoFitComplete]);
   
   // Auto-zoom functionality with debouncing - ONLY for programmatic position changes
   useEffect(() => {
@@ -383,7 +452,7 @@ export const useCanvasState = ({
       
       // Clear any existing auto-zoom timeout
       if (autoZoomTimeoutRef.current) {
-        console.log('🗑️ CLEARING EXISTING AUTO-ZOOM TIMEOUT (EFFECT)');
+        console.log('��️ CLEARING EXISTING AUTO-ZOOM TIMEOUT (EFFECT)');
         clearTimeout(autoZoomTimeoutRef.current);
         autoZoomTimeoutRef.current = null;
       }
@@ -406,11 +475,11 @@ export const useCanvasState = ({
           
           if (useZoomToClusters && canvasZoomToClustersRef.current) {
             console.log('📞 CALLING canvasZoomToClustersRef.current() (EFFECT)');
-            canvasZoomToClustersRef.current();
+            canvasZoomToClustersRef.current({ bypassInteractionBlocking: true });
             console.log('✅ ZOOM TO CLUSTERS CALLED (EFFECT)');
           } else if (useFitToAll && canvasFitViewRef.current) {
             console.log('📞 CALLING canvasFitViewRef.current() (EFFECT)');
-            canvasFitViewRef.current();
+            canvasFitViewRef.current({ bypassInteractionBlocking: true });
             console.log('✅ FIT TO ALL CALLED (EFFECT)');
           } else {
             console.log('❌ NO ZOOM FUNCTION AVAILABLE (EFFECT)', {
@@ -446,13 +515,21 @@ export const useCanvasState = ({
   }, []);
   
   const handleCanvasResizeStateChange = useCallback((isResizing, resizeSource = 'unknown') => {
+    console.log('🔄 RESIZE STATE CHANGE:', { isResizing, resizeSource, autoFitOnResize });
     setIsCanvasResizing(isResizing);
     isCanvasResizingRef.current = isResizing;
     
-    // Schedule appropriate zoom when resize completes - controlled by autoFitOnResize only
-    if (!isResizing && autoFitOnResize) {
-      // Use scheduleAutoFit with 'resize' reason to ensure it works regardless of click auto-zoom setting
-      scheduleAutoFit('resize', 300);
+    if (autoFitOnResize) {
+      if (isResizing) {
+        // Lock immediately when resize starts
+        console.log('🔒 LOCKING BUTTONS - Resize started');
+        setIsAutoFitPending(true);
+      } else {
+        // Schedule autofit when resize finishes
+        console.log('🎯 SCHEDULING AUTO-FIT for resize');
+        // Use a longer delay for resize-triggered auto-fit to prevent conflicts
+        scheduleAutoFit('resize', 400);
+      }
     }
   }, [autoFitOnResize, scheduleAutoFit]);
   
@@ -461,7 +538,7 @@ export const useCanvasState = ({
     isCanvasInitializingRef.current = isInitializing;
   }, []);
   
-  // Cleanup function
+  // Cleanup function - IMPROVED: More thorough cleanup
   const cleanup = useCallback(() => {
     if (autoFitTimeoutRef.current) {
       clearTimeout(autoFitTimeoutRef.current);
@@ -471,6 +548,9 @@ export const useCanvasState = ({
       clearTimeout(autoZoomTimeoutRef.current);
       autoZoomTimeoutRef.current = null;
     }
+    // Clear pending state on cleanup
+    setIsAutoFitPending(false);
+    console.log('🧹 CLEANUP: All auto-fit states cleared');
   }, []);
   
   // Cleanup on unmount
@@ -503,6 +583,7 @@ export const useCanvasState = ({
     // Canvas state
     isCanvasResizing,
     isCanvasInitializing,
+    isAutoFitPending, // NEW: Expose the new state
     
     // Canvas functions
     fitView,

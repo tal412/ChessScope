@@ -71,6 +71,38 @@ export const initDatabase = async () => {
   }
 };
 
+// Run database migrations
+const runMigrations = async () => {
+  try {
+    // Check if is_initial_move column exists in user_opening_moves table
+    const moveTableInfo = db.exec("PRAGMA table_info(user_opening_moves)");
+    
+    if (moveTableInfo.length > 0) {
+      const moveColumns = moveTableInfo[0].values.map(row => row[1]); // row[1] is the column name
+      
+      if (!moveColumns.includes('is_initial_move')) {
+        console.log('Adding is_initial_move column to user_opening_moves table');
+        db.run('ALTER TABLE user_opening_moves ADD COLUMN is_initial_move BOOLEAN DEFAULT 0');
+      }
+    }
+
+    // Check if initial_view_fen column exists in user_openings table
+    const openingTableInfo = db.exec("PRAGMA table_info(user_openings)");
+    
+    if (openingTableInfo.length > 0) {
+      const openingColumns = openingTableInfo[0].values.map(row => row[1]); // row[1] is the column name
+      
+      if (!openingColumns.includes('initial_view_fen')) {
+        console.log('Adding initial_view_fen column to user_openings table');
+        db.run('ALTER TABLE user_openings ADD COLUMN initial_view_fen TEXT DEFAULT \'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\'');
+      }
+    }
+  } catch (error) {
+    console.error('Error running migrations:', error);
+    // Don't throw error to prevent breaking the app
+  }
+};
+
 // Create database tables
 const createTables = async () => {
   try {
@@ -136,6 +168,7 @@ const createTables = async () => {
         color TEXT NOT NULL,
         initial_fen TEXT DEFAULT 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
         initial_moves TEXT DEFAULT '[]',
+        initial_view_fen TEXT DEFAULT 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(username, name)
@@ -152,6 +185,7 @@ const createTables = async () => {
         move_number INTEGER NOT NULL,
         parent_fen TEXT,
         is_main_line BOOLEAN DEFAULT 1,
+        is_initial_move BOOLEAN DEFAULT 0,
         evaluation TEXT,
         comment TEXT,
         arrows TEXT,
@@ -190,6 +224,9 @@ const createTables = async () => {
     db.run('CREATE INDEX IF NOT EXISTS idx_user_opening_moves_opening_id ON user_opening_moves(opening_id)');
     db.run('CREATE INDEX IF NOT EXISTS idx_user_opening_moves_fen ON user_opening_moves(fen)');
     db.run('CREATE INDEX IF NOT EXISTS idx_move_annotations_move_id ON move_annotations(move_id)');
+
+    // Run database migrations
+    await runMigrations();
 
     // Save to localStorage
     saveDatabase();

@@ -76,6 +76,7 @@ class Graph {
     this.pgnStats = []; // Game-level metadata (minimal, just for reference)
     this.username = username;
     this.playerColor = playerColor; // 'white' or 'black'
+    this.fenSet = new Set(); // O(1) lookup for FEN existence check
 
   }
 
@@ -83,8 +84,14 @@ class Graph {
   getOrCreateNode(fen) {
     if (!this.nodes.has(fen)) {
       this.nodes.set(fen, new GraphNode(fen));
+      this.fenSet.add(fen); // Add to FEN set for O(1) lookup
     }
     return this.nodes.get(fen);
+  }
+
+  // Check if a FEN exists in the graph (O(1))
+  hasFen(fen) {
+    return this.fenSet.has(fen);
   }
 
   // Add a move edge between two positions
@@ -367,6 +374,7 @@ class Graph {
         ...moveData
       })),
       pgnStats: this.pgnStats,
+      fenSet: Array.from(this.fenSet), // Serialize FEN set for O(1) lookups
       metadata: {
         created: new Date().toISOString(),
         version: '1.0'
@@ -401,6 +409,14 @@ class Graph {
         gameIndices: moveData.gameIndices
       });
     });
+    
+    // Restore FEN set for O(1) lookups
+    if (data.fenSet) {
+      graph.fenSet = new Set(data.fenSet);
+    } else {
+      // Rebuild FEN set from nodes if not present (backward compatibility)
+      graph.fenSet = new Set(data.nodes.map(nodeData => nodeData.fen));
+    }
     
     return graph;
   }
@@ -446,6 +462,11 @@ export class OpeningGraph {
     // Add to the appropriate graph
     const targetGraph = player_color === 'white' ? this.whiteGraph : this.blackGraph;
     await targetGraph.addPGN(moves, result, opponentRating, opening, gameMetadata);
+  }
+
+  // Check if a FEN exists in either white or black graph (O(1))
+  hasFen(fen) {
+    return this.whiteGraph.hasFen(fen) || this.blackGraph.hasFen(fen);
   }
 
   // Get moves from a position for a specific color
