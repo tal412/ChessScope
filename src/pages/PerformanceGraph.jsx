@@ -114,25 +114,8 @@ function PerformanceGraphContent() {
   // Listen for custom refresh event from settings
   useEffect(() => {
     const handleRefresh = (event) => {
-      setIsRefreshInProgress(true);
-      
-      // Clear all cached state
-      setOpeningGraph(null);
-      setGraphData({ nodes: [], edges: [], maxGameCount: 0 });
-      setNodeOpeningsMap(new Map());
-      setInitialLoad(true);
-      setHasInitialRootSelection(false);
-      
-      // Reset UI states
-      setHoveredMove(null);
-      
-      // Force loading state
-      setLoading(true);
-      
-      // Trigger data reload
-      setTimeout(() => {
-        setRefreshTrigger(prev => prev + 1);
-      }, 100);
+      console.log('🔄 Refresh event received in PerformanceGraph:', event.detail);
+      setRefreshTrigger(prev => prev + 1);
     };
 
     window.addEventListener('refreshPerformanceGraph', handleRefresh);

@@ -772,6 +772,13 @@ const CanvasPerformanceGraph = ({
     
     const isRealGraphChange = currentCoreData !== coreGraphDataRef.current;
     
+    // If the graph data has genuinely changed, we need to reset the positioning and auto-fit state
+    // to force a re-calculation of the optimal transform without animation.
+    if (isRealGraphChange) {
+        setIsInitialPositioningComplete(false);
+        setHasAutoFitted(false);
+    }
+    
     // Special case: if we previously had empty data and now have nodes, always recalculate
     const wasEmpty = coreGraphDataRef.current === JSON.stringify({ nodeCount: 0, edgeCount: 0, nodeIds: [], edgeIds: [] });
     const hasNodesNow = nodes.length > 0;
@@ -801,16 +808,25 @@ const CanvasPerformanceGraph = ({
       setPositionedNodes(positioned);
       setHasAutoFitted(true);
       setHasValidTransform(true); // Mark that we now have a valid transform
-      setIsInitializing(false);
-      setIsInitialPositioningComplete(true);
+      // Only mark initialization complete when we actually have more than one node
+      if (positioned.length > 1) {
+        setIsInitializing(false);
+        setIsInitialPositioningComplete(true);
+      } else {
+        // Keep initializing state until a meaningful graph is present
+        setIsInitializing(true);
+        setIsInitialPositioningComplete(false);
+      }
       
       // Call completion callback after initial positioning is complete
       // Use setTimeout to ensure state updates are processed first
-      setTimeout(() => {
-        if (onAutoFitComplete) {
-          onAutoFitComplete();
-        }
-      }, 0);
+      if (positioned.length > 1) {
+        setTimeout(() => {
+          if (onAutoFitComplete) {
+            onAutoFitComplete();
+          }
+        }, 0);
+      }
     } else {
       // console.log('⚠️ SKIPPING TRANSFORM CALCULATION - UPDATING NODES ONLY');
       // Just update positioned nodes without changing transform (for resize or cluster updates)
@@ -826,7 +842,14 @@ const CanvasPerformanceGraph = ({
   // Fallback timeout to prevent initialization from getting stuck
   useEffect(() => {
     if (isInitializing) {
-      const fallbackTimeout = setTimeout(() => {
+      const checkAndMaybeForceComplete = () => {
+        // If we still only have a root node, give it more time.
+        if (positionedNodesRef.current.length <= 1) {
+          // Wait another 3 s and re-check.
+          fallbackId = setTimeout(checkAndMaybeForceComplete, 3000);
+          return;
+        }
+
         console.warn('Canvas initialization timeout - forcing completion');
         setIsInitializing(false);
         setIsInitialPositioningComplete(true);
@@ -836,9 +859,11 @@ const CanvasPerformanceGraph = ({
           const defaultTransform = { x: 0, y: 0, scale: 1 };
           setTransform(defaultTransform);
         }
-      }, 3000); // Increased to 3 seconds to allow for slower initialization
+      };
 
-      return () => clearTimeout(fallbackTimeout);
+      let fallbackId = setTimeout(checkAndMaybeForceComplete, 5000); // start with 5 s
+      
+      return () => clearTimeout(fallbackId);
     }
   }, [isInitializing, transform]);
 

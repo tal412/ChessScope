@@ -16,7 +16,7 @@ const AuthContext = createContext();
 const shouldAutoSync = (user) => {
   if (!user || !user.importSettings) return false;
   
-  const frequency = user.importSettings.autoSyncFrequency || '1hour';
+  const frequency = user.importSettings.autoSyncFrequency || '1day';
   
   // Never sync
   if (frequency === 'never') return false;
@@ -103,7 +103,7 @@ export const AuthProvider = ({ children }) => {
             ['rapid', 'blitz', 'bullet'],
           selectedDateRange: '3',
           customDateRange: { from: null, to: null },
-          autoSyncFrequency: '1hour'
+          autoSyncFrequency: '1day'
         }
           };
           
@@ -168,7 +168,7 @@ export const AuthProvider = ({ children }) => {
             ['rapid', 'blitz', 'bullet'],
           selectedDateRange: '3',
           customDateRange: { from: null, to: null },
-          autoSyncFrequency: '1hour'
+          autoSyncFrequency: '1day'
         },
         loginTime: new Date().toISOString(),
         lastSync: null
@@ -347,7 +347,7 @@ export const AuthProvider = ({ children }) => {
             ['rapid', 'blitz', 'bullet'],
           selectedDateRange: '3',
           customDateRange: { from: null, to: null },
-          autoSyncFrequency: '1hour'
+          autoSyncFrequency: '1day'
         }
       };
       
@@ -430,22 +430,24 @@ export const AuthProvider = ({ children }) => {
       setImportProgress(100);
       setImportStatus('Settings updated successfully!');
       
+      // Call the completion callback if provided, but don't reset importing state here
+      if (onComplete) {
+        console.log('🎯 Calling settings completion callback');
+        onComplete();
+      }
+      
       return { success: true };
     } catch (error) {
       console.error('Settings update error:', error);
       setImportStatus(`Error: ${error.message}`);
       return { success: false, error: error.message };
     } finally {
-      // Cleanup immediately and call completion callback
-      setIsImporting(false);
-      setImportProgress(0);
-      setImportStatus('');
-      
-      // Call the completion callback if provided
-      if (onComplete) {
-        console.log('🎯 Calling settings completion callback');
-        onComplete();
-      }
+      // Defer resetting the import state to allow the UI to transition smoothly
+      setTimeout(() => {
+        setIsImporting(false);
+        setImportProgress(0);
+        setImportStatus('');
+      }, 1500); // Keep loading state for 1.5s after completion
     }
   };
 
