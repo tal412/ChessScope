@@ -149,13 +149,21 @@ export const useCanvasState = ({
     // But only if we're not already in initial positioning (to avoid double blocking)
     // Skip setting if already pending (e.g., from immediate resize lock)
     if (!isCanvasInitializingRef.current) {
-      setIsAutoFitPending(prev => {
-        if (!prev) {
-          console.log('⏳ AUTO-FIT PENDING IMMEDIATELY - Manual zoom blocked until completion');
-          return true;
-        }
-        return prev; // Already pending
-      });
+      // Don't show "Adjusting view..." for click-based auto-zoom.
+      // It's immediate and doesn't need a pending indicator.
+      const source = lastPositionChangeSourceRef.current;
+      const timeSinceLastChange = Date.now() - lastPositionChangeTimeRef.current;
+      const isRecentClick = source === 'click' && timeSinceLastChange < 500;
+
+      if (!isRecentClick) {
+        setIsAutoFitPending(prev => {
+          if (!prev) {
+            console.log('⏳ AUTO-FIT PENDING IMMEDIATELY - Manual zoom blocked until completion');
+            return true;
+          }
+          return prev; // Already pending
+        });
+      }
     }
     
     // Schedule auto-fit

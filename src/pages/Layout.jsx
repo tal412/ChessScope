@@ -783,7 +783,7 @@ export default function Layout() {
                       <p className="text-slate-400 text-xs">How often to check for and import new games</p>
                     </div>
                     <Select 
-                      value={tempSettings.autoSyncFrequency || '1hour'} 
+                      value={tempSettings.autoSyncFrequency || '1day'} 
                       onValueChange={(value) => setTempSettings(prev => ({...prev, autoSyncFrequency: value}))}
                       disabled={isImporting}
                     >
@@ -819,7 +819,7 @@ export default function Layout() {
                         </p>
                         <p className="text-slate-400 text-xs">
                           Auto-sync: {(() => {
-                            const freq = tempSettings.autoSyncFrequency || '1hour';
+                            const freq = tempSettings.autoSyncFrequency || '1day';
                             const freqLabels = {
                               'never': 'Disabled',
                               'visit': 'Every visit',
