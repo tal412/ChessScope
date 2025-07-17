@@ -372,7 +372,7 @@ const ChessAnalysisView = ({
           console.log('🎯 Found exact graph node for sequence:', targetNode.data.san);
           const positionClusters = createPositionClusters(graphData.nodes, targetNode.data.fen);
           performanceState.setPositionClusters(positionClusters);
-          performanceState.updateCurrentPosition(targetNode.id, targetNode.data.fen, 'chunk-click');
+          performanceState.updateCurrentPosition(targetNode.id, targetNode.data.fen, 'click');
         } else {
           // Try to find the longest matching prefix in the graph
           let bestMatch = null;
@@ -393,17 +393,17 @@ const ChessAnalysisView = ({
             // Use the best partial match for position clusters
             const positionClusters = createPositionClusters(graphData.nodes, bestMatch.data.fen);
             performanceState.setPositionClusters(positionClusters);
-            performanceState.updateCurrentPosition(bestMatch.id, bestMatch.data.fen, 'chunk-click-partial');
+            performanceState.updateCurrentPosition(bestMatch.id, bestMatch.data.fen, 'click');
           } else {
             console.log('🎯 No graph node found for any part of sequence, clearing clusters');
             performanceState.setPositionClusters([]);
-            performanceState.updateCurrentPosition(null, null, 'chunk-click-no-node');
+            performanceState.updateCurrentPosition(null, null, 'click');
           }
         }
       } else {
         // Clear position clusters when returning to root
         performanceState.setPositionClusters([]);
-        performanceState.updateCurrentPosition(null, null, 'chunk-reset');
+        performanceState.updateCurrentPosition(null, null, 'reset');
       }
     }
     
@@ -563,17 +563,17 @@ const ChessAnalysisView = ({
         }
         
         // Update the current node position in performance state
-        performanceState.updateCurrentPosition(targetNode.id, targetNode.data.fen, 'board-click');
+        performanceState.updateCurrentPosition(targetNode.id, targetNode.data.fen, 'click');
       } else {
         console.log('🎯 No graph node found for moves, but navigation still works');
         // Clear position clusters but don't break navigation
         performanceState.setPositionClusters([]);
-        performanceState.updateCurrentPosition(null, null, 'board-click-no-node');
+        performanceState.updateCurrentPosition(null, null, 'click');
       }
     } else {
       // Clear position clusters when returning to root
       performanceState.setPositionClusters([]);
-      performanceState.updateCurrentPosition(null, null, 'board-reset');
+      performanceState.updateCurrentPosition(null, null, 'reset');
     }
   }, [chessboardSync, onCurrentMovesChange, graphData.nodes, mode, performanceState]);
 
@@ -821,10 +821,6 @@ const ChessAnalysisView = ({
                         const newMode = canvasMode === 'opening' ? 'performance' : 'opening';
                         console.log('🎯 Canvas mode toggle clicked: switching from', canvasMode, 'to', newMode);
                         onCanvasModeChange(newMode);
-                        
-                        setTimeout(() => {
-                          performanceState.scheduleAutoFit('mode-change', 200);
-                        }, 300);
                       }}
                       className={`${canvasMode === 'performance' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600'} group transition-all duration-100`}
                       title={`Switch to ${canvasMode === 'opening' ? 'Performance' : 'Opening'} view`}

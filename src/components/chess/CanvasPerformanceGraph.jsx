@@ -809,7 +809,8 @@ const CanvasPerformanceGraph = ({
       setHasAutoFitted(true);
       setHasValidTransform(true); // Mark that we now have a valid transform
       // Only mark initialization complete when we actually have more than one node
-      if (positioned.length > 1) {
+      // OR if we are in opening mode (a single 'Start' node is valid)
+      if (positioned.length > 1 || (mode === 'opening' && positioned.length >= 1)) {
         setIsInitializing(false);
         setIsInitialPositioningComplete(true);
       } else {
@@ -1750,6 +1751,9 @@ const CanvasPerformanceGraph = ({
       cancelAnimationFrame(animationStateRef.current);
       animationStateRef.current = null;
     }
+    
+    // Determine if this is an autofit operation (from resize) or manual zoom
+    const isAutoFitOperation = options.isAutoFit === true;
 
     let targetNodes = [];
     let logMessage = '';
@@ -1821,7 +1825,7 @@ const CanvasPerformanceGraph = ({
             animationStateRef.current = requestAnimationFrame(resetAnimate);
           } else {
             animationStateRef.current = null;
-            setIsInitializing(false);
+            // Reset operations don't need initialization completion
           }
         };
         
@@ -1882,6 +1886,10 @@ const CanvasPerformanceGraph = ({
           animationStateRef.current = requestAnimationFrame(animate);
         } else {
           animationStateRef.current = null;
+          // Only complete initialization for autofit operations
+          if (isAutoFitOperation) {
+            setIsInitializing(false);
+          }
         }
       };
       
@@ -1890,8 +1898,8 @@ const CanvasPerformanceGraph = ({
   }, [dimensions, isResizing, isInitializing, positionClusters, isCanvasInteractionBlocked]); // Added isCanvasInteractionBlocked dependency
 
   // Convenience functions for backward compatibility and cleaner API
-  const fitView = useCallback((options = {}) => zoomTo('all', options), [zoomTo]);
-  const zoomToClusters = useCallback((options = {}) => zoomTo('clusters', options), [zoomTo]);
+  const fitView = useCallback((options = {}) => zoomTo('all', { ...options, isAutoFit: options.isAutoFit === true }), [zoomTo]);
+  const zoomToClusters = useCallback((options = {}) => zoomTo('clusters', { ...options, isAutoFit: false }), [zoomTo]);
 
   // Store the functions in refs to avoid recreating them
   useEffect(() => {
@@ -1909,7 +1917,7 @@ const CanvasPerformanceGraph = ({
     // Handle middle mouse button click for reset
     if (e.button === 1) { // Middle mouse button
       e.preventDefault();
-      zoomTo('all');
+      zoomTo('all', { isAutoFit: false });
       return;
     }
     
@@ -2034,7 +2042,7 @@ const CanvasPerformanceGraph = ({
     if (contextMenu && !node) {
       setContextMenu(null);
     }
-  }, [getNodeAtPosition, onNodeClick, contextMenu, autoZoomOnClick, positionClusters, zoomTo, isCanvasInteractionBlocked]);
+  }, [getNodeAtPosition, onNodeClick, contextMenu, isCanvasInteractionBlocked]);
 
   // NEW: Handle right-click events
   const handleRightClick = useCallback((e) => {
@@ -2192,7 +2200,7 @@ const CanvasPerformanceGraph = ({
     if ((event.key === 'R' || event.key === 'r') && 
         !event.target.matches('input, textarea, select')) {
       event.preventDefault();
-      zoomTo('all');
+      zoomTo('all', { isAutoFit: false });
     } else if ((event.key === 'Escape') && 
         !event.target.matches('input, textarea, select')) {
       // Emergency reset - force a basic centered view
@@ -2300,7 +2308,7 @@ const CanvasPerformanceGraph = ({
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => zoomTo('all')}
+              onClick={() => zoomTo('all', { isAutoFit: false })}
               className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600"
               title="Fit graph to view"
               disabled={isGenerating || isCanvasInteractionBlocked()}
@@ -2580,7 +2588,7 @@ const CanvasPerformanceGraph = ({
         </div>
       )}
 
-      {/* Autofit Loading Overlay - Subtle overlay during autofit */}
+      {/* Autofit Loading Overlay - Only show for autofit operations from resize */}
       {isAutoFitPending && !isInitializing && positionedNodes.length > 0 && (
         <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[1px] flex items-center justify-center z-15 transition-opacity duration-200">
           <div className="bg-slate-800/90 backdrop-blur-sm rounded-lg px-6 py-4 shadow-xl border border-slate-700/50">
