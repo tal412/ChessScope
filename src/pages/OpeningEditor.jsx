@@ -179,7 +179,15 @@ export default function OpeningEditor() {
   const [nodeToDelete, setNodeToDelete] = useState(null);
   
   // Auto zoom state
-  const [autoZoomOnClick, setAutoZoomOnClick] = useState(false);
+  const [autoZoomOnClick, setAutoZoomOnClick] = useState(() => {
+    const savedState = localStorage.getItem('canvas-auto-zoom-on-click');
+    return savedState ? JSON.parse(savedState) : true;
+  });
+  
+  const handleAutoZoomOnClickChange = useCallback((newState) => {
+    setAutoZoomOnClick(newState);
+    localStorage.setItem('canvas-auto-zoom-on-click', JSON.stringify(newState));
+  }, []);
   
   // Helper functions
   const findNodeById = useCallback((root, targetId) => {
@@ -1265,7 +1273,7 @@ export default function OpeningEditor() {
       loading,
       saving: false, // Remove saving indicator
       autoZoomOnClick,
-      onAutoZoomOnClickChange: setAutoZoomOnClick,
+      onAutoZoomOnClickChange: handleAutoZoomOnClickChange,
       contextMenuActions,
       customArrows: currentNode?.arrows || [],
       onArrowDraw: handleArrowDraw,
@@ -1288,6 +1296,7 @@ export default function OpeningEditor() {
     canvasMode,
     loading,
     autoZoomOnClick,
+    handleAutoZoomOnClickChange,
     contextMenuActions,
     handleArrowDraw,
     drawingMode,
