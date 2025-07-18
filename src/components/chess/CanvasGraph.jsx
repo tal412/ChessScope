@@ -190,7 +190,7 @@ const hexToRgb = (hex) => {
 const OPENING_CLUSTER_COLORS = [{ bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' }];
 
 /**
- * Canvas-based performance graph component with context menu support
+ * Canvas-based graph component with context menu support
  * 
  * @param {Object} props - Component props
  * @param {Array} props.contextMenuActions - Array of context menu action objects
@@ -217,13 +217,13 @@ const OPENING_CLUSTER_COLORS = [{ bg: '#8b5cf6', border: '#7c3aed', text: '#ffff
  *   }
  * ];
  * 
- * <CanvasPerformanceGraph
+ * <CanvasGraph
  *   contextMenuActions={contextActions}
  *   onNodeRightClick={(e, node) => console.log('Right-clicked:', node)}
  *   // ... other props
  * />
  */
-const CanvasPerformanceGraph = ({ 
+const CanvasGraph = ({ 
   graphData, 
   onNodeClick, 
   onNodeHover, 
@@ -1836,8 +1836,13 @@ const CanvasPerformanceGraph = ({
       default:
         // If target is an array of nodes, use it directly
         if (Array.isArray(target)) {
-          targetNodes = target;
-          logMessage = `ZOOM TO ${target.length} CUSTOM NODES`;
+          if (target.length > 0 && typeof target[0] === 'string') {
+            targetNodes = currentPositionedNodes.filter(pn => target.includes(pn.id));
+            logMessage = `ZOOM TO ${targetNodes.length} TARGET NODES BY ID`;
+          } else {
+            targetNodes = target;
+            logMessage = `ZOOM TO ${target.length} CUSTOM NODES`;
+          }
         } else {
           targetNodes = currentPositionedNodes;
           logMessage = 'ZOOM TO ALL NODES (DEFAULT)';
@@ -2609,4 +2614,4 @@ const CanvasPerformanceGraph = ({
   );
 };
 
-export default CanvasPerformanceGraph; 
+export default CanvasGraph; 
