@@ -102,6 +102,11 @@ export const useCanvasState = ({
   const isCanvasResizingRef = useRef(false);
   const isCanvasInitializingRef = useRef(false);
   
+  const enableClickAutoZoomRef = useRef(enableClickAutoZoom);
+  useEffect(() => {
+    enableClickAutoZoomRef.current = enableClickAutoZoom;
+  }, [enableClickAutoZoom]);
+  
   // Update refs when state changes
   useEffect(() => {
     isCanvasResizingRef.current = isCanvasResizing;
@@ -297,7 +302,8 @@ export const useCanvasState = ({
   const lastPositionChangeSourceRef = useRef(null); // Track the source of position changes
   const lastPositionChangeTimeRef = useRef(0); // Track when the last position change happened
   
-  const updateCurrentPosition = useCallback((nodeId, fen, source = 'unknown') => {
+  const updateCurrentPosition = useCallback((nodeId, fen, source = 'unknown', options = {}) => {
+    const { zoomTargetNodeIds } = options;
     const now = Date.now();
     const timeSinceLastChange = now - lastPositionChangeTimeRef.current;
     
@@ -332,6 +338,12 @@ export const useCanvasState = ({
       // Schedule auto-zoom directly
       autoZoomTimeoutRef.current = setTimeout(() => {
         try {
+          if (zoomTargetNodeIds && canvasZoomToRef.current) {
+            console.log('🎯 EXECUTING DIRECT AUTO-ZOOM: ZOOM TO TARGET NODES');
+            canvasZoomToRef.current(zoomTargetNodeIds);
+            return; // Custom zoom target handled, exit here.
+          }
+
           // Get current position clusters length at execution time using ref
           const currentPositionClusters = positionClustersRef.current;
           const shouldZoomToClusters = enablePositionClusters && currentPositionClusters.length > 0;
@@ -533,6 +545,18 @@ export const useCanvasState = ({
         console.log('🔒 LOCKING BUTTONS - Resize started');
         setIsAutoFitPending(true);
       } else {
+        // When resize finishes, check if it was caused by a recent click
+        const timeSinceLastChange = Date.now() - lastPositionChangeTimeRef.current;
+        const wasRecentClick = lastPositionChangeSourceRef.current === 'click' && timeSinceLastChange < 500; // 500ms threshold
+        
+        // If a click just happened, the click handler is responsible for the zoom.
+        // Skip the resize-based auto-fit to prevent conflicts.
+        if (wasRecentClick) {
+          console.log('🚫 SKIPPING AUTO-FIT ON RESIZE - Caused by recent click, which will handle its own zoom.');
+          setIsAutoFitPending(false); // Unlock buttons without fitting
+          return;
+        }
+
         // Schedule autofit when resize finishes
         console.log('🎯 SCHEDULING AUTO-FIT for resize');
         // Use a longer delay for resize-triggered auto-fit to prevent conflicts
@@ -656,7 +680,7 @@ export const useCanvasState = ({
     // Auto-zoom
     showZoomDebounceOverlay,
     
-    // Canvas callback handlers (pass these to CanvasPerformanceGraph)
+    // Canvas callback handlers (pass these to CanvasGraph)
     onFitView: handleCanvasFitView,
     onZoomToClusters: handleCanvasZoomToClusters,
     onZoomTo: handleCanvasZoomTo,

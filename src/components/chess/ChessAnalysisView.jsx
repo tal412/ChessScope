@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Menu, Grid3x3, Network, FileText } from 'lucide-react';
 import InteractiveChessboard from './InteractiveChessboard';
 import ChunkVisualization from '../opening-moves/ChunkVisualization';
-import CanvasPerformanceGraph from './CanvasPerformanceGraph';
+import CanvasGraph from './CanvasGraph';
 import { useCanvasState } from '../../hooks/useCanvasState';
 import { useChessboardSync } from '../../hooks/useChessboardSync';
 import { loadOpeningGraph } from '../../api/graphStorage';
@@ -117,16 +117,16 @@ const ChessAnalysisView = ({
   // Handle auto-fit completion
   const handleAutoFitComplete = useCallback(() => {
     // This will be called when auto-fit operations complete
-    // We need to call the CanvasPerformanceGraph's completion callback
+    // We need to call the CanvasGraph's completion callback
     console.log('✅ AUTO-FIT COMPLETED in ChessAnalysisView');
     
-    // Call the CanvasPerformanceGraph's completion callback
+    // Call the CanvasGraph's completion callback
     if (canvasAutoFitCompletionRef.current) {
       canvasAutoFitCompletionRef.current();
     }
   }, []);
   
-  // Ref to store the CanvasPerformanceGraph's completion callback
+  // Ref to store the CanvasGraph's completion callback
   const canvasAutoFitCompletionRef = useRef(null);
   
   // Canvas state management
@@ -833,7 +833,7 @@ const ChessAnalysisView = ({
                   </div>
                 )}
                 
-                <CanvasPerformanceGraph
+                <CanvasGraph
                   graphData={(mode === 'opening-editor' || mode === 'opening-viewer') && canvasMode === 'performance' ? performanceGraphData : graphData}
                   mode={(mode === 'opening-editor' || mode === 'opening-viewer') ? canvasMode : 'performance'}
                   onNodeClick={handleCanvasNodeClick}
