@@ -154,13 +154,15 @@ export const useCanvasState = ({
     // But only if we're not already in initial positioning (to avoid double blocking)
     // Skip setting if already pending (e.g., from immediate resize lock)
     if (!isCanvasInitializingRef.current) {
-      // Don't show "Adjusting view..." for click-based auto-zoom.
-      // It's immediate and doesn't need a pending indicator.
+      // Don't show "Adjusting view..." for immediate programmatic operations.
+      // These include clicks, moves, and other programmatic navigation that should be instant.
       const source = lastPositionChangeSourceRef.current;
       const timeSinceLastChange = Date.now() - lastPositionChangeTimeRef.current;
       const isRecentClick = source === 'click' && timeSinceLastChange < 500;
+      const isRecentMove = source === 'external-sync' && timeSinceLastChange < 1000; // Move operations
+      const isRecentNav = (source === 'nav-previous' || source === 'reset') && timeSinceLastChange < 500;
 
-      if (!isRecentClick) {
+      if (!isRecentClick && !isRecentMove && !isRecentNav) {
         setIsAutoFitPending(prev => {
           if (!prev) {
             console.log('⏳ AUTO-FIT PENDING IMMEDIATELY - Manual zoom blocked until completion');
@@ -168,6 +170,8 @@ export const useCanvasState = ({
           }
           return prev; // Already pending
         });
+      } else {
+        console.log('🚫 SKIPPING OVERLAY for recent programmatic operation:', source, 'time since:', timeSinceLastChange + 'ms');
       }
     }
     
@@ -545,19 +549,21 @@ export const useCanvasState = ({
         console.log('🔒 LOCKING BUTTONS - Resize started');
         setIsAutoFitPending(true);
       } else {
-        // When resize finishes, check if it was caused by a recent click
+        // When resize finishes, check if it was caused by recent programmatic operations
         const timeSinceLastChange = Date.now() - lastPositionChangeTimeRef.current;
-        const wasRecentClick = lastPositionChangeSourceRef.current === 'click' && timeSinceLastChange < 500; // 500ms threshold
+        const source = lastPositionChangeSourceRef.current;
+        const wasRecentClick = source === 'click' && timeSinceLastChange < 500;
+        const wasRecentNav = (source === 'nav-previous' || source === 'reset') && timeSinceLastChange < 500;
         
-        // If a click just happened, the click handler is responsible for the zoom.
-        // Skip the resize-based auto-fit to prevent conflicts.
-        if (wasRecentClick) {
-          console.log('🚫 SKIPPING AUTO-FIT ON RESIZE - Caused by recent click, which will handle its own zoom.');
+        // If a programmatic operation just happened, it handles its own zoom.
+        // Skip the resize-based auto-fit to prevent conflicts and overlay.
+        if (wasRecentClick || wasRecentNav) {
+          console.log('🚫 SKIPPING AUTO-FIT ON RESIZE - Caused by recent programmatic operation:', source, 'which handles its own zoom.');
           setIsAutoFitPending(false); // Unlock buttons without fitting
           return;
         }
 
-        // Schedule autofit when resize finishes
+        // Schedule autofit when resize finishes (for actual user-initiated resizes)
         console.log('🎯 SCHEDULING AUTO-FIT for resize');
         // Use a longer delay for resize-triggered auto-fit to prevent conflicts
         scheduleAutoFit('resize', 400);

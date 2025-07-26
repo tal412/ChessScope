@@ -426,7 +426,7 @@ const ClusterInsightsPanel = ({ clusterAnalysis, position = 'top-right' }) => {
 
   return (
     <div className={`fixed ${positionClasses[position]} z-50 max-w-md`}>
-      <Card className="bg-slate-800/95 border-slate-700 backdrop-blur-lg shadow-2xl">
+              <Card className="bg-slate-800/95 border-slate-700 backdrop-blur-medium-optimized shadow-xl">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-3">
             <Brain className="w-5 h-5 text-purple-400" />

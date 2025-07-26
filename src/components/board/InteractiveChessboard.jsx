@@ -6,9 +6,9 @@ import { Button } from '@/components/ui/button';
 import { NavigationButtons, NavigationPresets } from '@/components/ui/navigation-buttons';
 import { ChevronLeft, ChevronRight, RotateCcw, GripVertical, ArrowUpDown, Info, Fish, Loader2, AlertTriangle, BookOpen } from 'lucide-react';
 import { Chess } from 'chess.js';
-import PositionInfoDialog from '../opening-moves/PositionInfoDialog';
-import OpeningSelector from '../opening-moves/OpeningSelector';
-import { getOpeningFromFen } from '../chess/OpeningDatabase';
+import PositionInfoDialog from './PositionInfoDialog';
+import OpeningSelector from '../openings/OpeningSelector';
+import { getOpeningFromFen } from '../../utils/OpeningDatabase';
 import { checkPositionInOpenings } from '@/api/openingEntities';
 import { 
   getPositionAfterMoves, 
@@ -1340,7 +1340,7 @@ export default function InteractiveChessboard({
   return (
     <div ref={containerRef} className={`w-full h-full flex items-center justify-center ${className}`}>
       <Card 
-        className="bg-slate-800/50 border-slate-700/50 backdrop-blur-xl w-full h-full flex flex-col"
+        className="bg-slate-800/95 border-slate-700/50 backdrop-blur-optimized w-full h-full flex flex-col"
       >
         <CardHeader className="card-header pb-2 px-3 pt-3 flex-shrink-0">
           <div className="flex items-center justify-between">

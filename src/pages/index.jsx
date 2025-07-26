@@ -11,7 +11,7 @@ import { useState, useEffect } from 'react';
 
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 
-// Persistent background wrapper
+// Persistent background wrapper with performance optimizations
 function BackgroundWrapper({ children }) {
     return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -63,15 +63,15 @@ function SimpleLoginPrompt() {
     };
     
     return (
-        <div className="h-screen flex items-center justify-center transition-all duration-300">
+        <div className="h-screen flex items-center justify-center">
             <div className="container mx-auto px-4 h-full flex items-center">
                 <div className="grid lg:grid-cols-2 gap-12 items-center w-full">
                     {/* Left Side - Main Content */}
-                    <div className={`space-y-6 transition-all duration-200 ${
-                        isNavigating ? 'opacity-0 transform -translate-x-8' : 
-                        isReturning && !isVisible ? 'opacity-0 transform translate-x-8' :
+                    <div className={`space-y-6 page-transition transition-all duration-150 ease-out ${
+                        isNavigating ? 'opacity-0 transform -translate-x-4' : 
+                        isReturning && !isVisible ? 'opacity-0 transform translate-x-4' :
                         isVisible ? 'opacity-100 transform translate-x-0' : 
-                        'opacity-0 transform -translate-x-8'
+                        'opacity-0 transform -translate-x-4'
                     }`}>
                         {/* Header with App Logo */}
                         <div className="text-center">
@@ -170,17 +170,17 @@ function SimpleLoginPrompt() {
                     </div>
 
                     {/* Right Side - Video Placeholder */}
-                    <div className={`flex items-center justify-center transition-all duration-300 ${
-                        isNavigating ? 'opacity-0 transform -translate-x-4' : 
-                        isReturning && !isVisible ? 'opacity-0 transform translate-x-4' :
+                    <div className={`flex items-center justify-center page-transition transition-all duration-150 ease-out ${
+                        isNavigating ? 'opacity-0 transform -translate-x-2' : 
+                        isReturning && !isVisible ? 'opacity-0 transform translate-x-2' :
                         isVisible ? 'opacity-100 transform translate-x-0' : 
-                        'opacity-0 transform -translate-x-4'
+                        'opacity-0 transform -translate-x-2'
                     }`}>
                         <div className="relative w-full max-w-lg">
-                            <div className="aspect-video bg-gradient-to-br from-slate-800 to-slate-700 rounded-2xl border-2 border-slate-600 shadow-2xl overflow-hidden">
+                            <div className="aspect-video bg-slate-800 rounded-2xl border-2 border-slate-600 shadow-xl overflow-hidden">
                                 <div className="absolute inset-0 flex items-center justify-center">
                                     <div className="text-center space-y-4">
-                                        <div className="w-20 h-20 bg-gradient-to-r from-amber-500 to-orange-500 rounded-full flex items-center justify-center mx-auto shadow-lg">
+                                        <div className="w-20 h-20 bg-amber-500 rounded-full flex items-center justify-center mx-auto shadow-lg">
                                             <Play className="w-8 h-8 text-white ml-1" />
                                         </div>
                                         <div>

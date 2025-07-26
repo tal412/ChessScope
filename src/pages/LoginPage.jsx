@@ -31,7 +31,7 @@ export default function LoginPage() {
   const [chessComUsername, setChessComUsername] = useState('');
   const [googleAccount, setGoogleAccount] = useState('');
   const [error, setError] = useState('');
-  const [step, setStep] = useState(0); // 0: Platform Selection, 1: Connect Account, 2: Google Drive (optional)
+  const [step, setStep] = useState(1); // 1: Connect Account, 2: Google Drive (optional)
   
   // Import settings - matching the import page exactly
   const [selectedTimeControls, setSelectedTimeControls] = useState(['rapid']); // Default selection
@@ -45,23 +45,22 @@ export default function LoginPage() {
 
   // Entrance animation effect
   useEffect(() => {
+    const state = location.state || {};
+    const { fromHome, selectedPlatform: platformFromState } = state;
+
     // Track if coming from home for proper transition direction
-    if (location.state?.fromHome) {
+    if (fromHome) {
       setIsFromHome(true);
     }
     
-    // Check if we should skip platform selection
-    if (location.state?.skipPlatformSelection && location.state?.selectedPlatform) {
-      // Pre-select platform and go directly to step 1
-      setSelectedPlatform(location.state.selectedPlatform);
-      setStep(1);
-      
-      // Update default time controls based on platform
-      if (location.state.selectedPlatform === 'lichess') {
-        setSelectedTimeControls(['rapid']);
-      } else {
-        setSelectedTimeControls(['rapid']);
-      }
+    const platform = platformFromState || 'chess.com';
+    setSelectedPlatform(platform);
+
+    // Update default time controls based on platform
+    if (platform === 'lichess') {
+      setSelectedTimeControls(['rapid']);
+    } else {
+      setSelectedTimeControls(['rapid']);
     }
     
     // Start animations with slight delay for smooth transition from main page
@@ -85,27 +84,11 @@ export default function LoginPage() {
         setIsVisible(true);
       }, 150);
     } else if (step === 1) {
-      // Check if we came directly from main page with pre-selected platform
-      if (location.state?.skipPlatformSelection) {
         // Go back to home directly with smooth transition
         setIsLeaving(true);
         setTimeout(() => {
           navigate('/', { state: { returning: true } });
-        }, 300);
-      } else {
-        // Go back to step 0 (platform selection)
-        setIsVisible(false);
-        setTimeout(() => {
-          setStep(0);
-          setIsVisible(true);
-        }, 150);
-      }
-    } else {
-      // Go back to home with smooth transition
-      setIsLeaving(true);
-      setTimeout(() => {
-        navigate('/', { state: { returning: true } });
-      }, 300);
+        }, 50);
     }
   };
 
@@ -144,24 +127,6 @@ export default function LoginPage() {
     window.addEventListener('beforeunload', handleBeforeUnload);
     return () => window.removeEventListener('beforeunload', handleBeforeUnload);
   }, [isImporting]);
-
-  const handlePlatformSelection = (platform) => {
-    setSelectedPlatform(platform);
-    setError('');
-    
-    // Update default time controls based on platform
-    if (platform === 'lichess') {
-      setSelectedTimeControls(['rapid']);
-    } else {
-      setSelectedTimeControls(['rapid']);
-    }
-    
-    setIsVisible(false);
-    setTimeout(() => {
-      setStep(1);
-      setIsVisible(true);
-    }, 150);
-  };
 
   const handleAccountSubmit = async (e) => {
     e.preventDefault();
@@ -258,128 +223,6 @@ export default function LoginPage() {
     }, 150);
   };
 
-  // Step 0: Platform Selection
-  if (step === 0) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 relative">
-        {/* Back Button */}
-        <Button
-          onClick={handleBack}
-          variant="ghost"
-          disabled={isImporting}
-          className={`absolute top-6 left-6 transition-all duration-300 ${
-            isImporting 
-              ? 'text-slate-600 cursor-not-allowed' 
-              : 'text-slate-400 hover:text-white'
-          } ${
-            isVisible && !isLeaving ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform -translate-x-4'
-          }`}
-        >
-          <ArrowLeft className="w-5 h-5 mr-2" />
-          Back
-        </Button>
-
-        <div className={`w-full max-w-4xl transition-all duration-300 ${
-          isLeaving ? 'opacity-0 transform -translate-x-8' :
-          isVisible ? 'opacity-100 transform translate-x-0' : 
-          'opacity-0 transform translate-x-8'
-        }`}>
-          <div className={`text-center mb-12 transition-all duration-300 delay-75 ${
-            isLeaving ? 'opacity-0 transform -translate-x-6' :
-            isVisible ? 'opacity-100 transform translate-x-0' : 
-            'opacity-0 transform translate-x-6'
-          }`}>
-            <div className="flex items-center justify-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center">
-                <Shield className="w-8 h-8 text-slate-900" />
-              </div>
-            </div>
-            <h1 className="text-4xl font-bold text-white mb-3">Welcome to ChessScope</h1>
-            <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-              Choose your chess platform to analyze your opening performance and discover patterns in your games
-            </p>
-          </div>
-
-          <div className={`grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto transition-all duration-300 delay-100 ${
-            isLeaving ? 'opacity-0 transform -translate-x-4' :
-            isVisible ? 'opacity-100 transform translate-x-0' : 
-            'opacity-0 transform translate-x-4'
-          }`}>
-            {/* Chess.com Platform */}
-            <Card 
-              className={`bg-slate-800/50 backdrop-blur-xl border-slate-700/50 transition-all duration-300 group ${
-                isImporting 
-                  ? 'cursor-not-allowed opacity-50' 
-                  : 'hover:bg-slate-800/70 cursor-pointer'
-              }`}
-              onClick={() => !isImporting && handlePlatformSelection('chess.com')}
-            >
-              <CardContent className="p-8">
-                <div className="flex flex-col items-center space-y-6">
-                  <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
-                    <img src="/chesscom_logo_pawn.svg" alt="Chess.com" className="w-12 h-12" />
-                  </div>
-                  <div className="text-center">
-                    <h3 className="text-2xl font-bold text-white mb-2">Chess.com</h3>
-                    <p className="text-slate-400 text-sm">
-                      Connect your Chess.com account to analyze your games and openings
-                    </p>
-                  </div>
-                  <div className="bg-slate-700/30 p-4 rounded-lg border border-slate-600/50 w-full">
-                    <div className="flex items-start gap-3">
-                      <Shield className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm">
-                        <p className="text-slate-200 font-medium mb-1">Secure Access</p>
-                        <p className="text-slate-400">
-                          Only public game data is accessed through Chess.com's official API
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Lichess Platform */}
-            <Card 
-              className={`bg-slate-800/50 backdrop-blur-xl border-slate-700/50 transition-all duration-300 group ${
-                isImporting 
-                  ? 'cursor-not-allowed opacity-50' 
-                  : 'hover:bg-slate-800/70 cursor-pointer'
-              }`}
-              onClick={() => !isImporting && handlePlatformSelection('lichess')}
-            >
-              <CardContent className="p-8">
-                <div className="flex flex-col items-center space-y-6">
-                  <div className="w-20 h-20 bg-white rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform duration-300">
-                    <img src="/Lichess_Logo_2019.svg.png" alt="Lichess" className="w-12 h-12" />
-                  </div>
-                  <div className="text-center">
-                    <h3 className="text-2xl font-bold text-white mb-2">Lichess</h3>
-                    <p className="text-slate-400 text-sm">
-                      Connect your Lichess account to analyze your games and openings
-                    </p>
-                  </div>
-                  <div className="bg-slate-700/30 p-4 rounded-lg border border-slate-600/50 w-full">
-                    <div className="flex items-start gap-3">
-                      <Shield className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
-                      <div className="text-sm">
-                        <p className="text-slate-200 font-medium mb-1">Open Source</p>
-                        <p className="text-slate-400">
-                          Connect to the free, open-source chess platform with comprehensive data
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   // Step 1: Account Connection
   if (step === 1) {
     return (
@@ -401,16 +244,16 @@ export default function LoginPage() {
           Back
         </Button>
 
-        <div className={`w-full max-w-7xl transition-all duration-300 ${
-          isLeaving ? 'opacity-0 transform -translate-x-8' :
-          isVisible ? 'opacity-100 transform translate-x-0' : 
-          'opacity-0 transform translate-x-8'
-        }`}>
-          <div className={`text-center mb-12 transition-all duration-300 delay-75 ${
-            isLeaving ? 'opacity-0 transform -translate-x-6' :
+                  <div className={`w-full max-w-7xl page-transition transition-all duration-150 ease-out ${
+            isLeaving ? 'opacity-0 transform -translate-x-4' :
             isVisible ? 'opacity-100 transform translate-x-0' : 
-            'opacity-0 transform translate-x-6'
+            'opacity-0 transform translate-x-4'
           }`}>
+                      <div className={`text-center mb-12 page-transition transition-all duration-150 ease-out ${
+              isLeaving ? 'opacity-0 transform -translate-x-2' :
+              isVisible ? 'opacity-100 transform translate-x-0' : 
+              'opacity-0 transform translate-x-2'
+            }`}>
             <div className="flex items-center justify-center mb-6">
               <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center">
                 <Shield className="w-8 h-8 text-slate-900" />
@@ -423,13 +266,13 @@ export default function LoginPage() {
           </div>
 
           <form onSubmit={handleAccountSubmit} className="space-y-8">
-            <div className={`grid grid-cols-1 lg:grid-cols-3 gap-8 transition-all duration-300 delay-100 ${
-              isLeaving ? 'opacity-0 transform -translate-x-4' :
+            <div className={`grid grid-cols-1 lg:grid-cols-3 gap-8 page-transition transition-all duration-150 ease-out ${
+              isLeaving ? 'opacity-0 transform -translate-x-2' :
               isVisible ? 'opacity-100 transform translate-x-0' : 
-              'opacity-0 transform translate-x-4'
+              'opacity-0 transform translate-x-2'
             }`}>
               {/* Left Column - Account Connection */}
-              <Card className="bg-slate-800/50 backdrop-blur-xl border-slate-700/50">
+              <Card className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50">
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
@@ -484,7 +327,7 @@ export default function LoginPage() {
               </Card>
 
               {/* Middle Column - Time Controls */}
-              <Card className="bg-slate-800/50 backdrop-blur-xl border-slate-700/50">
+              <Card className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50">
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
@@ -539,7 +382,7 @@ export default function LoginPage() {
               </Card>
 
               {/* Right Column - Date Range & Auto-Sync */}
-              <Card className="bg-slate-800/50 backdrop-blur-xl border-slate-700/50">
+              <Card className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50">
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
@@ -665,10 +508,10 @@ export default function LoginPage() {
             </div>
 
             {/* Submit Button with integrated loading and error display */}
-            <div className={`flex flex-col items-center transition-all duration-300 delay-200 ${
-              isLeaving ? 'opacity-0 transform -translate-x-2' :
-              isVisible ? 'opacity-100 transform translate-x-0' : 
-              'opacity-0 transform translate-x-2'
+            <div className={`flex flex-col items-center page-transition transition-all duration-150 ease-out ${
+              isLeaving ? 'opacity-0' :
+              isVisible ? 'opacity-100' : 
+              'opacity-0'
             }`}>
               {/* Fixed container to prevent layout shifts */}
               <div className="w-full max-w-md min-h-[120px] flex flex-col items-center justify-center space-y-4">
@@ -726,18 +569,14 @@ export default function LoginPage() {
         Back
       </Button>
 
-      <div className={`max-w-md w-full transition-all duration-300 ${
-        isLeaving ? 'opacity-0 transform -translate-x-8' :
+      <div className={`max-w-md w-full page-transition transition-all duration-150 ease-out ${
+        isLeaving ? 'opacity-0 transform -translate-x-4' :
         isVisible ? 'opacity-100 transform translate-x-0' : 
-        'opacity-0 transform translate-x-8'
+        'opacity-0 transform translate-x-4'
       }`}>
-        <Card className="bg-slate-800/50 backdrop-blur-xl border-slate-700/50">
-          <CardHeader className={`text-center transition-all duration-300 delay-75 ${
-            isLeaving ? 'opacity-0 transform -translate-x-6' :
-            isVisible ? 'opacity-100 transform translate-x-0' : 
-            'opacity-0 transform translate-x-6'
-          }`}>
-            <div className="w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-4">
+        <Card className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50">
+          <CardHeader className="text-center">
+            <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
               <Cloud className="w-8 h-8 text-white" />
             </div>
             <CardTitle className="text-2xl text-white">Connect Google Drive</CardTitle>
@@ -745,11 +584,7 @@ export default function LoginPage() {
               Backup your chess analysis data to Google Drive for safekeeping
             </p>
           </CardHeader>
-          <CardContent className={`space-y-6 transition-all duration-300 delay-100 ${
-            isLeaving ? 'opacity-0 transform -translate-x-4' :
-            isVisible ? 'opacity-100 transform translate-x-0' : 
-            'opacity-0 transform translate-x-4'
-          }`}>
+          <CardContent className="space-y-6">
             <div className="bg-slate-700/30 p-4 rounded-lg border border-slate-600/50">
               <div className="flex items-start gap-3">
                 <Shield className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />

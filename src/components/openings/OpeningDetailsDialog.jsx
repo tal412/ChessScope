@@ -81,7 +81,7 @@ export default function OpeningDetailsDialog({
       <DialogTrigger asChild>
         {children || triggerElement}
       </DialogTrigger>
-      <DialogContent className="bg-slate-800/95 backdrop-blur-xl border-slate-700/50 text-slate-100">
+      <DialogContent className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50 text-slate-100">
         <DialogHeader>
           <DialogTitle className="text-xl text-white flex items-center gap-2">
             <Edit className="w-5 h-5 text-amber-500" />

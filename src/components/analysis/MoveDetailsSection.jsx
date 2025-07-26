@@ -1,6 +1,6 @@
 import React from 'react';
 import { LayoutSection } from '@/components/ui/flexible-layout';
-import MoveDetailsPanel from '../opening-moves/MoveDetailsPanel';
+import MoveDetailsPanel from './MoveDetailsPanel';
 
 /**
  * MoveDetailsSection - A wrapper component that integrates MoveDetailsPanel

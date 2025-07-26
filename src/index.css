@@ -166,6 +166,38 @@ button:focus-visible {
     max-height: 100vh;
     overflow: hidden;
   }
+  
+  /* Performance optimizations for page transitions */
+  .page-transition {
+    will-change: transform, opacity;
+    contain: layout style paint;
+  }
+  
+  /* Optimize backdrop blur for high-DPI displays */
+  .backdrop-blur-optimized {
+    backdrop-filter: blur(8px); /* Reduced from xl (24px) */
+    -webkit-backdrop-filter: blur(8px);
+  }
+  
+  .backdrop-blur-medium-optimized {
+    backdrop-filter: blur(6px); /* Reduced from lg (16px) */
+    -webkit-backdrop-filter: blur(6px);
+  }
+  
+  /* Disable expensive effects on 4K+ displays */
+  @media (min-resolution: 192dpi) {
+    .backdrop-blur-optimized {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background-color: rgba(30, 41, 59, 0.95); /* Fallback solid background */
+    }
+    
+    .backdrop-blur-medium-optimized {
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      background-color: rgba(30, 41, 59, 0.90); /* Slightly more transparent fallback */
+    }
+  }
 }
 
 /* Global Hover State Fixes for Dark Theme */

@@ -7,8 +7,9 @@ import {
 import { loadOpeningGraph } from '../api/graphStorage';
 import { checkPositionInOpenings } from '../api/openingEntities';
 import { useAuth } from '../contexts/AuthContext';
-import ChessAnalysisView from '../components/chess/ChessAnalysisView';
-import { createPerformanceGraphConfig } from '../components/chess/ChessAnalysisViewConfig.jsx';
+import ChessAnalysisView from '../components/analysis/ChessAnalysisView';
+import { createPerformanceGraphConfig } from '../components/analysis/ChessAnalysisViewConfig.jsx';
+import { createOpeningClusters } from '../utils/clusteringAnalysis';
 
 
 
@@ -373,11 +374,15 @@ function PerformanceGraphContent() {
         // Position all nodes
         positionNodes(rootChildren, 0, 0, totalRootWidth);
       
-      const finalGraphData = { 
-          nodes: rawNodes, 
-          edges: rawEdges, 
+            const finalGraphData = { 
+        nodes: rawNodes, 
+        edges: rawEdges, 
         maxGameCount 
       };
+      
+      // Generate opening clusters using DFS for connected openings
+      const openingClusters = createOpeningClusters(rawNodes);
+      finalGraphData.openingClusters = openingClusters;
       
       setGraphData(finalGraphData);
         setIsGenerating(false);

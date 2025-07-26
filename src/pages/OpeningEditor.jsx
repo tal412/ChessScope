@@ -15,9 +15,10 @@ import {
 import { UserOpening, UserOpeningMove, MoveAnnotation } from '@/api/entities';
 import { Chess } from 'chess.js';
 import { loadOpeningGraph } from '@/api/graphStorage';
-import ChessAnalysisView from '../components/chess/ChessAnalysisView';
-import MoveDetailsSection from '../components/chess/MoveDetailsSection';
-import { createOpeningEditorConfig } from '../components/chess/ChessAnalysisViewConfig.jsx';
+import ChessAnalysisView from '../components/analysis/ChessAnalysisView';
+import MoveDetailsSection from '../components/analysis/MoveDetailsSection';
+import { createOpeningEditorConfig } from '../components/analysis/ChessAnalysisViewConfig.jsx';
+import { createOpeningClusters } from '../utils/clusteringAnalysis';
 
 // Move tree node structure
 class MoveNode {
@@ -542,6 +543,11 @@ export default function OpeningEditor() {
     };
     
     const enhancedGraph = overlayPerformanceData();
+    
+    // Generate opening clusters using DFS for connected openings
+    const openingClusters = createOpeningClusters(enhancedGraph.nodes);
+    enhancedGraph.openingClusters = openingClusters;
+    
     setPerformanceGraphData(enhancedGraph);
     console.log('🎯 Performance graph data updated:', enhancedGraph.nodes.length, 'nodes, maxGameCount:', enhancedGraph.maxGameCount);
   }, [openingGraph, graphData, color]);
@@ -1353,7 +1359,7 @@ export default function OpeningEditor() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
-        <AlertDialogContent className="bg-slate-800/95 backdrop-blur-xl border-slate-700/50">
+        <AlertDialogContent className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl text-white flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-red-400" />

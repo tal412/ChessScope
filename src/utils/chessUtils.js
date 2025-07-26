@@ -110,11 +110,6 @@ export const getCurrentTurn = (fen) => {
   return game.turn(); // 'w' for white, 'b' for black
 };
 
-// Convert chess.js square notation to chessboard format
-export const convertSquareNotation = (square) => {
-  return square; // They use the same format (e.g., 'e4')
-};
-
 // Get piece positions from FEN in chessboard position object format
 export const getPositionFromFen = (fen) => {
   const game = new Chess(fen);
