@@ -281,37 +281,6 @@ export async function searchOpeningsByName(searchTerm) {
     .slice(0, 50); // Limit to 50 results
 }
 
-/**
- * Get all openings with a specific ECO code
- * @param {string} ecoCode - ECO code (e.g. "C60")
- * @returns {Array} Array of opening objects with that ECO code
- */
-export async function getOpeningsByEcoCode(ecoCode) {
-  await DATABASE_LOADING_PROMISE;
-  
-  if (!ecoCode) return [];
-  
-  const results = [];
-  
-  LICHESS_OPENINGS_DATABASE.forEach((opening, key) => {
-    // Skip EPD-only entries (we want full FEN entries)
-    if (!key.includes(' 0 ')) return;
-    
-    if (opening.eco === ecoCode.toUpperCase()) {
-      results.push({
-        fen: key,
-        eco: opening.eco,
-        name: opening.name,
-        pgn: opening.pgn,
-        moves: opening.pgn,
-        variation: ""
-      });
-    }
-  });
-  
-  return results.sort((a, b) => (a.pgn || "").localeCompare(b.pgn || ""));
-}
-
 // Export database and loading promise for direct access
 export { DATABASE_LOADING_PROMISE, LICHESS_OPENINGS_DATABASE };
 

@@ -6,9 +6,9 @@ import {
 import { NavigationButtons, NavigationPresets } from '@/components/ui/navigation-buttons';
 import { Button } from '@/components/ui/button';
 import { Menu, Grid3x3, Network, FileText } from 'lucide-react';
-import InteractiveChessboard from './InteractiveChessboard';
-import ChunkVisualization from '../opening-moves/ChunkVisualization';
-import CanvasGraph from './CanvasGraph';
+import InteractiveChessboard from '../board/InteractiveChessboard';
+import ChunkVisualization from './ChunkVisualization';
+import CanvasGraph from '../canvas/CanvasGraph';
 import { useCanvasState } from '../../hooks/useCanvasState';
 import { useChessboardSync } from '../../hooks/useChessboardSync';
 import { loadOpeningGraph } from '../../api/graphStorage';
@@ -133,7 +133,7 @@ const ChessAnalysisView = ({
   const performanceState = useCanvasState({
     openingGraph: effectiveOpeningGraph,
     selectedPlayer,
-    enableClustering: mode === 'performance',
+    enableClustering: mode === 'performance' || mode === 'opening-editor' || mode === 'opening-viewer',
     enablePositionClusters: true,
     enableAutoZoom: true,
     enableClickAutoZoom: autoZoomOnClick,
@@ -155,6 +155,77 @@ const ChessAnalysisView = ({
     },
     setNodes: () => {} // Not needed for this abstraction
   });
+
+  // Update opening clusters when graph data changes
+  useEffect(() => {
+    if (graphData.openingClusters && mode === 'performance') {
+      performanceState.setOpeningClusters(graphData.openingClusters);
+    }
+  }, [graphData.openingClusters, mode, performanceState]);
+
+  // Store refs for stable access to avoid dependency loops
+  const performanceStateRef = useRef(performanceState);
+  const chessboardSyncRef = useRef(chessboardSync);
+  const movesDirectScrollFnRef = useRef(movesDirectScrollFn);
+  const onCurrentMovesChangeRef = useRef(onCurrentMovesChange);
+  const graphDataNodesRef = useRef(graphData.nodes);
+  
+  // Update refs when values change
+  useEffect(() => {
+    performanceStateRef.current = performanceState;
+  }, [performanceState]);
+  
+  useEffect(() => {
+    chessboardSyncRef.current = chessboardSync;
+  }, [chessboardSync]);
+  
+  useEffect(() => {
+    movesDirectScrollFnRef.current = movesDirectScrollFn;
+  }, [movesDirectScrollFn]);
+  
+  useEffect(() => {
+    onCurrentMovesChangeRef.current = onCurrentMovesChange;
+  }, [onCurrentMovesChange]);
+  
+  useEffect(() => {
+    graphDataNodesRef.current = graphData.nodes;
+  }, [graphData.nodes]);
+
+  // Reset view when color changes (clear selected node and position clusters)
+  // Only depend on selectedPlayer to avoid infinite loops
+  useEffect(() => {
+    console.log('🎨 Color changed, resetting view to root position');
+    
+    // Reset to root position
+    const rootNode = graphDataNodesRef.current.find(node => node.data.isRoot);
+    if (rootNode) {
+      performanceStateRef.current.updateCurrentPosition(rootNode.id, rootNode.data.fen, 'color-change');
+    } else {
+      performanceStateRef.current.updateCurrentPosition(null, null, 'color-change-no-root');
+    }
+    
+    // Clear position clusters
+    performanceStateRef.current.setPositionClusters([]);
+    
+    // Reset chessboard to starting position
+    chessboardSyncRef.current.syncMovesToChessboard([]);
+    setMovesCurrentPath([]);
+    
+    // Reset moves list scroll to root
+    if (movesDirectScrollFnRef.current) {
+      movesDirectScrollFnRef.current([]);
+    }
+    
+    // Call onCurrentMovesChange to notify parent components
+    if (onCurrentMovesChangeRef.current) {
+      onCurrentMovesChangeRef.current([]);
+    }
+    
+    // Schedule auto-fit to show the new tree
+    setTimeout(() => {
+      performanceStateRef.current.scheduleAutoFit('color-change', 100);
+    }, 50);
+  }, [selectedPlayer]); // Only depend on selectedPlayer
 
   // Function to determine if we're in "extended into specific game" territory
   const getPositionStatus = useCallback((moves) => {

@@ -130,7 +130,7 @@ export function AppBar({
 }) {
   return (
     <header className={cn(
-      "bg-slate-800/95 border-b border-slate-700/50 backdrop-blur-lg px-3 sm:px-4 py-3 flex-shrink-0 min-h-[3.5rem] max-h-[3.5rem]",
+              "bg-slate-800/95 border-b border-slate-700/50 backdrop-blur-medium-optimized px-3 sm:px-4 py-3 flex-shrink-0 min-h-[3.5rem] max-h-[3.5rem]",
       className
     )} {...props}>
       <div className="flex items-center justify-between gap-2 sm:gap-4 h-full max-w-full">
@@ -378,7 +378,7 @@ export function LayoutSection({
   return (
     <section 
       className={cn(
-        "h-full border-r border-slate-700/50 bg-slate-800/50 backdrop-blur-xl overflow-hidden",
+        "h-full border-r border-slate-700/50 bg-slate-800/95 backdrop-blur-optimized overflow-hidden",
         className
       )}
       {...props}

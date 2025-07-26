@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { extractGameData, extractGameDataGeneric } from '../components/chess/PgnParser';
-import { identifyOpening } from '../components/chess/OpeningDatabase';
+import { extractGameData, extractGameDataGeneric } from '../utils/PgnParser';
+import { identifyOpening } from '../utils/OpeningDatabase';
 import { 
   saveOpeningGraph, 
   loadOpeningGraph, 

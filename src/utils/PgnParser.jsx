@@ -1,34 +1,3 @@
-export function parsePgn(pgnString) {
-  if (!pgnString) return [];
-
-  try {
-    // Isolate the moves section of the PGN by removing headers
-    const movesString = (pgnString.split(/\[.*\]\s*\n/).pop() || '').trim();
-    
-    // Remove comments and variations
-    let cleanMoves = movesString.replace(/\{[^}]*\}/g, '');
-    cleanMoves = cleanMoves.replace(/\([^)]*\)/g, '');
-    
-    // Remove result indicators like 1-0, 0-1, etc.
-    cleanMoves = cleanMoves.replace(/(1-0|0-1|1\/2-1\/2|\*)\s*$/, '');
-    
-    // Remove move numbers (e.g., 1., 2., 1... )
-    cleanMoves = cleanMoves.replace(/\d+\.{1,3}/g, '');
-    
-    // Remove annotations (!, ?, +, #) from the moves
-    cleanMoves = cleanMoves.replace(/[+#!?]/g, '');
-
-    // Split into moves and filter out any empty strings that might result from the cleaning
-    const moves = cleanMoves.trim().split(/\s+/).filter(Boolean);
-    
-    // Return moves for the opening tree (no artificial limits)
-    return moves;
-  } catch (error) {
-    console.error("Error parsing PGN:", error);
-    return [];
-  }
-}
-
 // OPTIMIZED: Extract moves directly from PGN without storing the full PGN
 export function extractMovesFromPgn(pgnString) {
   if (!pgnString) return [];

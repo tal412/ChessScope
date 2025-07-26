@@ -171,7 +171,7 @@ const GraphChunk = ({ title, moves, onMoveSelect, selectedMove, depth, onMoveHov
 
   return (
     <div 
-      className="w-full h-full bg-slate-800/50 border border-slate-700/50 backdrop-blur-xl rounded-xl overflow-hidden flex flex-col"
+      className="w-full h-full bg-slate-800/95 border border-slate-700/50 backdrop-blur-optimized rounded-xl overflow-hidden flex flex-col"
     >
       {/* Header - Fixed height */}
       <div className="p-4 pb-3 border-b border-slate-700/50 flex-shrink-0" style={{ minHeight: '80px', maxHeight: '80px' }}>

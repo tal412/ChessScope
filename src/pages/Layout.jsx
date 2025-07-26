@@ -254,7 +254,7 @@ export default function Layout() {
       }`}>
         <div className="flex h-full">
           {/* Sidebar */}
-          <div className={`bg-slate-800/50 backdrop-blur-xl border-r border-slate-700/50 h-full flex flex-col justify-between transition-all duration-300 relative z-20 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`} id="app-sidebar">
+          <div className={`bg-slate-800/95 backdrop-blur-optimized border-r border-slate-700/50 h-full flex flex-col justify-between transition-all duration-300 relative z-20 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`} id="app-sidebar">
             <div>
               <div className={`p-4 border-b border-slate-700/50 ${isSidebarCollapsed ? 'h-[89px] flex items-center justify-center' : 'p-6'}`}>
                 <div className="flex items-center gap-3">
@@ -596,7 +596,7 @@ export default function Layout() {
             setSettingsError(''); // Clear errors when dialog closes
           }
         }}>
-          <DialogContent className="bg-slate-800/95 backdrop-blur-xl border-slate-700/50 text-white max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50 text-white max-w-6xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl">Import Settings</DialogTitle>
               <DialogDescription className="text-slate-400">
@@ -872,7 +872,7 @@ export default function Layout() {
 
         {/* Logout Confirmation Dialog */}
         <AlertDialog open={showLogoutDialog} onOpenChange={setShowLogoutDialog}>
-          <AlertDialogContent className="bg-slate-800/95 backdrop-blur-xl border-slate-700/50">
+          <AlertDialogContent className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50">
             <AlertDialogHeader>
               <AlertDialogTitle className="text-xl text-white">Confirm Logout</AlertDialogTitle>
               <AlertDialogDescription className="text-slate-400">

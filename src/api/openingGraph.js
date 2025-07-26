@@ -151,7 +151,7 @@ class Graph {
     // Load the opening database once globally for super fast FEN-based lookups
     if (!GLOBAL_OPENING_DATABASE) {
       try {
-        const openingModule = await import('../components/chess/OpeningDatabase.jsx');
+        const openingModule = await import('../utils/OpeningDatabase.jsx');
         await openingModule.DATABASE_LOADING_PROMISE; // Wait for database to load
         GLOBAL_OPENING_DATABASE = openingModule.LICHESS_OPENINGS_DATABASE;
       } catch (error) {

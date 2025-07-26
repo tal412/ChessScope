@@ -7,7 +7,7 @@ import { TrendingUp, TrendingDown, Target, Zap } from "lucide-react";
 export default function OpeningStats({ selectedPath, allNodes, color }) {
   if (!selectedPath || selectedPath.length === 0) {
     return (
-      <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-xl">
+      <Card className="bg-slate-800/95 border-slate-700/50 backdrop-blur-optimized">
         <CardHeader>
           <CardTitle className="text-slate-200 text-lg">Opening Statistics</CardTitle>
         </CardHeader>
@@ -33,7 +33,7 @@ export default function OpeningStats({ selectedPath, allNodes, color }) {
   return (
     <div className="space-y-6">
       {/* Current Position Stats */}
-      <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-xl">
+      <Card className="bg-slate-800/95 border-slate-700/50 backdrop-blur-optimized">
         <CardHeader>
           <CardTitle className="text-slate-200 text-lg flex items-center gap-2">
             <Target className="w-5 h-5" />
@@ -79,7 +79,7 @@ export default function OpeningStats({ selectedPath, allNodes, color }) {
 
       {/* Related Variations */}
       {relatedOpenings.length > 0 && (
-        <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-xl">
+        <Card className="bg-slate-800/95 border-slate-700/50 backdrop-blur-optimized">
           <CardHeader>
             <CardTitle className="text-slate-200 text-lg flex items-center gap-2">
               <Zap className="w-5 h-5" />
@@ -111,7 +111,7 @@ export default function OpeningStats({ selectedPath, allNodes, color }) {
       )}
 
       {/* Performance Analysis */}
-      <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-xl">
+      <Card className="bg-slate-800/95 border-slate-700/50 backdrop-blur-optimized">
         <CardHeader>
           <CardTitle className="text-slate-200 text-lg flex items-center gap-2">
             {currentNode.win_rate >= 60 ? (

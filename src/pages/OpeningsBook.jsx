@@ -38,7 +38,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useAuth } from '../contexts/AuthContext';
-import OpeningDetailsDialog from '@/components/opening-moves/OpeningDetailsDialog';
+import OpeningDetailsDialog from '@/components/openings/OpeningDetailsDialog';
 
 
 export default function OpeningsBook() {
