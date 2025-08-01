@@ -780,12 +780,14 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
         
         // Find node at position
         const nodeAtPosition = processedGraphData.nodes.find(node => {
+          // Transform world coordinates to screen coordinates
+          // Canvas applies: translate then scale, so screen coords are:
           const screenX = node.x * zoom.scale + zoom.translateX;
           const screenY = node.y * zoom.scale + zoom.translateY;
           const distance = Math.sqrt(
             Math.pow(screenX - x, 2) + Math.pow(screenY - y, 2)
           );
-          return distance < 25; // Node radius
+          return distance < (CANVAS_CONFIG.NODE_HALF_SIZE * zoom.scale); // Scale node radius with zoom
         });
         
         // Update local hovered node state for cursor only
@@ -861,14 +863,15 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     
-    // Find node at position (simplified - would need proper hit testing)
+    // Find node at position 
     const clickedNode = processedGraphData.nodes.find(node => {
+      // Transform world coordinates to screen coordinates
       const screenX = node.x * zoom.scale + zoom.translateX;
       const screenY = node.y * zoom.scale + zoom.translateY;
       const distance = Math.sqrt(
         Math.pow(screenX - x, 2) + Math.pow(screenY - y, 2)
       );
-      return distance < 25; // Node radius
+      return distance < (CANVAS_CONFIG.NODE_HALF_SIZE * zoom.scale); // Scale node radius with zoom
     });
     
     showContextMenu(e.clientX, e.clientY, clickedNode);
@@ -888,12 +891,13 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
     
     // Find node at position
     const clickedNode = processedGraphData.nodes.find(node => {
+      // Transform world coordinates to screen coordinates  
       const screenX = node.x * zoom.scale + zoom.translateX;
       const screenY = node.y * zoom.scale + zoom.translateY;
       const distance = Math.sqrt(
         Math.pow(screenX - x, 2) + Math.pow(screenY - y, 2)
       );
-      return distance < 25; // Node radius
+      return distance < (CANVAS_CONFIG.NODE_HALF_SIZE * zoom.scale); // Scale node radius with zoom
     });
     
     if (clickedNode) {
