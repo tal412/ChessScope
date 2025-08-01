@@ -8,11 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Menu, Grid3x3, Network, FileText } from 'lucide-react';
 import InteractiveChessboard from '../board/InteractiveChessboard';
 import ChunkVisualization from './ChunkVisualization';
-import CanvasGraph from '../canvas/CanvasGraph';
-import { useCanvasState } from '../../hooks/useCanvasState';
-import { useChessboardSync } from '../../hooks/useChessboardSync';
+import ChessCanvas from '../canvas-v2/ChessCanvas';
+import { useChessboardSync } from '../board/hooks/useChessboardSync';
 import { loadOpeningGraph } from '../../api/graphStorage';
-import { createPositionClusters } from '../../utils/clusteringAnalysis';
+
 
 /**
  * ChessAnalysisView - A shared component that provides chess analysis functionality
@@ -114,67 +113,28 @@ const ChessAnalysisView = ({
   const [internalOpeningGraph, setInternalOpeningGraph] = useState(null);
   const effectiveOpeningGraph = openingGraph || internalOpeningGraph;
   
-  // Handle auto-fit completion
-  const handleAutoFitComplete = useCallback(() => {
-    // This will be called when auto-fit operations complete
-    // We need to call the CanvasGraph's completion callback
-    console.log('✅ AUTO-FIT COMPLETED in ChessAnalysisView');
-    
-    // Call the CanvasGraph's completion callback
-    if (canvasAutoFitCompletionRef.current) {
-      canvasAutoFitCompletionRef.current();
-    }
-  }, []);
-  
-  // Ref to store the CanvasGraph's completion callback
-  const canvasAutoFitCompletionRef = useRef(null);
-  
-  // Canvas state management
-  const performanceState = useCanvasState({
-    openingGraph: effectiveOpeningGraph,
-    selectedPlayer,
-    enableClustering: mode === 'performance' || mode === 'opening-editor' || mode === 'opening-viewer',
-    enablePositionClusters: true,
-    enableAutoZoom: true,
-    enableClickAutoZoom: autoZoomOnClick,
-    enableAutoFit: true,
-    autoFitOnResize: true,
-    autoFitOnGraphChange: true,
-    autoFitDelay: 200,
-    onAutoFitComplete: handleAutoFitComplete
-  });
+  // Canvas ref for API access
+  const canvasRef = useRef(null);
   
   // Chessboard sync
   const chessboardSync = useChessboardSync({
     nodes: graphData.nodes,
     onNodeSelect: (node) => {
       if (onNodeSelect) onNodeSelect(node);
-      if (node) {
-        performanceState.updateCurrentPosition(node.id, node.data.fen, 'click');
+      if (node && canvasRef.current) {
+        canvasRef.current.setCurrentNode(node.id, node.data.fen, 'click');
       }
     },
     setNodes: () => {} // Not needed for this abstraction
   });
 
-  // Update opening clusters when graph data changes
-  useEffect(() => {
-    if (graphData.openingClusters && mode === 'performance') {
-      performanceState.setOpeningClusters(graphData.openingClusters);
-    }
-  }, [graphData.openingClusters, mode, performanceState]);
-
   // Store refs for stable access to avoid dependency loops
-  const performanceStateRef = useRef(performanceState);
   const chessboardSyncRef = useRef(chessboardSync);
   const movesDirectScrollFnRef = useRef(movesDirectScrollFn);
   const onCurrentMovesChangeRef = useRef(onCurrentMovesChange);
   const graphDataNodesRef = useRef(graphData.nodes);
   
   // Update refs when values change
-  useEffect(() => {
-    performanceStateRef.current = performanceState;
-  }, [performanceState]);
-  
   useEffect(() => {
     chessboardSyncRef.current = chessboardSync;
   }, [chessboardSync]);
@@ -198,14 +158,9 @@ const ChessAnalysisView = ({
     
     // Reset to root position
     const rootNode = graphDataNodesRef.current.find(node => node.data.isRoot);
-    if (rootNode) {
-      performanceStateRef.current.updateCurrentPosition(rootNode.id, rootNode.data.fen, 'color-change');
-    } else {
-      performanceStateRef.current.updateCurrentPosition(null, null, 'color-change-no-root');
+    if (rootNode && canvasRef.current) {
+      canvasRef.current.setCurrentNode(rootNode.id, rootNode.data.fen, 'color-change');
     }
-    
-    // Clear position clusters
-    performanceStateRef.current.setPositionClusters([]);
     
     // Reset chessboard to starting position
     chessboardSyncRef.current.syncMovesToChessboard([]);
@@ -223,7 +178,9 @@ const ChessAnalysisView = ({
     
     // Schedule auto-fit to show the new tree
     setTimeout(() => {
-      performanceStateRef.current.scheduleAutoFit('color-change', 100);
+      if (canvasRef.current) {
+        canvasRef.current.fitToNodes({ animate: false });
+      }
     }, 50);
   }, [selectedPlayer]); // Only depend on selectedPlayer
 
@@ -334,7 +291,7 @@ const ChessAnalysisView = ({
         onCurrentMovesChange(newPath);
       }
       
-      // Update performance state for the new position
+      // Update canvas position for the new position
       if (newPath.length > 0) {
         // Try to find best match for the new path
         const targetNode = graphData.nodes.find(node => {
@@ -343,18 +300,14 @@ const ChessAnalysisView = ({
                  nodeMoves.every((move, index) => move === newPath[index]);
         });
         
-        if (targetNode) {
-          performanceState.updateCurrentPosition(targetNode.id, targetNode.data.fen, 'nav-previous');
-        } else {
-          performanceState.updateCurrentPosition(null, null, 'nav-previous-no-node');
+        if (targetNode && canvasRef.current) {
+          canvasRef.current.setCurrentNode(targetNode.id, targetNode.data.fen, 'nav-previous');
         }
       } else {
         // Going back to root
         const rootNode = graphData.nodes.find(node => node.data.isRoot);
-        if (rootNode) {
-          performanceState.updateCurrentPosition(rootNode.id, rootNode.data.fen, 'nav-previous-root');
-        } else {
-          performanceState.updateCurrentPosition(null, null, 'nav-previous-root-no-node');
+        if (rootNode && canvasRef.current) {
+          canvasRef.current.setCurrentNode(rootNode.id, rootNode.data.fen, 'nav-previous-root');
         }
       }
       
@@ -363,7 +316,7 @@ const ChessAnalysisView = ({
         movesDirectScrollFn(newPath);
       }
     }
-  }, [movesCurrentPath, chessboardSync, movesDirectScrollFn, onCurrentMovesChange, graphData.nodes, performanceState, mode]);
+  }, [movesCurrentPath, chessboardSync, movesDirectScrollFn, onCurrentMovesChange, graphData.nodes, mode]);
   
   const handleMovesNext = useCallback(() => {
     // Implementation depends on mode
@@ -392,21 +345,17 @@ const ChessAnalysisView = ({
     
     // Reset to root position and graph view (works in all modes)
     const rootNode = graphData.nodes.find(node => node.data.isRoot);
-    if (rootNode) {
-      performanceState.updateCurrentPosition(rootNode.id, rootNode.data.fen, 'reset');
-    } else {
-      // Even if no root node found, still reset performance state
-      performanceState.updateCurrentPosition(null, null, 'reset-no-root');
+    if (rootNode && canvasRef.current) {
+      canvasRef.current.setCurrentNode(rootNode.id, rootNode.data.fen, 'reset');
     }
-    
-    // Clear position clusters and reset graph view
-    performanceState.setPositionClusters([]);
     
     // Fit all nodes in view after reset
     setTimeout(() => {
-      performanceState.scheduleAutoFit('reset', 100);
+      if (canvasRef.current) {
+        canvasRef.current.fitToNodes({ animate: false });
+      }
     }, 50);
-  }, [chessboardSync, movesDirectScrollFn, onCurrentMovesChange, graphData.nodes, performanceState, mode]);
+  }, [chessboardSync, movesDirectScrollFn, onCurrentMovesChange, graphData.nodes, mode]);
   
   // Universal flip handler
   const handleUniversalFlip = useCallback(() => {
@@ -439,11 +388,9 @@ const ChessAnalysisView = ({
                  nodeMoves.every((move, index) => move === moves[index]);
         });
         
-        if (targetNode && targetNode.data.fen) {
+        if (targetNode && targetNode.data.fen && canvasRef.current) {
           console.log('🎯 Found exact graph node for sequence:', targetNode.data.san);
-          const positionClusters = createPositionClusters(graphData.nodes, targetNode.data.fen);
-          performanceState.setPositionClusters(positionClusters);
-          performanceState.updateCurrentPosition(targetNode.id, targetNode.data.fen, 'click');
+          canvasRef.current.setCurrentNode(targetNode.id, targetNode.data.fen, 'click');
         } else {
           // Try to find the longest matching prefix in the graph
           let bestMatch = null;
@@ -459,22 +406,13 @@ const ChessAnalysisView = ({
             }
           }
           
-          if (bestMatch && bestMatchLength > 0) {
+          if (bestMatch && bestMatchLength > 0 && canvasRef.current) {
             console.log(`🎯 Found partial match for ${bestMatchLength}/${moves.length} moves:`, bestMatch.data.san);
-            // Use the best partial match for position clusters
-            const positionClusters = createPositionClusters(graphData.nodes, bestMatch.data.fen);
-            performanceState.setPositionClusters(positionClusters);
-            performanceState.updateCurrentPosition(bestMatch.id, bestMatch.data.fen, 'click');
+            canvasRef.current.setCurrentNode(bestMatch.id, bestMatch.data.fen, 'click');
           } else {
-            console.log('🎯 No graph node found for any part of sequence, clearing clusters');
-            performanceState.setPositionClusters([]);
-            performanceState.updateCurrentPosition(null, null, 'click');
+            console.log('🎯 No graph node found for any part of sequence');
           }
         }
-      } else {
-        // Clear position clusters when returning to root
-        performanceState.setPositionClusters([]);
-        performanceState.updateCurrentPosition(null, null, 'reset');
       }
     }
     
@@ -519,7 +457,7 @@ const ChessAnalysisView = ({
         onCurrentNodeChange(moveTree);
       }
     }
-  }, [chessboardSync, onCurrentMovesChange, mode, onCurrentNodeChange, moveTree, graphData.nodes, performanceState]);
+  }, [chessboardSync, onCurrentMovesChange, mode, onCurrentNodeChange, moveTree, graphData.nodes]);
   
   const handleMovesDirectScroll = useCallback((scrollFn) => {
     setMovesDirectScrollFn(() => scrollFn);
@@ -539,28 +477,21 @@ const ChessAnalysisView = ({
                nodeMoves.every((move, index) => move === nextMovePath[index]);
       });
       
-      if (hoveredNode) {
-        performanceState.setHoveredNextMoveNodeId(hoveredNode.id);
-      } else {
-        performanceState.setHoveredNextMoveNodeId(null);
-      }
-    } else {
-      performanceState.setHoveredNextMoveNodeId(null);
+      // Note: Hover highlighting is now handled internally by ChessCanvas
     }
     
     if (onHoveredMoveChange) {
       onHoveredMoveChange(moveData);
     }
-  }, [chessboardSync, graphData.nodes, performanceState, onHoveredMoveChange]);
+  }, [chessboardSync, graphData.nodes, onHoveredMoveChange]);
   
   const handleMovesMoveHoverEnd = useCallback(() => {
     setMovesHoveredMove(null);
-    performanceState.setHoveredNextMoveNodeId(null);
     
     if (onHoveredMoveChange) {
       onHoveredMoveChange(null);
     }
-  }, [performanceState, onHoveredMoveChange]);
+  }, [onHoveredMoveChange]);
   
   // Canvas handlers
   const handleCanvasNodeClick = useCallback((e, node) => {
@@ -569,27 +500,17 @@ const ChessAnalysisView = ({
     if (onNodeClick) {
       onNodeClick(e, node);
     } else {
-      // Default behavior - always select the node (no deselection on double-click)
-      
-      // Generate position clusters for performance mode or opening modes
-      if (node.data.fen && (mode === 'performance' || mode === 'opening-editor' || mode === 'opening-viewer')) {
-        const positionClusters = createPositionClusters(graphData.nodes, node.data.fen);
-        performanceState.setPositionClusters(positionClusters);
-      }
-      
+      // Default behavior - sync to chessboard (ChessCanvas handles position clusters internally)
       const moveSequence = node.data.moveSequence || [];
       chessboardSync.syncMovesToChessboard(moveSequence);
-      performanceState.updateCurrentPosition(node.id, node.data.fen, 'click');
     }
     
     // Always notify about node selection for opening editor/viewer modes
     if ((mode === 'opening-editor' || mode === 'opening-viewer') && onNodeSelect) {
-      // For opening modes, we need to find the corresponding tree node
-      // The graph node has the tree node ID, so we can call onNodeSelect
       console.log('🔍 Calling onNodeSelect for opening mode with node ID:', node.id);
       onNodeSelect(node);
     }
-  }, [onNodeClick, performanceState, chessboardSync, mode, graphData.nodes, onNodeSelect]);
+  }, [onNodeClick, chessboardSync, mode, onNodeSelect]);
   
   const handleCanvasNodeHover = useCallback((e, node) => {
     if (onNodeHover) {
@@ -624,29 +545,14 @@ const ChessAnalysisView = ({
                nodeMoves.every((move, index) => move === moves[index]);
       });
       
-      if (targetNode && targetNode.data.fen) {
+      if (targetNode && targetNode.data.fen && canvasRef.current) {
         console.log('🎯 Found graph node for board selection:', targetNode.data.san, 'FEN:', targetNode.data.fen);
-        
-        // Generate position clusters for performance mode
-        if (mode === 'performance') {
-          const positionClusters = createPositionClusters(graphData.nodes, targetNode.data.fen);
-          performanceState.setPositionClusters(positionClusters);
-        }
-        
-        // Update the current node position in performance state
-        performanceState.updateCurrentPosition(targetNode.id, targetNode.data.fen, 'click');
+        canvasRef.current.setCurrentNode(targetNode.id, targetNode.data.fen, 'click');
       } else {
         console.log('🎯 No graph node found for moves, but navigation still works');
-        // Clear position clusters but don't break navigation
-        performanceState.setPositionClusters([]);
-        performanceState.updateCurrentPosition(null, null, 'click');
       }
-    } else {
-      // Clear position clusters when returning to root
-      performanceState.setPositionClusters([]);
-      performanceState.updateCurrentPosition(null, null, 'reset');
     }
-  }, [chessboardSync, onCurrentMovesChange, graphData.nodes, mode, performanceState]);
+  }, [chessboardSync, onCurrentMovesChange, graphData.nodes, mode]);
 
   const handleChessboardMove = useCallback((moves) => {
     console.log('🏁 handleChessboardMove called with moves:', moves, 'mode:', mode);
@@ -724,21 +630,21 @@ const ChessAnalysisView = ({
     }
   }, [currentMoves, chessboardSync, mode]);
   
-  // Sync external currentNode prop with performance state (for opening modes)
+  // Sync external currentNode prop with canvas (for opening modes)
   useEffect(() => {
-    if ((mode === 'opening-editor' || mode === 'opening-viewer') && currentNode) {
-      console.log('🔄 Syncing external currentNode to performance state:', currentNode?.san || currentNode?.id);
+    if ((mode === 'opening-editor' || mode === 'opening-viewer') && currentNode && canvasRef.current) {
+      console.log('🔄 Syncing external currentNode to canvas:', currentNode?.san || currentNode?.id);
       
       // Find the corresponding graph node
       const graphNode = graphData.nodes.find(node => node.id === currentNode.id);
       if (graphNode) {
         console.log('✅ Found graph node for currentNode:', graphNode.data.san);
-        performanceState.updateCurrentPosition(graphNode.id, graphNode.data.fen, 'external-sync');
+        canvasRef.current.setCurrentNode(graphNode.id, graphNode.data.fen, 'external-sync');
       } else {
         console.log('❌ No graph node found for currentNode:', currentNode?.san || currentNode?.id);
       }
     }
-  }, [currentNode, mode, graphData.nodes, performanceState]);
+  }, [currentNode, mode, graphData.nodes]);
   
   // Default component config
   const defaultComponentConfig = {
@@ -819,9 +725,9 @@ const ChessAnalysisView = ({
                     onMoveHoverEnd={handleMovesMoveHoverEnd}
                     onDirectScroll={handleMovesDirectScroll}
                     initialPath={movesCurrentPath}
-                    maxDepth={mode === 'performance' ? performanceState.maxDepth : 50}
-                    minGameCount={mode === 'performance' ? performanceState.minGameCount : 0}
-                    winRateFilter={mode === 'performance' ? performanceState.winRateFilter : [0, 100]}
+                    maxDepth={mode === 'performance' ? 20 : 50}
+                    minGameCount={mode === 'performance' ? 1 : 0}
+                    winRateFilter={mode === 'performance' ? [0, 100] : [0, 100]}
                     displayMode={mode === 'performance' ? 'performance' : 'opening'}
                     readOnly={readOnly}
                   />
@@ -904,7 +810,8 @@ const ChessAnalysisView = ({
                   </div>
                 )}
                 
-                <CanvasGraph
+                <ChessCanvas
+                  ref={canvasRef}
                   graphData={(mode === 'opening-editor' || mode === 'opening-viewer') && canvasMode === 'performance' ? performanceGraphData : graphData}
                   mode={(mode === 'opening-editor' || mode === 'opening-viewer') ? canvasMode : 'performance'}
                   onNodeClick={handleCanvasNodeClick}
@@ -912,50 +819,18 @@ const ChessAnalysisView = ({
                   onNodeHoverEnd={handleCanvasNodeHoverEnd}
                   onNodeRightClick={onNodeRightClick}
                   contextMenuActions={contextMenuActions}
-                  currentNodeId={performanceState.currentNodeId}
-                  hoveredNextMoveNodeId={performanceState.hoveredNextMoveNodeId}
                   isGenerating={isGenerating}
-                  
-                  // Performance controls
-                  showPerformanceControls={performanceState.showPerformanceControls}
-                  onShowPerformanceControls={performanceState.setShowPerformanceControls}
-                  openingClusters={performanceState.openingClusters}
-                  positionClusters={performanceState.positionClusters}
-                  showOpeningClusters={performanceState.openingClusteringEnabled}
-                  showPositionClusters={performanceState.showPositionClusters}
-                  onToggleOpeningClusters={performanceState.toggleOpeningClustering}
-                  onTogglePositionClusters={performanceState.togglePositionClusters}
-                  onClusterHover={performanceState.handleClusterHover}
-                  onClusterHoverEnd={performanceState.handleClusterHoverEnd}
-                  hoveredOpeningName={performanceState.hoveredOpeningName}
-                  hoveredClusterColor={performanceState.hoveredClusterColor}
-                  onFitView={performanceState.onFitView}
-                  onZoomToClusters={performanceState.onZoomToClusters}
-                  onZoomTo={performanceState.onZoomTo}
-                  onResizeStateChange={performanceState.onResizeStateChange}
-                  onInitializingStateChange={performanceState.onInitializingStateChange}
-                  
-                  // Performance control props
-                  maxDepth={performanceState.maxDepth}
-                  minGameCount={performanceState.minGameCount}
-                  tempMinGameCount={performanceState.tempMinGameCount}
-                  winRateFilter={performanceState.winRateFilter}
-                  tempWinRateFilter={performanceState.tempWinRateFilter}
-                  onMaxDepthChange={performanceState.handleMaxDepthChange}
-                  onMinGameCountChange={performanceState.handleMinGameCountChange}
-                  onTempMinGameCountChange={performanceState.handleTempMinGameCountChange}
-                  onWinRateFilterChange={performanceState.handleWinRateFilterChange}
-                  onTempWinRateFilterChange={performanceState.handleTempWinRateFilterChange}
-                  onApplyWinRateFilter={performanceState.applyWinRateFilter}
                   selectedPlayer={selectedPlayer}
                   onPlayerChange={onSelectedPlayerChange}
-                  isClusteringLoading={false}
-                  enableOpeningClusters={mode === 'performance'}
-                  autoZoomOnClick={autoZoomOnClick}
-                  onAutoZoomOnClickChange={onAutoZoomOnClickChange}
-                  onAutoFitComplete={handleAutoFitComplete}
-                  onAutoFitCompletionRef={canvasAutoFitCompletionRef}
-                  isAutoFitPending={performanceState.isAutoFitPending}
+                  enableClustering={mode === 'performance' || mode === 'opening-editor' || mode === 'opening-viewer'}
+                  enablePositionClusters={true}
+                  enableAutoZoom={true}
+                  enableClickAutoZoom={autoZoomOnClick}
+                  enableAutoFit={true}
+                  autoFitOnResize={true}
+                  autoFitOnGraphChange={true}
+                  autoFitDelay={200}
+                  openingClusters={graphData.openingClusters || []}
                   className="w-full h-full"
                 />
               </div>

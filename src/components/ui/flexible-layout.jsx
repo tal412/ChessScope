@@ -3,79 +3,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-// Responsive breakpoint detection hook
-export function useResponsiveLayout() {
-  const [isMobile, setIsMobile] = useState(false);
-  const [isTablet, setIsTablet] = useState(false);
-
-  useEffect(() => {
-    const checkScreenSize = () => {
-      const width = window.innerWidth;
-      setIsMobile(width < 768);
-      setIsTablet(width >= 768 && width < 1024);
-    };
-    
-    checkScreenSize();
-    window.addEventListener('resize', checkScreenSize);
-    return () => window.removeEventListener('resize', checkScreenSize);
-  }, []);
-
-  return { isMobile, isTablet };
-}
-
 // Grid layout calculation utilities
-export function calculateGridLayout(visibleComponents, componentConfig, { isMobile, isTablet }) {
+export function calculateGridLayout(visibleComponents, componentConfig) {
   const validComponents = visibleComponents.filter(Boolean);
   
-  // Mobile layout - single component or prioritized component
-  if (isMobile) {
-    if (validComponents.length > 1) {
-      // Show highest priority component on mobile
-      const priorityComponent = validComponents.find(comp => componentConfig[comp]?.mobilePriority === 1) || validComponents[0];
-      return {
-        gridTemplateColumns: '1fr',
-        gridTemplateRows: '1fr',
-        forceComponents: [priorityComponent],
-        className: 'mobile-layout'
-      };
-    } else {
-      return {
-        gridTemplateColumns: '1fr',
-        gridTemplateRows: '1fr',
-        forceComponents: validComponents,
-        className: 'mobile-layout'
-      };
-    }
-  }
-
-  // Tablet layout - max 2 components
-  if (isTablet) {
-    if (validComponents.length >= 3) {
-      // Show top 2 priority components
-      const sortedComponents = validComponents.sort((a, b) => 
-        (componentConfig[a]?.tabletPriority || 99) - (componentConfig[b]?.tabletPriority || 99)
-      );
-      const topTwo = sortedComponents.slice(0, 2);
-      
-      const columns = topTwo.map(comp => componentConfig[comp]?.tabletWidth || 'minmax(200px, 1fr)');
-      
-      return {
-        gridTemplateColumns: columns.join(' '),
-        gridTemplateRows: '1fr',
-        forceComponents: topTwo,
-        className: 'tablet-layout'
-      };
-    } else {
-      const columns = validComponents.map(comp => componentConfig[comp]?.tabletWidth || 'minmax(200px, 1fr)');
-      return {
-        gridTemplateColumns: columns.join(' ') || '1fr',
-        gridTemplateRows: '1fr',
-        forceComponents: validComponents,
-        className: 'tablet-layout'
-      };
-    }
-  }
-
   // Desktop layout - all components with dynamic sizing
   const columns = validComponents.map(comp => {
     const config = componentConfig[comp];
@@ -112,7 +43,6 @@ export function calculateGridLayout(visibleComponents, componentConfig, { isMobi
   return {
     gridTemplateColumns: columns.join(' ') || '1fr',
     gridTemplateRows: '1fr',
-    forceComponents: validComponents,
     className: 'desktop-layout'
   };
 }
@@ -243,27 +173,23 @@ export function FlexibleLayout({
   onComponentToggle,
   ...props 
 }) {
-  const { isMobile, isTablet } = useResponsiveLayout();
-  
   // Calculate which components are visible
   const visibleComponents = Object.entries(components)
     .filter(([key, isVisible]) => isVisible)
     .map(([key]) => key);
 
   // Calculate grid layout
-  const gridLayout = calculateGridLayout(visibleComponents, componentConfig, { isMobile, isTablet });
+  const gridLayout = calculateGridLayout(visibleComponents, componentConfig);
 
   // Notify parent of layout changes
   useEffect(() => {
     if (onLayoutChange) {
       onLayoutChange({ 
         visibleComponents, 
-        gridLayout, 
-        isMobile, 
-        isTablet 
+        gridLayout
       });
     }
-  }, [visibleComponents.join(','), gridLayout.gridTemplateColumns, isMobile, isTablet]); // Removed onLayoutChange from deps to prevent infinite loops
+  }, [visibleComponents.join(','), gridLayout.gridTemplateColumns]); // Removed onLayoutChange from deps to prevent infinite loops
 
   // Trigger resize event when components change
   useEffect(() => {
@@ -272,9 +198,6 @@ export function FlexibleLayout({
       window.dispatchEvent(new Event('resize'));
     });
   }, [gridLayout.gridTemplateColumns]);
-
-  // Force specific components on mobile/tablet
-  const shouldForceComponents = gridLayout.forceComponents && gridLayout.forceComponents.length !== visibleComponents.length;
 
   // Generate toggle buttons from configuration
   const toggleButtons = Object.entries(componentToggleConfig).map(([key, config]) => (
@@ -339,11 +262,6 @@ export function FlexibleLayout({
         >
         {/* Render children based on visible components */}
         {visibleComponents.map(componentKey => {
-          // Skip if this component is being forced out on mobile/tablet
-          if (shouldForceComponents && !gridLayout.forceComponents.includes(componentKey)) {
-            return null;
-          }
-          
           return children[componentKey] || null;
         })}
         
