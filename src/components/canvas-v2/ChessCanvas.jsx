@@ -168,7 +168,11 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
   const [internalTempWinRateFilter, setInternalTempWinRateFilter] = useState(winRateFilter);
   const [internalIsClusteringLoading, setInternalIsClusteringLoading] = useState(false);
   const [internalShowZoomDebounceOverlay, setInternalShowZoomDebounceOverlay] = useState(false);
-  const [internalAutoZoomOnClick, setInternalAutoZoomOnClick] = useState(enableClickAutoZoom);
+  // Initialize auto-zoom from localStorage - with localStorage persistence
+  const [internalAutoZoomOnClick, setInternalAutoZoomOnClick] = useState(() => {
+    const savedState = localStorage.getItem('canvas-auto-zoom-on-click-enabled');
+    return savedState ? JSON.parse(savedState) : enableClickAutoZoom;
+  });
   
   // Process raw graph data into positioned nodes FIRST
   const processedGraphData = React.useMemo(() => {
@@ -616,8 +620,12 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
   }, []);
 
   const handleToggleAutoZoomOnClick = useCallback(() => {
-    setInternalAutoZoomOnClick(prev => !prev);
-    console.log('Toggle auto zoom on click');
+    setInternalAutoZoomOnClick(prev => {
+      const newState = !prev;
+      localStorage.setItem('canvas-auto-zoom-on-click-enabled', JSON.stringify(newState));
+      console.log('Toggle auto zoom on click:', newState);
+      return newState;
+    });
   }, []);
 
   const handleMinGameCountSliderRelease = useCallback(() => {

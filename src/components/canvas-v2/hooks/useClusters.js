@@ -14,8 +14,16 @@ export function useClusters(options = {}) {
   
   const [openingClusters, setOpeningClusters] = useState(initialOpeningClusters);
   const [positionClusters, setPositionClusters] = useState(initialPositionClusters);
-  const [showOpeningClusters, setShowOpeningClusters] = useState(true);
-  const [showPositionClusters, setShowPositionClusters] = useState(true);
+  
+  // Initialize cluster visibility from localStorage - with localStorage persistence
+  const [showOpeningClusters, setShowOpeningClusters] = useState(() => {
+    const savedState = localStorage.getItem('canvas-opening-clusters-enabled');
+    return savedState ? JSON.parse(savedState) : false;
+  });
+  const [showPositionClusters, setShowPositionClusters] = useState(() => {
+    const savedState = localStorage.getItem('canvas-position-clusters-enabled');
+    return savedState ? JSON.parse(savedState) : true;
+  });
   const [hoveredCluster, setHoveredCluster] = useState(null);
   const [hoveredOpeningName, setHoveredOpeningName] = useState(null);
   const [hoveredClusterColor, setHoveredClusterColor] = useState(null);
@@ -50,17 +58,25 @@ export function useClusters(options = {}) {
   }, []);
   
   /**
-   * Toggle opening clusters visibility
+   * Toggle opening clusters visibility - with localStorage persistence
    */
   const toggleOpeningClusters = useCallback(() => {
-    setShowOpeningClusters(prev => !prev);
+    setShowOpeningClusters(prev => {
+      const newState = !prev;
+      localStorage.setItem('canvas-opening-clusters-enabled', JSON.stringify(newState));
+      return newState;
+    });
   }, []);
   
   /**
-   * Toggle position clusters visibility
+   * Toggle position clusters visibility - with localStorage persistence
    */
   const togglePositionClusters = useCallback(() => {
-    setShowPositionClusters(prev => !prev);
+    setShowPositionClusters(prev => {
+      const newState = !prev;
+      localStorage.setItem('canvas-position-clusters-enabled', JSON.stringify(newState));
+      return newState;
+    });
   }, []);
   
   /**

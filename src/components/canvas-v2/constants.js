@@ -118,6 +118,20 @@ export const RENDER_CONFIG = {
 };
 
 // =============================================================================
+// SHADOW CONFIGURATION (matching v1)
+// =============================================================================
+
+export const SHADOW_CONFIG = {
+  SELECTED_COLOR: 'rgba(236, 72, 153, 1.0)', // Pink glow
+  INITIAL_MOVE_COLOR: 'rgba(249, 115, 22, 1.0)', // Orange glow
+  HOVERED_NEXT_MOVE_COLOR: 'rgba(59, 130, 246, 1.0)', // Blue glow
+  BLUR: 20,
+  INTENSE_BLUR: 25,
+  LAYERS: 8,
+};
+
+
+// =============================================================================
 // COLOR SCHEMES
 // =============================================================================
 
@@ -209,12 +223,4 @@ export const CLUSTER_CONFIG = {
   },
 };
 
-// Shadow and glow effects
-export const SHADOW_CONFIG = {
-  SELECTED_COLOR: 'rgba(236, 72, 153, 1.0)', // Pink glow
-  INITIAL_MOVE_COLOR: 'rgba(249, 115, 22, 1.0)', // Orange glow
-  HOVERED_NEXT_MOVE_COLOR: 'rgba(59, 130, 246, 1.0)', // Blue glow
-  BLUR: 20,
-  INTENSE_BLUR: 25,
-  LAYERS: 8,
-}; 
+ 

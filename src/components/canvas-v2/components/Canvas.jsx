@@ -7,18 +7,22 @@ import { drawIcon, drawChainLinkIcon, createConvexHull } from '../utils/geometry
  * Render performance node text with proper fonts and positioning
  */
 function renderPerformanceNodeText(ctx, node, centerX, centerY) {
-  const isBlackText = node.data?.winRate > 50;
+  const colors = getPerformanceColors(node.data || {});
+  const textColor = colors.text;
   
-  // Set up text stroke for readability
+  // Set up text stroke for readability (matching v1)
+  const isBlackText = textColor === '#000000' || textColor === '#000';
+  ctx.strokeStyle = isBlackText ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
   ctx.lineWidth = isBlackText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
-  ctx.strokeStyle = isBlackText ? '#000000' : '#ffffff';
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   
   if (node.data?.isRoot) {
     // Root node rendering
     ctx.font = `bold ${RENDER_CONFIG.FONT_SIZES.PERFORMANCE_ROOT_LABEL}px ${RENDER_CONFIG.FONT_FAMILY}`;
-    ctx.fillStyle = isBlackText ? '#000000' : '#ffffff';
+    ctx.fillStyle = textColor;
     ctx.strokeText('START', centerX, centerY + RENDER_CONFIG.OFFSETS.PERFORMANCE_ROOT_LABEL_Y);
     ctx.fillText('START', centerX, centerY + RENDER_CONFIG.OFFSETS.PERFORMANCE_ROOT_LABEL_Y);
     
@@ -42,7 +46,7 @@ function renderPerformanceNodeText(ctx, node, centerX, centerY) {
   } else {
     // Regular performance node
     ctx.font = `bold ${RENDER_CONFIG.FONT_SIZES.PERFORMANCE_MOVE_LABEL}px ${RENDER_CONFIG.FONT_FAMILY}`;
-    ctx.fillStyle = isBlackText ? '#000000' : '#ffffff';
+    ctx.fillStyle = textColor;
     ctx.strokeText(node.data.san || '?', centerX, centerY + RENDER_CONFIG.OFFSETS.PERFORMANCE_MOVE_LABEL_Y);
     ctx.fillText(node.data.san || '?', centerX, centerY + RENDER_CONFIG.OFFSETS.PERFORMANCE_MOVE_LABEL_Y);
     
@@ -70,25 +74,43 @@ function renderPerformanceNodeText(ctx, node, centerX, centerY) {
  * Render opening node text
  */
 function renderOpeningNodeText(ctx, node, centerX, centerY) {
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `bold ${RENDER_CONFIG.FONT_SIZES.ROOT_LABEL}px ${RENDER_CONFIG.FONT_FAMILY}`;
+  const colors = getOpeningNodeColors(node.data || {});
+  const textColor = colors.text;
+  
+  // Set up text stroke for readability (matching v1)
+  const isBlackText = textColor === '#000000' || textColor === '#000';
+  ctx.strokeStyle = isBlackText ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+  ctx.lineWidth = isBlackText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   
   if (node.data?.isRoot) {
-    ctx.fillText('START', centerX, centerY + RENDER_CONFIG.OFFSETS.MOVE_LABEL_Y);
+    ctx.font = `bold ${RENDER_CONFIG.FONT_SIZES.ROOT_LABEL}px ${RENDER_CONFIG.FONT_FAMILY}`;
+    ctx.fillStyle = textColor;
+    ctx.strokeText('START', centerX, centerY);
+    ctx.fillText('START', centerX, centerY);
     
     if (node.data?.gameCount) {
       ctx.font = `600 ${RENDER_CONFIG.FONT_SIZES.GAME_COUNT}px ${RENDER_CONFIG.FONT_FAMILY}`;
-      ctx.fillText(`${node.data.gameCount} games`, centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_GAME_COUNT_Y);
+      const gameCountText = `${node.data.gameCount} games`;
+      ctx.strokeText(gameCountText, centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_GAME_COUNT_Y);
+      ctx.fillText(gameCountText, centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_GAME_COUNT_Y);
     }
   } else {
     ctx.font = `bold ${RENDER_CONFIG.FONT_SIZES.MOVE_LABEL}px ${RENDER_CONFIG.FONT_FAMILY}`;
-    ctx.fillText(node.data?.san || '?', centerX, centerY + RENDER_CONFIG.OFFSETS.MOVE_LABEL_Y);
+    ctx.fillStyle = textColor;
+    ctx.strokeText(node.data?.san || '?', centerX, centerY);
+    ctx.fillText(node.data?.san || '?', centerX, centerY);
     
     if (node.data?.gameCount) {
       ctx.font = `600 ${RENDER_CONFIG.FONT_SIZES.GAME_COUNT}px ${RENDER_CONFIG.FONT_FAMILY}`;
-      ctx.fillText(node.data.gameCount.toString(), centerX, centerY + RENDER_CONFIG.OFFSETS.GAME_COUNT_Y);
+      const gameCountShort = node.data.gameCount >= 1000 
+        ? `${Math.round(node.data.gameCount / 1000)}k` 
+        : node.data.gameCount.toString();
+      ctx.strokeText(gameCountShort, centerX, centerY + RENDER_CONFIG.OFFSETS.GAME_COUNT_Y);
+      ctx.fillText(gameCountShort, centerX, centerY + RENDER_CONFIG.OFFSETS.GAME_COUNT_Y);
     }
   }
 }
@@ -504,103 +526,61 @@ export function Canvas({
         ? getPerformanceColors(node.data || {})
         : getOpeningNodeColors(node.data || {});
 
-      // Draw glow effects first (behind the node)
+      // Calculate node rectangle bounds (matching v1)
+      const nodeX = x - CANVAS_CONFIG.NODE_HALF_SIZE;
+      const nodeY = y - CANVAS_CONFIG.NODE_HALF_SIZE;
+      const nodeWidth = CANVAS_CONFIG.NODE_SIZE;
+      const nodeHeight = CANVAS_CONFIG.NODE_SIZE;
+
+      ctx.fillStyle = colors.fill || colors.bg;
+      ctx.strokeStyle = colors.stroke || colors.border;
+      ctx.lineWidth = isSelected || isCurrent || isHoveredNextMove ? 8 : (isHovered ? 6 : 4);
+      
+      // Apply glow effects (matching v1)
       if (isSelected || isCurrent) {
         const glowColor = node.data?.isInitialMove ? SHADOW_CONFIG.INITIAL_MOVE_COLOR : SHADOW_CONFIG.SELECTED_COLOR;
-        ctx.save();
         ctx.shadowColor = glowColor;
         ctx.shadowBlur = SHADOW_CONFIG.BLUR;
-        ctx.globalCompositeOperation = 'multiply';
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
         
-        // Draw multiple glow layers for intensity
+        // Draw multiple layers for intense glow
         for (let i = 0; i < SHADOW_CONFIG.LAYERS; i++) {
           ctx.beginPath();
-          ctx.arc(x, y, radius || CANVAS_CONFIG.NODE_HALF_SIZE, 0, 2 * Math.PI);
+          ctx.roundRect(nodeX, nodeY, nodeWidth, nodeHeight, CLUSTER_CONFIG.CORNER_RADIUS);
           ctx.fill();
         }
-        ctx.restore();
-      }
-
-      if (isHoveredNextMove) {
-        ctx.save();
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      } else if (isHoveredNextMove) {
         ctx.shadowColor = SHADOW_CONFIG.HOVERED_NEXT_MOVE_COLOR;
         ctx.shadowBlur = SHADOW_CONFIG.BLUR;
-        ctx.globalCompositeOperation = 'multiply';
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
         
         for (let i = 0; i < SHADOW_CONFIG.LAYERS; i++) {
           ctx.beginPath();
-          ctx.arc(x, y, radius || CANVAS_CONFIG.NODE_HALF_SIZE, 0, 2 * Math.PI);
+          ctx.roundRect(nodeX, nodeY, nodeWidth, nodeHeight, CLUSTER_CONFIG.CORNER_RADIUS);
           ctx.fill();
         }
-        ctx.restore();
-      }
-
-      // Draw main node
-      ctx.save();
-      if (radius) {
-        // Circle node
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      } else if (node.data?.isInitialMove) {
         ctx.beginPath();
-        ctx.arc(x, y, radius, 0, 2 * Math.PI);
-        ctx.fillStyle = colors.fill || colors.bg;
+        ctx.roundRect(nodeX, nodeY, nodeWidth, nodeHeight, CLUSTER_CONFIG.CORNER_RADIUS);
         ctx.fill();
         
-        if (colors.stroke || colors.border) {
-          ctx.strokeStyle = colors.stroke || colors.border;
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        }
-      } else {
-        // Square node (fallback)
-        ctx.fillStyle = colors.fill || colors.bg;
-        ctx.fillRect(
-          x - CANVAS_CONFIG.NODE_HALF_SIZE,
-          y - CANVAS_CONFIG.NODE_HALF_SIZE,
-          CANVAS_CONFIG.NODE_SIZE,
-          CANVAS_CONFIG.NODE_SIZE
-        );
+        ctx.strokeStyle = '#f97316'; // Orange-500
+        ctx.lineWidth = 6;
+        ctx.stroke();
         
         ctx.strokeStyle = colors.stroke || colors.border;
-        ctx.lineWidth = isCurrent ? RENDER_CONFIG.SELECTION_GLOW_WIDTH : 2;
-        ctx.strokeRect(
-          x - CANVAS_CONFIG.NODE_HALF_SIZE,
-          y - CANVAS_CONFIG.NODE_HALF_SIZE,
-          CANVAS_CONFIG.NODE_SIZE,
-          CANVAS_CONFIG.NODE_SIZE
-        );
-      }
-      ctx.restore();
-
-      // Draw selection rings
-      if (isSelected || isCurrent) {
-        ctx.save();
-        ctx.shadowColor = SHADOW_CONFIG.SELECTED_COLOR;
-        ctx.shadowBlur = SHADOW_CONFIG.INTENSE_BLUR;
-        ctx.globalCompositeOperation = 'multiply';
-        
-        for (let i = 0; i < SHADOW_CONFIG.LAYERS; i++) {
-          ctx.beginPath();
-          ctx.arc(x, y, (radius || CANVAS_CONFIG.NODE_HALF_SIZE) + 4, 0, 2 * Math.PI);
-          ctx.strokeStyle = '#3b82f6';
-          ctx.lineWidth = 3;
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
-
-      if (isHoveredNextMove) {
-        ctx.save();
-        ctx.shadowColor = SHADOW_CONFIG.HOVERED_NEXT_MOVE_COLOR;
-        ctx.shadowBlur = SHADOW_CONFIG.BLUR;
-        ctx.globalCompositeOperation = 'multiply';
-        
-        for (let i = 0; i < SHADOW_CONFIG.LAYERS; i++) {
-          ctx.beginPath();
-          ctx.arc(x, y, (radius || CANVAS_CONFIG.NODE_HALF_SIZE) + 2, 0, 2 * Math.PI);
-          ctx.strokeStyle = '#60a5fa';
-          ctx.lineWidth = 2;
-          ctx.stroke();
-        }
-        ctx.restore();
+        ctx.lineWidth = 4;
+      } else {
+        ctx.beginPath();
+        ctx.roundRect(nodeX, nodeY, nodeWidth, nodeHeight, CLUSTER_CONFIG.CORNER_RADIUS);
+        ctx.fill();
+        ctx.stroke();
       }
 
       // Advanced text rendering based on node type and mode
