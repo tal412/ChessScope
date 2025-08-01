@@ -348,13 +348,6 @@ const ChessAnalysisView = ({
     if (rootNode && canvasRef.current) {
       canvasRef.current.setCurrentNode(rootNode.id, rootNode.data.fen, 'reset');
     }
-    
-    // Fit all nodes in view after reset
-    setTimeout(() => {
-      if (canvasRef.current) {
-        canvasRef.current.fitToNodes({ animate: false });
-      }
-    }, 50);
   }, [chessboardSync, movesDirectScrollFn, onCurrentMovesChange, graphData.nodes, mode]);
   
   // Universal flip handler
