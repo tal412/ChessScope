@@ -79,9 +79,24 @@ export const createPositionClusters = (nodes, currentFen) => {
 
   const clusters = [];
   
-  // Find all nodes with the current FEN (transpositions) - EXCLUDE ROOT NODES
+  // Debug: Check what nodes match the current FEN
+  const allMatchingNodes = nodes.filter(node => node.data.fen === currentFen);
+  const rootNodes = allMatchingNodes.filter(node => node.data.isRoot);
+  const nonRootNodes = allMatchingNodes.filter(node => !node.data.isRoot);
+  
+  console.log('🔍 createPositionClusters debug:', {
+    currentFen,
+    totalNodes: nodes.length,
+    allMatchingNodes: allMatchingNodes.length,
+    rootNodes: rootNodes.length,
+    nonRootNodes: nonRootNodes.length,
+    rootNodesList: rootNodes.map(n => ({ id: n.id, isRoot: n.data.isRoot })),
+    nonRootNodesList: nonRootNodes.map(n => ({ id: n.id, isRoot: n.data.isRoot }))
+  });
+  
+  // Find all nodes with the current FEN (transpositions) - INCLUDE ROOT NODES FOR CLUSTER GENERATION
   const currentPositionNodes = nodes.filter(node => 
-    node.data.fen === currentFen && !node.data.isRoot
+    node.data.fen === currentFen
   );
   
   if (currentPositionNodes.length === 0) return [];
