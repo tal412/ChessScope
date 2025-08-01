@@ -228,20 +228,20 @@ export function Canvas({
     if (!canvas || !ctx) return;
 
     // Debug logging
-    if (graphData.nodes.length > 0) {
-      console.log('🎨 Canvas render called:', {
-        nodeCount: graphData.nodes.length,
-        width,
-        height,
-        transform: `scale: ${transform.scale}, translate: (${transform.translateX}, ${transform.translateY})`,
-        firstNode: {
-          id: graphData.nodes[0]?.id,
-          x: graphData.nodes[0]?.x,
-          y: graphData.nodes[0]?.y,
-          radius: graphData.nodes[0]?.radius
-        }
-      });
-    }
+    // if (graphData.nodes.length > 0) {
+    //   console.log('🎨 Canvas render called:', {
+    //     nodeCount: graphData.nodes.length,
+    //     width,
+    //     height,
+    //     transform: `scale: ${transform.scale}, translate: (${transform.translateX}, ${transform.translateY})`,
+    //     firstNode: {
+    //       id: graphData.nodes[0]?.id,
+    //       x: graphData.nodes[0]?.x,
+    //       y: graphData.nodes[0]?.y,
+    //       radius: graphData.nodes[0]?.radius
+    //     }
+    //   });
+    // }
 
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
@@ -503,13 +503,13 @@ export function Canvas({
   
   // Render nodes
   const renderNodes = useCallback((ctx) => {
-    console.log('🔵 renderNodes called with', graphData.nodes.length, 'nodes');
+    // console.log('🔵 renderNodes called with', graphData.nodes.length, 'nodes');
     graphData.nodes.forEach((node, index) => {
       const { x, y, radius } = node;
       
-      if (index === 0) {
-        console.log('🔵 First node render:', { x, y, radius, id: node.id });
-      }
+      // if (index === 0) {
+      //   console.log('🔵 First node render:', { x, y, radius, id: node.id });
+      // }
       
       if (x === undefined || y === undefined || radius === undefined) {
         console.warn('🔵 Node missing coordinates:', { id: node.id, x, y, radius });
@@ -616,7 +616,6 @@ export function Canvas({
     <canvas
       ref={canvasRef}
       className={`block ${className}`}
-      style={{ cursor: 'grab' }}
     />
   );
 } 

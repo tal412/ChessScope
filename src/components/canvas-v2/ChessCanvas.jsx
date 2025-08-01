@@ -223,13 +223,13 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
   const initialTransform = React.useMemo(() => {
     if (processedGraphData.nodes.length > 0 && dimensions.width > 0 && dimensions.height > 0) {
       const optimalTransform = calculateOptimalTransform(processedGraphData.nodes, dimensions, ZOOM_CONFIG.AUTO_FIT_PADDING);
-      console.log('🎯 Calculated initial transform:', optimalTransform, {
-        nodeCount: processedGraphData.nodes.length,
-        dimensions
-      });
+      // console.log('🎯 Calculated initial transform:', optimalTransform, {
+      //   nodeCount: processedGraphData.nodes.length,
+      //   dimensions
+      // });
       return optimalTransform;
     }
-    console.log('🎯 Using default transform (no nodes or dimensions)');
+    // console.log('🎯 Using default transform (no nodes or dimensions)');
     return { scale: 1, translateX: 0, translateY: 0 };
   }, [processedGraphData.nodes, dimensions.width, dimensions.height]);
 
@@ -278,9 +278,9 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
       if (hasOptimalTransform) {
         loadingStates.setValidTransform(true);
         loadingStates.setInitializingState(false);
-        console.log('✅ Canvas ready with optimal transform');
+        // console.log('✅ Canvas ready with optimal transform');
       } else {
-        console.log('⏳ Waiting for optimal transform calculation');
+        // console.log('⏳ Waiting for optimal transform calculation');
       }
     } else {
       loadingStates.updatePositionedNodes([]);
@@ -555,20 +555,16 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
   }, [updateCurrentPosition, onNodeClick]);
 
   const handleNodeHover = useCallback((e, node) => {
-    position.setHoveredNode(node?.id || null);
-    
     if (onNodeHover) {
       onNodeHover(e, node);
     }
-  }, [position, onNodeHover]);
+  }, [onNodeHover]);
 
-  const handleNodeHoverEnd = useCallback(() => {
-    position.setHoveredNode(null);
-    
+  const handleNodeHoverEnd = useCallback((e, node) => {
     if (onNodeHoverEnd) {
-      onNodeHoverEnd();
+      onNodeHoverEnd(e, node);
     }
-  }, [position, onNodeHoverEnd]);
+  }, [onNodeHoverEnd]);
 
   // Performance control handlers with loading states
   const handleMaxDepthChangeAsync = useCallback(async (newDepth) => {
@@ -720,6 +716,15 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [mousePressed, setMousePressed] = useState(false);
+  const [localHoveredNode, setLocalHoveredNode] = useState(null);
+  const [cursorStyle, setCursorStyle] = useState('grab');
+
+  // Update cursor style when hovered node changes or interaction state changes
+  useEffect(() => {
+    const isCursorBlocked = interactionBlocking.isCanvasInteractionBlocked();
+    const newCursor = isCursorBlocked ? 'not-allowed' : (localHoveredNode ? 'pointer' : 'grab');
+    setCursorStyle(newCursor);
+  }, [localHoveredNode, interactionBlocking.isCanvasInteractionBlocked]);
 
   const handleMouseDown = useCallback((e) => {
     // Block all mouse interactions during initialization
@@ -766,14 +771,48 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
       setDragStart({ x: e.clientX, y: e.clientY });
     } else {
       setMousePressed(false);
+      
+      // Handle node hover detection when not dragging
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect) {
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        
+        // Find node at position
+        const nodeAtPosition = processedGraphData.nodes.find(node => {
+          const screenX = node.x * zoom.scale + zoom.translateX;
+          const screenY = node.y * zoom.scale + zoom.translateY;
+          const distance = Math.sqrt(
+            Math.pow(screenX - x, 2) + Math.pow(screenY - y, 2)
+          );
+          return distance < 25; // Node radius
+        });
+        
+        // Update local hovered node state for cursor only
+        setLocalHoveredNode(nodeAtPosition);
+        
+        // Call external hover handlers
+        if (nodeAtPosition) {
+          handleNodeHover(e, nodeAtPosition);
+        } else {
+          handleNodeHoverEnd(e, null);
+        }
+      }
     }
-  }, [mousePressed, dragStart, zoom, interactionBlocking.isCanvasInteractionBlocked, isDragging]);
+  }, [mousePressed, dragStart, zoom, interactionBlocking.isCanvasInteractionBlocked, isDragging, processedGraphData.nodes, handleNodeHover, handleNodeHoverEnd]);
 
   const handleMouseUp = useCallback(() => {
     setMousePressed(false);
     // Reset dragging after a brief delay to prevent accidental clicks
     setTimeout(() => setIsDragging(false), 50);
   }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setMousePressed(false);
+    setLocalHoveredNode(null);
+    
+    handleNodeHoverEnd();
+  }, [handleNodeHoverEnd]);
 
   const handleWheel = useCallback((e) => {
     if (!interactionBlocking.isCanvasInteractionBlocked()) {
@@ -1026,14 +1065,16 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
       {/* Main Canvas */}
       <div 
         ref={canvasRef}
-        className="w-full h-full cursor-grab active:cursor-grabbing"
+        className="w-full h-full"
         style={{ 
           opacity: loadingStates.shouldShowCanvas(dimensions, zoom.transform, initialTransform) ? 1 : 0,
-          transition: 'opacity 0.2s ease-in-out'
+          transition: 'opacity 0.2s ease-in-out',
+          cursor: interactionBlocking.isCanvasInteractionBlocked() ? 'not-allowed' : (mousePressed ? 'grabbing' : cursorStyle)
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
         onContextMenu={handleContextMenu}
         onClick={handleClick}
       >
