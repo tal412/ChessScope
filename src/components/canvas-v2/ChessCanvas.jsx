@@ -693,64 +693,12 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
             }
           }
           break;
-        case KEYBOARD_SHORTCUTS.ESCAPE:
-          e.preventDefault();
-          loadingStates.setUserInteracted(true);
-          // Emergency reset - animated reset to default centered view
-          const currentTransform = zoom.transform;
-          const startTime = performance.now();
-          const duration = 300;
-          const targetTransform = { scale: 1, translateX: 0, translateY: 0 };
-          
-          const animateReset = (currentTime) => {
-            const elapsed = currentTime - startTime;
-            const progress = Math.min(elapsed / duration, 1);
-            const easeProgress = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-            
-            const newTransform = {
-              scale: currentTransform.scale + (targetTransform.scale - currentTransform.scale) * easeProgress,
-              translateX: currentTransform.translateX + (targetTransform.translateX - currentTransform.translateX) * easeProgress,
-              translateY: currentTransform.translateY + (targetTransform.translateY - currentTransform.translateY) * easeProgress,
-            };
-            
-            zoom.updateTransform(newTransform);
-            
-            if (progress < 1) {
-              requestAnimationFrame(animateReset);
-            }
-          };
-          
-          requestAnimationFrame(animateReset);
-          break;
         case KEYBOARD_SHORTCUTS.RESET_ZOOM:
           if (!e.ctrlKey && !e.metaKey) {
             e.preventDefault();
             loadingStates.setUserInteracted(true);
-            // Animated reset to 1:1 zoom
-            const currentTransform2 = zoom.transform;
-            const startTime2 = performance.now();
-            const duration2 = 300;
-            const targetTransform2 = { scale: 1, translateX: currentTransform2.translateX, translateY: currentTransform2.translateY };
-            
-            const animateZoomReset = (currentTime) => {
-              const elapsed = currentTime - startTime2;
-              const progress = Math.min(elapsed / duration2, 1);
-              const easeProgress = 1 - Math.pow(1 - progress, 3); // ease-out cubic
-              
-              const newTransform = {
-                scale: currentTransform2.scale + (targetTransform2.scale - currentTransform2.scale) * easeProgress,
-                translateX: currentTransform2.translateX + (targetTransform2.translateX - currentTransform2.translateX) * easeProgress,
-                translateY: currentTransform2.translateY + (targetTransform2.translateY - currentTransform2.translateY) * easeProgress,
-              };
-              
-              zoom.updateTransform(newTransform);
-              
-              if (progress < 1) {
-                requestAnimationFrame(animateZoomReset);
-              }
-            };
-            
-            requestAnimationFrame(animateZoomReset);
+            // Fit view - same as MMB
+            zoom.fitToNodes(processedGraphData.nodes, { animate: true });
           }
           break;
       }
@@ -993,7 +941,7 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
           </span>
         </div>
         <div className="text-xs text-slate-400 mt-0.5">
-          MMB: Fit View • Esc: Reset
+          MMB / R: Fit View
         </div>
       </div>
 

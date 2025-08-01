@@ -169,7 +169,7 @@ export const KEYBOARD_SHORTCUTS = {
   ZOOM_IN: '+',
   ZOOM_OUT: '-',
   FIT_VIEW: 'f',
-  RESET_ZOOM: '0',
+  RESET_ZOOM: 'r',
   TOGGLE_CLUSTERS: 'c',
   ESCAPE: 'Escape',
   ENTER: 'Enter',
