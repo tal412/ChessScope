@@ -84,6 +84,7 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
   const lastFittedGraphRef = useRef(null);
   const lastFittedDimensionsRef = useRef(null);
   const resizeTimeoutRef = useRef(null);
+  const hasCompletedInitialFit = useRef(false);
   
   // Measure dimensions immediately on mount
   useLayoutEffect(() => {
@@ -307,105 +308,82 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
   // Handle graph changes for auto-fit
   useEffect(() => {
     if (!autoFitOnGraphChange || !dimensions.width || !dimensions.height) return;
-    
+
     if (processedGraphData.nodes.length > 0) {
-      // Create graph signature to check if it actually changed
       const graphSignature = JSON.stringify({
         nodeCount: processedGraphData.nodes.length,
         firstNodeId: processedGraphData.nodes[0]?.id,
-        lastNodeId: processedGraphData.nodes[processedGraphData.nodes.length - 1]?.id
+        lastNodeId: processedGraphData.nodes[processedGraphData.nodes.length - 1]?.id,
       });
-      
-      // Only auto-fit if the graph actually changed AND we don't already have the optimal transform
-      const isInitialFit = lastFittedGraphRef.current === null;
-      const hasOptimalInitialTransform = initialTransform.scale !== 1 || initialTransform.translateX !== 0 || initialTransform.translateY !== 0;
-      
-      // Don't auto-fit on initial load with optimal transform OR if signature hasn't changed
-      if (lastFittedGraphRef.current !== graphSignature && !(isInitialFit && hasOptimalInitialTransform)) {
-        console.log('🔄 Auto-fitting due to graph change', {
+
+      if (lastFittedGraphRef.current !== graphSignature) {
+        const previousNodeCount = lastFittedGraphRef.current
+          ? JSON.parse(lastFittedGraphRef.current).nodeCount
+          : 0;
+
+        // Animate only if the graph was already substantially loaded, not on the initial placeholder -> data transition.
+        const shouldAnimate = previousNodeCount > 1;
+
+        console.log(`🔄 Auto-fitting due to graph change (animate: ${shouldAnimate})`, {
           nodeCount: processedGraphData.nodes.length,
           dimensions,
           autoFitDelay,
           oldSignature: lastFittedGraphRef.current,
           newSignature: graphSignature,
-          isInitialFit,
-          hasOptimalInitialTransform
         });
-        
-        lastFittedGraphRef.current = graphSignature;
-        
-        // Schedule auto-fit with a delay
+
         const timeoutId = setTimeout(() => {
-          zoom.fitToNodes(processedGraphData.nodes, { animate: true });
+          // We rely on the initialTransform to set the correct initial view.
+          // This effect handles subsequent changes or the second step of the initial load.
+          // In the latter case, we don't want to animate.
+          zoom.fitToNodes(processedGraphData.nodes, { animate: shouldAnimate });
         }, autoFitDelay);
-        
-        return () => clearTimeout(timeoutId);
-      } else {
-        // Mark as fitted since we already have optimal transform or this is a duplicate
+
         lastFittedGraphRef.current = graphSignature;
-        if (isInitialFit && hasOptimalInitialTransform) {
-          console.log('🔄 Skipping initial auto-fit - using pre-calculated transform');
-        } else {
-          console.log('🔄 Skipping auto-fit - graph signature unchanged');
-        }
+        return () => clearTimeout(timeoutId);
       }
     }
-  }, [processedGraphData.nodes, autoFitOnGraphChange, autoFitDelay, dimensions.width, dimensions.height, initialTransform]);
+  }, [processedGraphData.nodes, autoFitOnGraphChange, autoFitDelay, dimensions.width, dimensions.height, zoom.fitToNodes]);
 
   // Handle resize auto-fit
   useEffect(() => {
-    if (!autoFitOnResize || !dimensions.width || !dimensions.height) return;
-    
-    if (processedGraphData.nodes.length > 0) {
-      // Create dimensions signature to check if it actually changed significantly
-      const dimensionsSignature = `${dimensions.width}x${dimensions.height}`;
-      
-      // Only auto-fit if dimensions changed significantly AND it's not the initial dimension setup
-      const isInitialDimensionSetup = lastFittedDimensionsRef.current === null;
-      
-      if (lastFittedDimensionsRef.current !== dimensionsSignature && !isInitialDimensionSetup) {
-        console.log('🔄 Auto-fitting due to resize', {
-          dimensions,
-          oldDimensions: lastFittedDimensionsRef.current,
-          newDimensions: dimensionsSignature
-        });
-        
-        lastFittedDimensionsRef.current = dimensionsSignature;
-        
-        // Clear any existing resize timeout to debounce rapid resize events
-        if (resizeTimeoutRef.current) {
-          clearTimeout(resizeTimeoutRef.current);
-        }
-        
-        // Disable interactions immediately when resize is detected
-        setIsResizeProcessActive(true);
-        
-        // Fit to nodes on resize with a longer delay to let canvas finish resizing
-        resizeTimeoutRef.current = setTimeout(() => {
-          zoom.fitToNodes(processedGraphData.nodes, { 
-            animate: true,
-            onComplete: () => {
-              // Re-enable interactions when animation completes
-              setIsResizeProcessActive(false);
-            }
-          });
-          resizeTimeoutRef.current = null;
-        }, 300);
-        
-        return () => {
-          if (resizeTimeoutRef.current) {
-            clearTimeout(resizeTimeoutRef.current);
-            resizeTimeoutRef.current = null;
-            setIsResizeProcessActive(false);
-          }
-        };
-      } else if (isInitialDimensionSetup) {
-        // Mark initial dimensions as set
-        lastFittedDimensionsRef.current = dimensionsSignature;
-        console.log('🔄 Initial dimensions set, skipping auto-fit on resize');
+    if (!autoFitOnResize || !dimensions.width || !dimensions.height || !processedGraphData.nodes.length) return;
+
+    const dimensionsSignature = `${dimensions.width}x${dimensions.height}`;
+    if (lastFittedDimensionsRef.current && lastFittedDimensionsRef.current !== dimensionsSignature) {
+      console.log('🔄 Auto-fitting due to resize', {
+        dimensions,
+        oldDimensions: lastFittedDimensionsRef.current,
+        newDimensions: dimensionsSignature,
+      });
+
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
       }
+
+      setIsResizeProcessActive(true);
+
+      resizeTimeoutRef.current = setTimeout(() => {
+        zoom.fitToNodes(processedGraphData.nodes, {
+          animate: true,
+          onComplete: () => {
+            setIsResizeProcessActive(false);
+          },
+        });
+        resizeTimeoutRef.current = null;
+      }, 300);
     }
-  }, [dimensions.width, dimensions.height, autoFitOnResize, processedGraphData.nodes.length]);
+
+    lastFittedDimensionsRef.current = dimensionsSignature;
+
+    return () => {
+      if (resizeTimeoutRef.current) {
+        clearTimeout(resizeTimeoutRef.current);
+        resizeTimeoutRef.current = null;
+        setIsResizeProcessActive(false);
+      }
+    };
+  }, [dimensions, autoFitOnResize, processedGraphData.nodes, zoom.fitToNodes]);
 
   // Handle onAutoFitCompletionRef - store the completion callback in the ref
   useEffect(() => {

@@ -12,28 +12,10 @@ export function useZoom(dimensions = { width: 800, height: 600 }, initialTransfo
   const [transform, setTransform] = useState(
     initialTransform || { scale: 1, translateX: 0, translateY: 0 }
   );
+  const transformRef = useRef(transform);
+  transformRef.current = transform;
   
   const animationRef = useRef(null);
-  const hasAppliedInitialTransform = useRef(false);
-  
-  // Update transform when initial transform changes (for proper initialization)
-  React.useEffect(() => {
-    if (initialTransform && !hasAppliedInitialTransform.current && (
-      initialTransform.scale !== transform.scale ||
-      initialTransform.translateX !== transform.translateX ||
-      initialTransform.translateY !== transform.translateY
-    )) {
-      // Only update if we're not just going from default to default
-      const isFromDefault = transform.scale === 1 && transform.translateX === 0 && transform.translateY === 0;
-      const isToDefault = initialTransform.scale === 1 && initialTransform.translateX === 0 && initialTransform.translateY === 0;
-      
-      if (!(isFromDefault && isToDefault)) {
-        console.log('🔄 useZoom updating transform (initial only):', { from: transform, to: initialTransform });
-        setTransform(initialTransform);
-        hasAppliedInitialTransform.current = true;
-      }
-    }
-  }, [initialTransform]);
   
   /**
    * Set zoom level
@@ -85,7 +67,7 @@ export function useZoom(dimensions = { width: 800, height: 600 }, initialTransfo
    * @param {Array} nodes - Array of positioned nodes
    * @param {Object} options - Animation options
    */
-  const fitToNodes = useCallback((nodes, options = {}) => {
+    const fitToNodes = useCallback((nodes, options = {}) => {
     if (!nodes || nodes.length === 0) {
       console.warn('🔄 fitToNodes: No nodes provided');
       return;
@@ -117,7 +99,7 @@ export function useZoom(dimensions = { width: 800, height: 600 }, initialTransfo
         animationRef.current = null;
       }
       
-      const startTransform = transform;
+      const startTransform = transformRef.current; // Use ref here
       const startTime = performance.now();
       const duration = 300; // ms
       const maxDuration = 1000; // Safety timeout to prevent infinite animations
@@ -170,7 +152,7 @@ export function useZoom(dimensions = { width: 800, height: 600 }, initialTransfo
         onComplete();
       }
     }
-  }, [dimensions, transform]);
+  }, [dimensions]);
   
   /**
    * Apply zoom at a specific point (like mouse position)
