@@ -435,17 +435,6 @@ export function Canvas({
         ctx.stroke(clusterPath);
         ctx.restore();
 
-        // Draw "Current Position" label for position clusters
-        const centerX = nodePoints.reduce((sum, p) => sum + p.x, 0) / nodePoints.length;
-        const centerY = nodePoints.reduce((sum, p) => sum + p.y, 0) / nodePoints.length;
-        
-        ctx.save();
-        ctx.fillStyle = colors.text;
-        ctx.font = `bold 12px ${RENDER_CONFIG.FONT_FAMILY}`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('Current Position', centerX, centerY - 50);
-        ctx.restore();
       });
     }
   }, [openingClusters, positionClusters, showOpeningClusters, showPositionClusters, graphData.nodes]);

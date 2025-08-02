@@ -46,15 +46,15 @@ export const ComponentConfigs = {
       oneActive: '1fr'
     },
     board: {
-      desktopWidth: '1.5fr',
+      desktopWidth: '1.75fr',
       twoActive: {
-        'board+moves': '1.5fr',
-        'board+details': '1.5fr'
+        'board+moves': '1.75fr',
+        'board+details': '1.75fr'
       },
       oneActive: '1fr'
     },
     graph: {
-      desktopWidth: '2.25fr',
+      desktopWidth: '2fr',
       oneActive: '1fr'
     },
     details: {
