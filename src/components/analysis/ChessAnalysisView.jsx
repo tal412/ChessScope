@@ -825,6 +825,10 @@ const ChessAnalysisView = ({
                       if (isCanvasInOpeningMode) {
                         moveData.arrowColor = '#ec4899'; // Pink for opening mode
                         moveData.fixedThickness = 14;
+                      } else if (node.data?.isMissing) {
+                        // Pink arrow for nodes with no data in performance mode
+                        moveData.arrowColor = '#ec4899'; // Pink for no data
+                        moveData.fixedThickness = 14;
                       }
                       
                       onHoveredMoveChange(moveData);
