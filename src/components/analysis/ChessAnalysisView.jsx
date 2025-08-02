@@ -818,7 +818,16 @@ const ChessAnalysisView = ({
                   onNodeHoverEnd={handleCanvasNodeHoverEnd}
                   onNextMoveHover={(node) => {
                     if (onHoveredMoveChange) {
-                      onHoveredMoveChange({ ...node.data, maxGameCount: graphData.maxGameCount });
+                      // Respect the canvas's current mode for styling, which can be different from the page's mode.
+                      const isCanvasInOpeningMode = canvasMode === 'opening';
+                      const moveData = { ...node.data, maxGameCount: graphData.maxGameCount };
+
+                      if (isCanvasInOpeningMode) {
+                        moveData.arrowColor = '#ec4899'; // Pink for opening mode
+                        moveData.fixedThickness = 14;
+                      }
+                      
+                      onHoveredMoveChange(moveData);
                     }
                   }}
                   onNextMoveHoverEnd={() => {

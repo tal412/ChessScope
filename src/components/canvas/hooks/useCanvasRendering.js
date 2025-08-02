@@ -446,8 +446,16 @@ export const useCanvasRendering = ({
     
     const textColor = perfData.text;
     const isBlackText = textColor === '#000000' || textColor === '#000';
-    ctx.strokeStyle = isBlackText ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
-    ctx.lineWidth = isBlackText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
+    const isMissingNode = node.data.isMissing;
+    
+    // Special handling for missing nodes - stronger black stroke for better visibility
+    if (isMissingNode) {
+      ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)'; // Fully opaque black stroke
+      ctx.lineWidth = 4; // Thicker stroke for missing nodes
+    } else {
+      ctx.strokeStyle = isBlackText ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+      ctx.lineWidth = isBlackText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
+    }
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 

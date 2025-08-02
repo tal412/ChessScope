@@ -145,13 +145,13 @@ export const PERFORMANCE_COLORS = {
 };
 
 export const OPENING_NODE_COLORS = {
-  whiteMove: { bg: '#ffffff', border: '#d1d5db', text: '#000000' },     // White moves
-  blackMove: { bg: '#1f2937', border: '#374151', text: '#ffffff' },     // Black moves
-  selected: { bg: '#3b82f6', border: '#2563eb', text: '#ffffff' },      // Selected
-  withComment: { bg: '#06b6d4', border: '#0891b2', text: '#ffffff' },   // Annotated
-  withLinks: { bg: '#10b981', border: '#059669', text: '#ffffff' },     // With links
-  missing: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' },       // Missing
-  startNode: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' },     // Root node
+  whiteMove: { bg: '#ffffff', border: '#d1d5db', text: '#000000' },
+  blackMove: { bg: '#374151', border: '#4b5563', text: '#ffffff' },
+  selected: { bg: '#3b82f6', border: '#2563eb', text: '#ffffff' },
+  withComment: { bg: '#06b6d4', border: '#0891b2', text: '#ffffff' },
+  withLinks: { bg: '#10b981', border: '#059669', text: '#ffffff' },
+  missing: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' },
+  startNode: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' },
 };
 
 // Opening cluster colors - EXACT match with ReactFlow

@@ -9,11 +9,18 @@ import { drawIcon, drawChainLinkIcon, createConvexHull } from '../utils/geometry
 function renderPerformanceNodeText(ctx, node, centerX, centerY) {
   const colors = getPerformanceColors(node.data || {});
   const textColor = colors.text;
+  const isMissingNode = node.data?.isMissing;
   
   // Set up text stroke for readability (matching v1)
-  const isBlackText = textColor === '#000000' || textColor === '#000';
-  ctx.strokeStyle = isBlackText ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
-  ctx.lineWidth = isBlackText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
+  // Special handling for missing nodes - stronger black stroke for better visibility
+  if (isMissingNode) {
+    ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)'; // Fully opaque black stroke
+    ctx.lineWidth = 4; // Thicker stroke for missing nodes
+  } else {
+    const isBlackText = textColor === '#000000' || textColor === '#000';
+    ctx.strokeStyle = isBlackText ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
+    ctx.lineWidth = isBlackText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
+  }
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.textAlign = 'center';
@@ -36,7 +43,7 @@ function renderPerformanceNodeText(ctx, node, centerX, centerY) {
   } else if (node.data?.isMissing) {
     // Missing data node
     ctx.font = `bold ${RENDER_CONFIG.FONT_SIZES.PERFORMANCE_MOVE_LABEL}px ${RENDER_CONFIG.FONT_FAMILY}`;
-    ctx.fillStyle = '#6b7280'; // gray-500
+    ctx.fillStyle = textColor; // Use proper text color instead of hardcoded gray
     ctx.strokeText(node.data.san || '?', centerX, centerY + RENDER_CONFIG.OFFSETS.PERFORMANCE_MOVE_LABEL_Y);
     ctx.fillText(node.data.san || '?', centerX, centerY + RENDER_CONFIG.OFFSETS.PERFORMANCE_MOVE_LABEL_Y);
     
@@ -74,7 +81,7 @@ function renderPerformanceNodeText(ctx, node, centerX, centerY) {
  * Render opening node text
  */
 function renderOpeningNodeText(ctx, node, centerX, centerY) {
-  const colors = getOpeningNodeColors(node.data || {});
+  const colors = getOpeningNodeColors(node || {});
   const textColor = colors.text;
   
   // Set up text stroke for readability (matching v1)
@@ -509,7 +516,7 @@ export function Canvas({
       // Get colors
       const colors = mode === 'performance' 
         ? getPerformanceColors(node.data || {})
-        : getOpeningNodeColors(node.data || {});
+        : getOpeningNodeColors(node);
 
       // Calculate node rectangle bounds (matching v1)
       const nodeX = x - CANVAS_CONFIG.NODE_HALF_SIZE;

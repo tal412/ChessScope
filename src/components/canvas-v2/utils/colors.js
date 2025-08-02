@@ -47,18 +47,18 @@ export function getPerformanceColors(nodeDataOrWinRate, gameCount, isMissing = f
  * @returns {Object} Color scheme object with bg, border, text properties
  */
 export function getOpeningNodeColors(node, isSelected = false) {
-  if (node.data?.isMissing) {
+  const nodeData = node.data || {};
+
+  if (nodeData.isMissing) {
     return OPENING_NODE_COLORS.missing;
   }
   
-  // Root node gets special styling
-  if (node.data?.isRoot) {
+  if (nodeData.isRoot) {
     return OPENING_NODE_COLORS.startNode;
   }
   
-  // Determine move color based on move sequence
-  const moveSequence = node.data?.moveSequence || [];
-  const isWhiteMove = moveSequence.length % 2 === 1; // Odd = white move
+  const moveSequence = nodeData.moveSequence || [];
+  const isWhiteMove = moveSequence.length % 2 !== 0;
   
   return isWhiteMove ? OPENING_NODE_COLORS.whiteMove : OPENING_NODE_COLORS.blackMove;
 }

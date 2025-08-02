@@ -1241,10 +1241,11 @@ export default function InteractiveChessboard({
 
   // Dynamic brush generation for custom colors (like pink arrows)
   const generateCustomBrush = useCallback((color, thickness) => {
-    const brushKey = `custom_${color.replace('#', '')}_${thickness}`;
+    const colorKey = color.replace('#', '');
+    const brushKey = `custom_${colorKey}_${thickness}`;
     return {
       [brushKey]: {
-        key: `c${thickness}`, // Unique key for custom colors
+        key: `c_${colorKey}_${thickness}`, // Make the internal key unique
         color: color,
         opacity: 0.8,
         lineWidth: thickness
