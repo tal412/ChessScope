@@ -21,9 +21,10 @@ import {
 
 // Helper function to get arrow color based on win rate (matching ChunkVisualization colors)
 const getArrowColor = (winRate) => {
-  if (winRate > 60) return "green"; // green brush
-  if (winRate >= 50) return "yellow"; // yellow brush
-  return "red"; // red brush
+  if (winRate >= 70) return "green";
+  if (winRate >= 60) return "blue";
+  if (winRate >= 50) return "yellow";
+  return "red";
 };
 
 // Helper function to calculate arrow thickness based on game count
@@ -196,7 +197,7 @@ export default function InteractiveChessboard({
         const move = tempGame.move(hoveredMove.san);
         
         if (move) {
-          const winRate = hoveredMove.details?.winRate ?? hoveredMove.winRate ?? 0;
+          const winRate = Math.round(hoveredMove.details?.winRate ?? hoveredMove.winRate ?? 0);
           const gameCount = hoveredMove.gameCount ?? 0;
           // Check for custom arrow color first, otherwise use win rate-based color
           let arrowColor, brushKey;
@@ -225,7 +226,7 @@ export default function InteractiveChessboard({
         const matchingMove = validMoves.find(m => m.san === hoveredMove.san);
         
         if (matchingMove) {
-          const winRate = hoveredMove.details?.winRate ?? hoveredMove.winRate ?? 0;
+          const winRate = Math.round(hoveredMove.details?.winRate ?? hoveredMove.winRate ?? 0);
           const gameCount = hoveredMove.gameCount ?? 0;
           // Check for custom arrow color first, otherwise use win rate-based color
           let arrowColor, brushKey;
@@ -1172,6 +1173,7 @@ export default function InteractiveChessboard({
     const brushes = {};
     const colors = {
       green: '#22c55e',
+      blue: '#3b82f6',
       yellow: '#eab308', 
       red: '#ef4444'
     };

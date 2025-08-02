@@ -729,9 +729,7 @@ export default function ChunkVisualization({
                     const enhancedMoveData = {
                       ...moveData,
                       maxGameCount: globalMaxGameCount,
-                      // Add arrow color for opening mode
-                      arrowColor: displayMode === 'opening' ? '#ec4899' : undefined,
-                      // For pink arrows, use consistent thickness since it's not performance data
+                      arrowColor: displayMode === 'opening' ? '#ec4899' : getArrowColor(moveData.details?.winRate ?? moveData.winRate ?? 0),
                       fixedThickness: displayMode === 'opening' ? 14 : undefined
                     };
                     onMoveHover(enhancedMoveData);

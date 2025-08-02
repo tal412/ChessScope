@@ -429,10 +429,6 @@ export function Canvas({
         ctx.save();
         ctx.fillStyle = colors.bg;
         ctx.fill(clusterPath);
-        ctx.strokeStyle = colors.border;
-        ctx.lineWidth = 3;
-        ctx.setLineDash([8, 4]); // Dashed line for position clusters
-        ctx.stroke(clusterPath);
         ctx.restore();
 
       });

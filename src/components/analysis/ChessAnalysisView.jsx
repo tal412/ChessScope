@@ -470,7 +470,9 @@ const ChessAnalysisView = ({
                nodeMoves.every((move, index) => move === nextMovePath[index]);
       });
       
-      // Note: Hover highlighting is now handled internally by ChessCanvas
+      if (hoveredNode && canvasRef.current) {
+        canvasRef.current.setHoveredNextMoveNode(hoveredNode.id);
+      }
     }
     
     if (onHoveredMoveChange) {
@@ -480,6 +482,10 @@ const ChessAnalysisView = ({
   
   const handleMovesMoveHoverEnd = useCallback(() => {
     setMovesHoveredMove(null);
+    
+    if (canvasRef.current) {
+      canvasRef.current.clearHoveredNextMoveNode();
+    }
     
     if (onHoveredMoveChange) {
       onHoveredMoveChange(null);
@@ -810,6 +816,16 @@ const ChessAnalysisView = ({
                   onNodeClick={handleCanvasNodeClick}
                   onNodeHover={handleCanvasNodeHover}
                   onNodeHoverEnd={handleCanvasNodeHoverEnd}
+                  onNextMoveHover={(node) => {
+                    if (onHoveredMoveChange) {
+                      onHoveredMoveChange({ ...node.data, maxGameCount: graphData.maxGameCount });
+                    }
+                  }}
+                  onNextMoveHoverEnd={() => {
+                    if (onHoveredMoveChange) {
+                      onHoveredMoveChange(null);
+                    }
+                  }}
                   onNodeRightClick={onNodeRightClick}
                   contextMenuActions={contextMenuActions}
                   isGenerating={isGenerating}

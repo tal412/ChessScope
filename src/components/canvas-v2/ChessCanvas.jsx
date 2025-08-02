@@ -28,6 +28,8 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
   onNodeClick = null,
   onNodeHover = null,
   onNodeHoverEnd = null,
+  onNextMoveHover = null,
+  onNextMoveHoverEnd = null,
   onNodeRightClick = null,
   
   // Cluster data (optional - will be generated internally if not provided)
@@ -695,6 +697,7 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [mousePressed, setMousePressed] = useState(false);
   const [localHoveredNode, setLocalHoveredNode] = useState(null);
+  const [nextMoveHoveredNode, setNextMoveHoveredNode] = useState(null);
   const [cursorStyle, setCursorStyle] = useState('grab');
 
   // Update cursor style when hovered node changes or interaction state changes
@@ -774,12 +777,33 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
         // Call external hover handlers
         if (nodeAtPosition) {
           handleNodeHover(e, nodeAtPosition);
+          
+          // Check if the hovered node is a child of the current node
+          const isChildOfCurrent = processedGraphData.edges.some(edge => 
+            edge.source === internalCurrentNodeId && edge.target === nodeAtPosition.id
+          );
+
+          if (isChildOfCurrent) {
+            if (nextMoveHoveredNode?.id !== nodeAtPosition.id) {
+              if (onNextMoveHover) onNextMoveHover(nodeAtPosition);
+              setNextMoveHoveredNode(nodeAtPosition);
+            }
+          } else {
+            if (nextMoveHoveredNode) {
+              if (onNextMoveHoverEnd) onNextMoveHoverEnd();
+              setNextMoveHoveredNode(null);
+            }
+          }
         } else {
           handleNodeHoverEnd(e, null);
+          if (nextMoveHoveredNode) {
+            if (onNextMoveHoverEnd) onNextMoveHoverEnd();
+            setNextMoveHoveredNode(null);
+          }
         }
       }
     }
-  }, [mousePressed, dragStart, zoom, interactionBlocking.isCanvasInteractionBlocked, isDragging, processedGraphData.nodes, handleNodeHover, handleNodeHoverEnd]);
+  }, [mousePressed, dragStart, zoom, interactionBlocking.isCanvasInteractionBlocked, isDragging, processedGraphData.nodes, processedGraphData.edges, handleNodeHover, handleNodeHoverEnd, internalCurrentNodeId, onNextMoveHover, onNextMoveHoverEnd, nextMoveHoveredNode]);
 
   const handleMouseUp = useCallback(() => {
     setMousePressed(false);
@@ -792,7 +816,12 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
     setLocalHoveredNode(null);
     
     handleNodeHoverEnd();
-  }, [handleNodeHoverEnd]);
+
+    if (nextMoveHoveredNode) {
+      if (onNextMoveHoverEnd) onNextMoveHoverEnd();
+      setNextMoveHoveredNode(null);
+    }
+  }, [handleNodeHoverEnd, onNextMoveHoverEnd, nextMoveHoveredNode]);
 
   const handleWheel = useCallback((e) => {
     if (!interactionBlocking.isCanvasInteractionBlocked()) {
@@ -918,6 +947,10 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
     setCurrentNode: updateCurrentPosition,
     getCurrentNode: () => internalCurrentNodeId,
     
+    // Hover controls
+    setHoveredNextMoveNode: position.setHoveredNextMoveNode,
+    clearHoveredNextMoveNode: position.clearHoveredNextMoveNode,
+
     // Cluster controls
     updateOpeningClusters: (clusters) => {
       setInternalOpeningClusters(clusters);
