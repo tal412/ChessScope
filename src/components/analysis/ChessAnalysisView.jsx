@@ -727,7 +727,7 @@ const ChessAnalysisView = ({
                     maxDepth={mode === 'performance' ? 20 : 50}
                     minGameCount={mode === 'performance' ? 1 : 0}
                     winRateFilter={mode === 'performance' ? [0, 100] : [0, 100]}
-                    displayMode={mode === 'performance' ? 'performance' : 'opening'}
+                    displayMode={(mode === 'opening-editor' || mode === 'opening-viewer') && canvasMode === 'performance' ? 'performance' : (mode === 'performance' ? 'performance' : 'opening')}
                     readOnly={readOnly}
                   />
                 </div>
