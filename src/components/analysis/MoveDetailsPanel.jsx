@@ -280,10 +280,12 @@ export default function MoveDetailsPanel({
           <div className="flex-shrink-0">
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <Label className="text-slate-300 flex items-center">
-                  <Target className="w-4 h-4 mr-2" />
-                  Arrows ({(selectedNode.arrows || []).length})
-                </Label>
+                {readOnly && (
+                  <Label className="text-slate-300 flex items-center">
+                    <Target className="w-4 h-4 mr-2" />
+                    Arrows
+                  </Label>
+                )}
                 {!readOnly && (
                   <Button
                     size="sm"
@@ -291,7 +293,7 @@ export default function MoveDetailsPanel({
                     onClick={handleDrawingModeToggle}
                     disabled={selectedNode && selectedNode.san === 'Start'}
                     className={cn(
-                      "transition-all duration-200",
+                      "w-full transition-all duration-200",
                       selectedNode && selectedNode.san === 'Start'
                         ? "opacity-50 cursor-not-allowed border-slate-600 text-slate-500"
                         : drawingMode 
@@ -306,19 +308,13 @@ export default function MoveDetailsPanel({
                 )}
               </div>
               
-              {/* Show arrow count and hint */}
-              {!readOnly && (
+              {/* Show drawing mode status */}
+              {!readOnly && drawingMode && (
                 <div className="text-xs text-slate-400">
-                  {drawingMode ? (
-                    <div className="flex items-center gap-2 text-green-400">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      Drawing mode active - right-click drag on board to draw arrows
-                    </div>
-                  ) : (
-                    <div>
-                      Click "Draw Arrows" to add arrows to this position
-                    </div>
-                  )}
+                  <div className="flex items-center gap-2 text-green-400">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                    Drawing mode active - right-click drag on board to draw arrows
+                  </div>
                 </div>
               )}
               
@@ -362,10 +358,12 @@ export default function MoveDetailsPanel({
 
           {/* Links Section */}
           <div className="flex-shrink-0 min-h-0 max-h-48 flex flex-col">
-            <Label className="text-slate-300 flex-shrink-0 mb-2">
-              <LinkIcon className="w-4 h-4 inline mr-1" />
-              Links
-            </Label>
+            {readOnly && (
+              <Label className="text-slate-300 flex-shrink-0 mb-2">
+                <LinkIcon className="w-4 h-4 inline mr-1" />
+                Links
+              </Label>
+            )}
             <div className="flex-1 overflow-y-auto space-y-2">
               {readOnly ? (
                 <>
