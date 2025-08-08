@@ -96,8 +96,8 @@ function renderOpeningNodeText(ctx, node, centerX, centerY) {
   if (node.data?.isRoot) {
     ctx.font = `bold ${RENDER_CONFIG.FONT_SIZES.ROOT_LABEL}px ${RENDER_CONFIG.FONT_FAMILY}`;
     ctx.fillStyle = textColor;
-    ctx.strokeText('START', centerX, centerY);
-    ctx.fillText('START', centerX, centerY);
+    ctx.strokeText('START', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_LABEL_Y);
+    ctx.fillText('START', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_LABEL_Y);
     
     if (node.data?.gameCount) {
       ctx.font = `600 ${RENDER_CONFIG.FONT_SIZES.GAME_COUNT}px ${RENDER_CONFIG.FONT_FAMILY}`;
