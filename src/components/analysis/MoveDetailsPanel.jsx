@@ -34,33 +34,35 @@ const MoveActionButton = ({
       <Button
         size="sm"
         variant="ghost"
-        disabled={false}
-        onClick={readOnly || disabled ? null : onClick}
+        disabled={!readOnly && disabled && isActive}
+        onClick={readOnly || (disabled && isActive) ? null : onClick}
         className={cn(
-          "h-8 w-8 p-0 transition-colors",
+          "h-9 w-9 p-0 rounded-lg border transition-all duration-200",
+          // Different hover behavior for active vs inactive
+          isActive && disabled ? "hover:scale-100" : "hover:scale-105 active:scale-95",
           isActive 
-            ? "text-white bg-gradient-to-br from-amber-400 to-orange-500 border border-amber-300 shadow-lg shadow-amber-400/50" 
-            : "text-slate-400",
-          !readOnly && !disabled && "hover:text-amber-400 hover:bg-amber-400/10"
+            ? "bg-gradient-to-br from-emerald-500 via-blue-500 to-purple-600 border-emerald-400/60 text-white shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:from-emerald-400 hover:via-blue-400 hover:to-purple-500 ring-1 ring-emerald-400/20" 
+            : "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/70 hover:border-slate-500 hover:text-slate-100",
+          readOnly && !isActive && "opacity-60 cursor-default hover:scale-100",
+          disabled && isActive && "cursor-default hover:scale-100"
         )}
       >
         <Icon className={cn(
-          "w-4 h-4 transition-all stroke-2",
-          isActive ? "stroke-white drop-shadow-md filter brightness-125" : "stroke-current",
-          "fill-none"
+          "w-4 h-4 transition-all duration-200",
+          isActive ? "stroke-white drop-shadow-sm filter brightness-110" : "stroke-current"
         )} />
       </Button>
       
-      {/* Tooltip - always show */}
-      <div className="absolute right-0 bottom-full mb-2 px-3 py-2 bg-slate-800 border border-slate-600 rounded-lg text-sm text-slate-200 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-lg">
+      {/* Enhanced tooltip with better positioning and styling - positioned below button */}
+      <div className="absolute right-0 top-full mt-3 px-3 py-2 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-md text-xs text-slate-200 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-xl">
         {readOnly ? (
           // View mode - just show the label
-          isActive ? `${label.charAt(0).toUpperCase() + label.slice(1)}` : `Not ${label}`
+          isActive ? `✓ ${label.charAt(0).toUpperCase() + label.slice(1)}` : `Not ${label}`
         ) : (
           // Edit mode - show action text
-          isActive ? `Already ${label}` : `Set as ${label}`
+          isActive ? `✓ ${label.charAt(0).toUpperCase() + label.slice(1)} (active)` : `Set as ${label}`
         )}
-        <div className="absolute -bottom-1 right-3 w-2 h-2 bg-slate-800 border-r border-b border-slate-600 transform rotate-45"></div>
+        <div className="absolute -top-1 right-3 w-2 h-2 bg-slate-900 border-l border-t border-slate-700/50 transform rotate-45"></div>
       </div>
     </div>
   );
@@ -186,13 +188,23 @@ export default function MoveDetailsPanel({
 
   const handleSetAsMainLine = () => {
     if (readOnly) return;
-    onSetMainLine(selectedNode);
+    if (onSetMainLine) {
+      onSetMainLine(selectedNode);
+      // Force a re-render by calling onUpdateNode if available
+      if (onUpdateNode) {
+        onUpdateNode();
+      }
+    }
   };
 
   const handleSetAsInitialPosition = () => {
     if (readOnly) return;
     if (onSetInitialMove) {
       onSetInitialMove(selectedNode);
+      // Force a re-render by calling onUpdateNode if available
+      if (onUpdateNode) {
+        onUpdateNode();
+      }
     }
   };
 
@@ -216,9 +228,10 @@ export default function MoveDetailsPanel({
         <CardHeader className="pb-3">
           <CardTitle className="text-slate-100 text-lg flex items-center justify-between">
             <span>Move: {selectedNode.san}</span>
-                        <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               {/* Main Line Button */}
               <MoveActionButton
+                key={`main-line-${selectedNode.id}-${selectedNode.isMainLine}`}
                 icon={Star}
                 label="main line"
                 isActive={selectedNode.isMainLine}
@@ -229,6 +242,7 @@ export default function MoveDetailsPanel({
 
               {/* Initial Position Button */}
               <MoveActionButton
+                key={`initial-move-${selectedNode.id}-${selectedNode.isInitialMove}`}
                 icon={Play}
                 label="initial position"
                 isActive={selectedNode.isInitialMove}
@@ -289,20 +303,23 @@ export default function MoveDetailsPanel({
                 {!readOnly && (
                   <Button
                     size="sm"
-                    variant={drawingMode ? "default" : "outline"}
+                    variant="ghost"
                     onClick={handleDrawingModeToggle}
                     disabled={selectedNode && selectedNode.san === 'Start'}
                     className={cn(
-                      "w-full transition-all duration-200",
+                      "w-full transition-all duration-200 border rounded-lg hover:scale-[1.02] active:scale-[0.98]",
                       selectedNode && selectedNode.san === 'Start'
-                        ? "opacity-50 cursor-not-allowed border-slate-600 text-slate-500"
+                        ? "opacity-50 cursor-not-allowed border-slate-600 text-slate-500 bg-slate-800/50"
                         : drawingMode 
-                          ? "bg-green-600 hover:bg-green-700 text-white" 
-                          : "border-slate-600 text-slate-300 hover:bg-slate-700"
+                          ? "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white border-emerald-500/50 shadow-lg shadow-emerald-500/25" 
+                          : "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/70 hover:border-slate-500 hover:text-slate-100"
                     )}
                     title={selectedNode && selectedNode.san === 'Start' ? "Cannot draw arrows on starting position" : undefined}
                   >
-                    <Pencil className="w-4 h-4 mr-2" />
+                    <Pencil className={cn(
+                      "w-4 h-4 mr-2 transition-all duration-200",
+                      drawingMode && "animate-pulse"
+                    )} />
                     {drawingMode ? "Stop Drawing" : "Draw Arrows"}
                   </Button>
                 )}
@@ -343,7 +360,7 @@ export default function MoveDetailsPanel({
                               newArrows.splice(index, 1);
                               handleArrowsChange(newArrows);
                             }}
-                            className="h-6 w-6 p-0 text-red-400 hover:text-red-300 hover:bg-red-400/10"
+                            className="h-6 w-6 p-0 rounded-md text-red-400 hover:text-red-200 hover:bg-red-500/20 transition-all duration-200 hover:scale-110 active:scale-95"
                           >
                             <X className="w-3 h-3" />
                           </Button>
@@ -384,7 +401,7 @@ export default function MoveDetailsPanel({
                               size="sm"
                               variant="ghost"
                               onClick={() => window.open(link.url, '_blank')}
-                              className="text-amber-400 hover:text-amber-300 flex-shrink-0 ml-2"
+                              className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 flex-shrink-0 ml-2 rounded-md transition-all duration-200 hover:scale-110 active:scale-95"
                             >
                               <ExternalLink className="w-4 h-4" />
                             </Button>
@@ -416,7 +433,7 @@ export default function MoveDetailsPanel({
                         size="sm"
                         variant="ghost"
                         onClick={() => handleRemoveLink(index)}
-                        className="text-red-400 hover:text-red-300 flex-shrink-0"
+                        className="text-red-400 hover:text-red-200 hover:bg-red-500/20 flex-shrink-0 rounded-md transition-all duration-200 hover:scale-110 active:scale-95"
                       >
                         <X className="w-4 h-4" />
                       </Button>
@@ -424,9 +441,9 @@ export default function MoveDetailsPanel({
                   ))}
                   <Button
                     size="sm"
-                    variant="outline"
+                    variant="ghost"
                     onClick={handleAddLink}
-                    className="w-full border-slate-600 text-slate-300 hover:bg-slate-700"
+                    className="w-full bg-slate-700/50 border border-slate-600 text-slate-300 hover:bg-slate-600/70 hover:border-slate-500 hover:text-slate-100 rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Add Link
@@ -439,4 +456,4 @@ export default function MoveDetailsPanel({
       </Card>
     </div>
   );
-} 
+}

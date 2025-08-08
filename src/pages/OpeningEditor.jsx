@@ -71,18 +71,24 @@ class MoveNode {
     };
     resetMainLine(rootNode);
     
+    // Build the path from root to target node
     const pathToTarget = [];
     let current = targetNode;
-    while (current.parent) {
+    while (current && current.parent) {
       pathToTarget.unshift(current);
       current = current.parent;
     }
-    pathToTarget.unshift(current);
+    // Include the root node if it exists
+    if (current) {
+      pathToTarget.unshift(current);
+    }
     
+    // Mark all nodes in the path as main line
     pathToTarget.forEach(node => {
       node.isMainLine = true;
     });
     
+    // Continue the main line from the target node by selecting the first child
     const continueMainLine = (node) => {
       if (node.children.length > 0) {
         const firstChild = node.children[0];
@@ -101,8 +107,10 @@ class MoveNode {
     };
     resetInitialMove(rootNode);
     
-    // Set the target node as the initial move
-    targetNode.isInitialMove = true;
+    // Only set initial move if targetNode is not the root
+    if (targetNode && targetNode.san !== 'Start') {
+      targetNode.isInitialMove = true;
+    }
   }
 }
 
@@ -1238,7 +1246,7 @@ export default function OpeningEditor() {
         readOnly={isViewMode}
       />
     );
-  }, [currentNode, isViewMode, moveTree, drawingMode, handleDrawingModeToggle]);
+  }, [currentNode, isViewMode, moveTree, drawingMode, handleDrawingModeToggle, treeChangeVersion]);
 
   // Create configuration for ChessAnalysisView
   const analysisConfig = useMemo(() => {
