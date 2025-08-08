@@ -14,32 +14,9 @@ import { BookOpen, Crown, Shield, ExternalLink, Loader2 } from 'lucide-react';
 import { checkPositionInOpenings } from '@/api/openingEntities';
 import OpeningDetailsDialog from './OpeningDetailsDialog';
 
-export default function OpeningSelector({ fen, trigger, children }) {
+export default function OpeningSelector({ fen, trigger, children, openings = [] }) {
   const navigate = useNavigate();
-  const [openings, setOpenings] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [open, setOpen] = useState(false);
-
-  useEffect(() => {
-    if (open && fen) {
-      loadOpenings();
-    }
-  }, [open, fen]);
-
-  const loadOpenings = async () => {
-    try {
-      setLoading(true);
-      const username = localStorage.getItem('chesscope_username');
-      if (!username) return;
-
-      const matchingOpenings = await checkPositionInOpenings(fen, username);
-      setOpenings(matchingOpenings);
-    } catch (error) {
-      console.error('Error loading openings:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleOpeningClick = (openingId) => {
     setOpen(false);
@@ -74,11 +51,7 @@ export default function OpeningSelector({ fen, trigger, children }) {
         </DialogHeader>
         
         <div className="mt-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
-            </div>
-          ) : openings.length === 0 ? (
+          {openings.length === 0 ? (
             <div className="text-center py-8 text-slate-400">
               <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>No saved openings contain this position</p>

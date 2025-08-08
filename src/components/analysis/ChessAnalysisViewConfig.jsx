@@ -78,7 +78,8 @@ export const createPerformanceGraphConfig = ({
   isGenerating = false,
   autoZoomOnClick = false,
   onAutoZoomOnClickChange = null,
-  onRefresh = null
+  onRefresh = null,
+  nodeOpeningsMap = new Map()
 }) => ({
   mode: 'performance',
   title: 'Performance Graph',
@@ -87,6 +88,7 @@ export const createPerformanceGraphConfig = ({
   // Data
   graphData,
   openingGraph,
+  nodeOpeningsMap,
   
   // State
   selectedPlayer,

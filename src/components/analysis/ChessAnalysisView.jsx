@@ -27,6 +27,7 @@ const ChessAnalysisView = ({
   graphData = { nodes: [], edges: [], maxGameCount: 0 },
   openingGraph = null,
   moveTree = null, // For opening editor mode
+  nodeOpeningsMap = new Map(), // Pre-loaded FEN to openings mapping
   
   // State management
   selectedPlayer = 'white',
@@ -768,12 +769,13 @@ const ChessAnalysisView = ({
                 showPositionMessage={mode === 'performance' && graphData.nodes.length > 0}
                 showOpeningGraphMessage={mode !== 'performance' && !!effectiveOpeningGraph}
                 performanceGraphMessage="Position not in opening graph"
-                showOpeningSelector={mode === 'opening-editor' || mode === 'opening-viewer'}
+                showOpeningSelector={mode === 'performance'}
                 openingGraph={effectiveOpeningGraph}
                 graphNodes={graphData.nodes}
                 readOnly={readOnly}
                 moveTree={moveTree}
                 mode={mode}
+                nodeOpeningsMap={nodeOpeningsMap}
                 positionStatus={getPositionStatus(chessboardSync.currentMoves)}
               />
               </div>

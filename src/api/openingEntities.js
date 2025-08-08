@@ -200,4 +200,52 @@ export const getOpeningPositions = async (openingId) => {
     console.error('Error getting opening positions:', error);
     return [];
   }
+};
+
+// Helper to get all FEN-to-opening mappings for a user (optimized for performance graph)
+export const getAllOpeningPositionsMap = async (username) => {
+  try {
+    // Check if database is ready, if not wait for it
+    if (!isDatabaseReady()) {
+      try {
+        await waitForDatabase(5000); // Wait max 5 seconds
+      } catch (error) {
+        console.warn('Database not ready for opening positions map:', error);
+        return new Map();
+      }
+    }
+    
+    // Get all user openings
+    const openings = await userOpening.getByUsername(username);
+    if (openings.length === 0) return new Map();
+    
+    // Get all moves for all openings in one efficient query
+    const openingIds = openings.map(o => o.id);
+    const fenToOpeningsMap = new Map();
+    
+    for (const opening of openings) {
+      const moves = await userOpeningMove.getByOpeningId(opening.id);
+      
+      for (const move of moves) {
+        if (!fenToOpeningsMap.has(move.fen)) {
+          fenToOpeningsMap.set(move.fen, []);
+        }
+        
+        // Only add if not already in the array (avoid duplicates)
+        const existingOpenings = fenToOpeningsMap.get(move.fen);
+        if (!existingOpenings.some(o => o.id === opening.id)) {
+          existingOpenings.push({
+            id: opening.id,
+            name: opening.name,
+            color: opening.color
+          });
+        }
+      }
+    }
+    
+    return fenToOpeningsMap;
+  } catch (error) {
+    console.error('Error getting all opening positions map:', error);
+    return new Map();
+  }
 }; 

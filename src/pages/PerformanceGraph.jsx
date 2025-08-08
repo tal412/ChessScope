@@ -5,7 +5,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { loadOpeningGraph } from '../api/graphStorage';
-import { checkPositionInOpenings } from '../api/openingEntities';
+import { getAllOpeningPositionsMap } from '../api/openingEntities';
 import { useAuth } from '../contexts/AuthContext';
 import ChessAnalysisView from '../components/analysis/ChessAnalysisView';
 import { createPerformanceGraphConfig } from '../components/analysis/ChessAnalysisViewConfig.jsx';
@@ -397,29 +397,29 @@ function PerformanceGraphContent() {
   generateGraph();
   }, [selectedPlayer, loading, openingGraph]);
 
-  // Load saved openings for all nodes
+  // Pre-load all opening positions map on component mount
   useEffect(() => {
-    const loadNodeOpenings = async () => {
-      if (graphData.nodes.length === 0) return;
-      
+    const loadAllOpeningPositions = async () => {
       const username = localStorage.getItem('chesscope_username');
       if (!username) return;
       
-      const newMap = new Map();
-      const uniqueFens = new Set(graphData.nodes.map(node => node.data.fen));
-      
-      for (const fen of uniqueFens) {
-        const openings = await checkPositionInOpenings(fen, username);
-        if (openings.length > 0) {
-          newMap.set(fen, openings);
+      try {
+        const fenToOpeningsMap = await getAllOpeningPositionsMap(username);
+        console.log(`🗂️ Loaded opening positions map:`, fenToOpeningsMap.size, 'FEN positions');
+        // Debug: Show some sample FENs from the map
+        if (fenToOpeningsMap.size > 0) {
+          const sampleFens = Array.from(fenToOpeningsMap.keys()).slice(0, 3);
+          console.log(`🗂️ Sample FENs in map:`, sampleFens);
         }
+        setNodeOpeningsMap(fenToOpeningsMap);
+      } catch (error) {
+        console.error('Error loading opening positions map:', error);
+        setNodeOpeningsMap(new Map());
       }
-      
-      setNodeOpeningsMap(newMap);
     };
     
-    loadNodeOpenings();
-  }, [graphData.nodes]);
+    loadAllOpeningPositions();
+  }, [refreshTrigger]); // Re-load when data refreshes
   
 
 
@@ -433,7 +433,8 @@ function PerformanceGraphContent() {
       loading,
       isGenerating,
       autoZoomOnClick,
-      onAutoZoomOnClickChange: handleAutoZoomOnClickChange
+      onAutoZoomOnClickChange: handleAutoZoomOnClickChange,
+      nodeOpeningsMap
     });
   }, [
     selectedPlayer,
@@ -442,7 +443,8 @@ function PerformanceGraphContent() {
     loading,
     isGenerating,
     autoZoomOnClick,
-    handleAutoZoomOnClickChange
+    handleAutoZoomOnClickChange,
+    nodeOpeningsMap
   ]);
   
   // Show loading screen during initial load OR when syncing

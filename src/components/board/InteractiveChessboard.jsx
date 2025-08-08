@@ -59,7 +59,8 @@ export default function InteractiveChessboard({
   showOpeningSelector = true, // Control whether to show the opening selector book icon
   moveTree = null, // Opening tree (for opening editor/viewer modes)
   mode = 'performance', // 'performance' | 'opening-editor' | 'opening-viewer'
-  positionStatus = 'normal' // 'normal' | 'extended_game' | 'not_in_repertoire'
+  positionStatus = 'normal', // 'normal' | 'extended_game' | 'not_in_repertoire'
+  nodeOpeningsMap = new Map() // Pre-loaded FEN to openings mapping
 }) {
   const containerRef = useRef(null);
   const isInternalMoveRef = useRef(false); // Track if move change is internal
@@ -449,17 +450,22 @@ export default function InteractiveChessboard({
       name: graphNode.data.openingName
     };
     console.log(`🔍 Using opening info from graph node:`, openingInfo);
+    
+    // Check if position exists in user's saved openings using pre-loaded map
+    const inOpenings = nodeOpeningsMap.has(currentFen) ? nodeOpeningsMap.get(currentFen) : [];
+    console.log(`🔍 Graph node path - checking nodeOpeningsMap for FEN: ${currentFen}, found: ${inOpenings.length} openings`);
+    
     setCurrentOpeningInfo(openingInfo);
     setPositionExistsInGraph(true);
     setPositionExistsInOpeningGraph(true);
-    setPositionInOpenings([]);
+    setPositionInOpenings(inOpenings);
     
     // Cache the result
     const cacheEntry = {
       openingInfo: openingInfo,
       existsInGraph: true,
       existsInOpeningGraph: true,
-      inOpenings: []
+      inOpenings: inOpenings
     };
     setOpeningLoadingCache(prev => new Map(prev.set(cacheKey, cacheEntry)));
     return;
@@ -575,9 +581,13 @@ export default function InteractiveChessboard({
            }
          }
        
-       // Check if position exists in user's saved openings
-       const username = localStorage.getItem('chesscope_username');
-       const inOpenings = username ? await checkPositionInOpenings(currentFen, username) : [];
+       // Check if position exists in user's saved openings using pre-loaded map
+       const inOpenings = nodeOpeningsMap.has(currentFen) ? nodeOpeningsMap.get(currentFen) : [];
+       console.log(`🔍 Position check - FEN: ${currentFen}, Map size: ${nodeOpeningsMap.size}, Found: ${inOpenings.length} openings`);
+       console.log(`🔍 Map has this FEN:`, nodeOpeningsMap.has(currentFen));
+       if (nodeOpeningsMap.size > 0 && nodeOpeningsMap.size < 10) {
+         console.log(`🔍 All FENs in map:`, Array.from(nodeOpeningsMap.keys()));
+       }
        
        // Only update opening info if we found a valid opening in the database
        if (openingInfo && openingInfo.name) {
@@ -1542,13 +1552,22 @@ export default function InteractiveChessboard({
 
           {/* Right side - Position Info Button and Book Icon */}
           <div className="flex items-center gap-1">
-            {showOpeningSelector && positionInOpenings.length > 0 && (
-              <OpeningSelector fen={game.fen()}>
+            {console.log(`🔍 Opening selector visibility - showOpeningSelector: ${showOpeningSelector}, positionInOpenings: ${positionInOpenings.length}, mode: ${mode}`)}
+            {showOpeningSelector && (
+              <OpeningSelector fen={game.fen()} openings={positionInOpenings}>
                 <Button
                   variant="outline"
                   size="sm"
-                  className="bg-amber-500/20 border-amber-500 text-amber-400 hover:bg-amber-500/30 hover:border-amber-400 hover:text-amber-300 transition-all duration-200"
-                  title={`In ${positionInOpenings.length} saved opening${positionInOpenings.length > 1 ? 's' : ''}`}
+                  className={
+                    positionInOpenings.length > 0
+                      ? "bg-amber-500/20 border-amber-500 text-amber-400 hover:bg-amber-500/30 hover:border-amber-400 hover:text-amber-300 transition-all duration-200"
+                      : "bg-slate-700/50 border-slate-600 text-slate-500 hover:bg-slate-700/70 hover:border-slate-500 cursor-pointer transition-all duration-200"
+                  }
+                  title={
+                    positionInOpenings.length > 0
+                      ? `In ${positionInOpenings.length} saved opening${positionInOpenings.length > 1 ? 's' : ''}`
+                      : "No saved openings contain this position"
+                  }
                 >
                   <BookOpen className="w-4 h-4" />
                   {positionInOpenings.length > 1 && (
