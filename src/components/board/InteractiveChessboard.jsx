@@ -1371,7 +1371,7 @@ export default function InteractiveChessboard({
                     <AlertTriangle className="w-3 h-3 text-amber-400" />
                     <span className="text-xs text-amber-400">
                       {positionStatus === 'extended_game' 
-                        ? 'Extended beyond performance graph into a specific game'
+                        ? 'Extended beyond performance graph'
                         : 'Position not in performance graph'
                       }
                     </span>
