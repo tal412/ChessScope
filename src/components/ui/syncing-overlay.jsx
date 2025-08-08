@@ -33,9 +33,9 @@ export default function SyncingOverlay({
           {/* Progress Bar - Only show during actual syncing */}
           {showProgress && (
             <div className="mt-6 space-y-4">
-              <div className="w-96 max-w-lg mx-auto space-y-3">
+              <div className="w-[28rem] max-w-2xl mx-auto space-y-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-300 font-medium flex-1 mr-4">
+                  <span className="text-slate-300 font-medium flex-1 mr-4 whitespace-nowrap overflow-hidden text-ellipsis">
                     {syncProgress >= 100 ? 'Finalizing...' : syncStatus || 'Updating Analysis...'}
                   </span>
                   <span className="text-slate-400 flex-shrink-0">
@@ -54,9 +54,6 @@ export default function SyncingOverlay({
                   />
                 </div>
               </div>
-              <p className="text-slate-500 text-sm">
-                This runs in the background - feel free to switch tabs
-              </p>
             </div>
           )}
           

@@ -9,6 +9,7 @@ import {
   clearAllGraphs
 } from '@/api/graphStorage';
 import { OpeningGraph } from '@/api/openingGraph';
+import { backgroundProcessor } from '../utils/BackgroundProcessor';
 
 const AuthContext = createContext();
 
@@ -201,6 +202,10 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.error('Login error:', error);
+      // Ensure background processor is stopped on error
+      if (backgroundProcessor.getStatus().isRunning) {
+        backgroundProcessor.stop();
+      }
       setImportStatus(`Error: ${error.message}`);
       return { success: false, error: error.message };
     } finally {
@@ -216,6 +221,12 @@ export const AuthProvider = ({ children }) => {
   const logout = async (delay = 0) => {
     try {
       console.log('🔄 Starting comprehensive logout cleanup...');
+      
+      // Stop any background processing first
+      if (backgroundProcessor.getStatus().isRunning) {
+        console.log('🛑 Stopping background processor...');
+        backgroundProcessor.stop();
+      }
       
       // Get platform-specific identifier before clearing auth data for IndexedDB cleanup
       const currentIdentifier = user?.platform ? `${user.platform}:${user.username}`.toLowerCase() : user?.chessComUsername?.toLowerCase();
@@ -371,6 +382,10 @@ export const AuthProvider = ({ children }) => {
       return result.gameCount;
     } catch (error) {
       console.error('Sync error:', error);
+      // Ensure background processor is stopped on error
+      if (backgroundProcessor.getStatus().isRunning) {
+        backgroundProcessor.stop();
+      }
       throw error;
     } finally {
       setIsSyncing(false);
@@ -439,6 +454,10 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.error('Settings update error:', error);
+      // Ensure background processor is stopped on error
+      if (backgroundProcessor.getStatus().isRunning) {
+        backgroundProcessor.stop();
+      }
       setImportStatus(`Error: ${error.message}`);
       return { success: false, error: error.message };
     } finally {
@@ -524,118 +543,62 @@ export const AuthProvider = ({ children }) => {
       // Reset debug tracking for this import session
       window.gameResults = { wins: 0, losses: 0, draws: 0, total: 0 };
       
-      // Track if we're running in background for logging
-      let wasInBackground = false;
-      
-      // Process games one at a time with proper UI yielding
-      for (let i = 0; i < totalGames; i++) {
-        const game = recentTargetedGames[i];
-        let gameData;
-        
-        // Log background execution for user awareness
-        if (document.hidden && !wasInBackground) {
-          console.log('📱 Import continues in background - feel free to switch tabs!');
-          wasInBackground = true;
-        } else if (!document.hidden && wasInBackground) {
-          console.log('👁️ Welcome back! Import was running in background and is still processing...');
-          wasInBackground = false;
-        }
-        
-        // DEBUG: Log the actual Chess.com game structure
-        if (platform === 'chess.com' && i === 0) {
-          console.log('🔍 DEBUG AuthContext - First Chess.com game structure:', {
-            game,
-            keys: Object.keys(game),
-            hasWhite: !!game.white,
-            hasBlack: !!game.black,
-            whiteResult: game.white?.result,
-            blackResult: game.black?.result,
-            sample: JSON.stringify(game).substring(0, 200)
-          });
-          // Log the full game object to see its structure
-          console.log('📋 Full first Chess.com game object:', game);
-        }
-        
-        // For Lichess, the games are already processed by fetchLichessGames
-        if (platform === 'lichess') {
-          // Lichess games are already in the correct format from fetchLichessGames
-          gameData = game;
+      // Use aggressive BackgroundProcessor with immediate yielding for background processing
+      await backgroundProcessor.processArray(
+        recentTargetedGames, 
+        async (game, index) => {
+          let gameData;
           
-          // DEBUG: Check player color distribution
-          if (i === 0 || i === 50 || i === 100) {
-            console.log(`🎨 DEBUG Game ${i} player color:`, {
-              player_color: gameData.player_color,
-              white_username: gameData.white_username,
-              black_username: gameData.black_username,
-              input_username: username,
-              result: gameData.result
-            });
-          }
-        } else {
-          // Use the generic function for Chess.com
-          gameData = extractGameDataGeneric(game, username, platform);
-          
-          // DEBUG: Check Chess.com processing results
-          if (i === 0 || i === 50 || i === 100) {
-            console.log(`🎲 DEBUG Chess.com Game ${i} processing:`, {
-              player_color: gameData?.player_color,
-              white_username: gameData?.white_username,
-              black_username: gameData?.black_username,
-              input_username: username,
-              result: gameData?.result,
-              white_result: game.white?.result,
-              black_result: game.black?.result
-            });
-          }
-        }
-        
-        if (gameData && gameData.moves && gameData.moves.length > 0) {
-          // Add opening information
-          const opening = await identifyOpening(gameData.moves);
-          gameData.opening = opening;
-          
-          // Add game to the graph
-          await openingGraph.addGame(gameData);
-          
-          // Track results for debugging (simple counter approach)
-          if (!window.gameResults) window.gameResults = { wins: 0, losses: 0, draws: 0, total: 0 };
-          window.gameResults.total++;
-          if (gameData.result === 'win') window.gameResults.wins++;
-          else if (gameData.result === 'lose') window.gameResults.losses++;
-          else window.gameResults.draws++;
-        }
-        
-        // Update progress: 50% to 90% for processing (smooth single-game updates)
-        const progressPercent = 50 + ((i + 1) / totalGames) * 40;
-        setImportProgress(progressPercent);
-        setImportStatus(`Building graph: ${i + 1}/${totalGames} games processed`);
-        
-        // Debug logging for result distribution tracking (every 50 games)
-        if ((i + 1) % 50 === 0 || i === totalGames - 1) {
-          if (window.gameResults) {
-            const { wins, losses, draws, total } = window.gameResults;
-            console.log(`📊 After ${total} ${platform} games: ${wins} wins (${((wins/total)*100).toFixed(1)}%), ${losses} losses (${((losses/total)*100).toFixed(1)}%), ${draws} draws (${((draws/total)*100).toFixed(1)}%)`);
-          }
-        }
-        
-        // Better yielding for UI responsiveness
-        if (i % 10 === 0) { // Every 10 games
-          // Use requestIdleCallback for better scheduling if available
-          if (typeof requestIdleCallback !== 'undefined') {
-            await new Promise(resolve => {
-              requestIdleCallback(() => resolve(), { timeout: 50 });
-            });
+          // For Lichess, the games are already processed by fetchLichessGames
+          if (platform === 'lichess') {
+            gameData = game;
           } else {
-            // Fallback with longer delay
-            await new Promise(resolve => setTimeout(resolve, 10));
+            // Use the generic function for Chess.com
+            gameData = extractGameDataGeneric(game, username, platform);
+          }
+          
+          if (gameData && gameData.moves && gameData.moves.length > 0) {
+            // Add opening information
+            const opening = await identifyOpening(gameData.moves);
+            gameData.opening = opening;
+            
+            // Add game to the graph
+            await openingGraph.addGame(gameData);
+            
+            // Track results for debugging (simple counter approach)
+            if (!window.gameResults) window.gameResults = { wins: 0, losses: 0, draws: 0, total: 0 };
+            window.gameResults.total++;
+            if (gameData.result === 'win') window.gameResults.wins++;
+            else if (gameData.result === 'lose') window.gameResults.losses++;
+            else window.gameResults.draws++;
+          }
+          
+          return gameData;
+        },
+        {
+          batchSize: 1, // Process one game at a time
+          yieldEvery: 5, // Yield every 5 games when in foreground
+          backgroundYieldEvery: 1, // Yield after every game in background for maximum speed
+          onProgress: (progress) => {
+            // Update progress: 50% to 90% for processing (smooth updates)
+            const progressPercent = 50 + (progress.percentage / 100) * 40;
+            setImportProgress(progressPercent);
+            setImportStatus(`Building graph: ${progress.processed}/${progress.total} games processed ${progress.isBackground ? '(background)' : ''}`);
+            
+            // Debug logging for result distribution tracking (every 50 games)
+            if (progress.processed % 50 === 0 || progress.processed === progress.total) {
+              if (window.gameResults) {
+                const { wins, losses, draws, total } = window.gameResults;
+                console.log(`📊 After ${total} ${platform} games: ${wins} wins (${((wins/total)*100).toFixed(1)}%), ${losses} losses (${((losses/total)*100).toFixed(1)}%), ${draws} draws (${((draws/total)*100).toFixed(1)}%) ${progress.isBackground ? '(background mode - immediate yielding)' : ''}`);
+              }
+            }
+          },
+          onError: (error, game, index) => {
+            console.warn(`Error processing game ${index}:`, error);
+            // Continue with other games - don't stop the whole process
           }
         }
-        
-        // Extra yield every 50 games
-        if (i % 50 === 0 && i > 0) {
-          await new Promise(resolve => setTimeout(resolve, 30));
-        }
-      }
+      );
 
       setImportProgress(95);
       setImportStatus('Saving opening graph...');
@@ -773,68 +736,57 @@ export const AuthProvider = ({ children }) => {
 
       const totalGames = recentTargetedGames.length;
       
-      // Process games one at a time with maximum UI responsiveness
-      for (let i = 0; i < totalGames; i++) {
-        const game = recentTargetedGames[i];
-        let gameData;
-        
-        // For Lichess, the games are already processed by fetchLichessGames
-        if (platform === 'lichess') {
-          gameData = game;
-        } else {
-          // Use the generic function for Chess.com
-          gameData = extractGameDataGeneric(game, username, platform);
-        }
-        
-        if (gameData && gameData.moves && gameData.moves.length > 0) {
-          // Add opening information
-          const opening = await identifyOpening(gameData.moves);
-          gameData.opening = opening;
+      // Use aggressive BackgroundProcessor with immediate yielding for background processing
+      await backgroundProcessor.processArray(
+        recentTargetedGames, 
+        async (game, index) => {
+          let gameData;
           
-          // Add game to the graph
-          await openingGraph.addGame(gameData);
-        }
-        
-        // Update progress much more frequently for better UX
-        if ((i + 1) % 10 === 0 || i === totalGames - 1 || i === 0) {
-          // Progress goes from 50% to 95% during game processing
-          const gameProgress = ((i + 1) / totalGames) * 45; // 0-45% for games
-          const totalProgress = Math.round(50 + gameProgress); // Add to base 50%
-          setSyncProgress(totalProgress);
-          
-          // Update status every 50 games or at completion
-          if ((i + 1) % 50 === 0 || i === totalGames - 1) {
-            setSyncStatus(`Processing games: ${i + 1}/${totalGames} complete...`);
-          }
-        }
-        
-        // Log progress every 100 games
-        if ((i + 1) % 100 === 0 || i === totalGames - 1) {
-          console.log(`🔄 Silent import: Processed ${i + 1}/${totalGames} games`);
-        }
-        
-        // Yield to UI thread after every single game for maximum responsiveness
-        await new Promise(resolve => {
-          if (typeof requestIdleCallback !== 'undefined') {
-            // Use requestIdleCallback for optimal scheduling
-            requestIdleCallback(() => resolve(), { timeout: 32 });
+          // For Lichess, the games are already processed by fetchLichessGames
+          if (platform === 'lichess') {
+            gameData = game;
           } else {
-            // Short timeout for immediate yielding
-            setTimeout(resolve, 5);
+            // Use the generic function for Chess.com
+            gameData = extractGameDataGeneric(game, username, platform);
           }
-        });
-        
-        // Extra yield every 25 games for heavy processing
-        if ((i + 1) % 25 === 0) {
-          await new Promise(resolve => {
-            if (typeof requestIdleCallback !== 'undefined') {
-              requestIdleCallback(() => resolve(), { timeout: 100 });
-            } else {
-              setTimeout(resolve, 50);
+          
+          if (gameData && gameData.moves && gameData.moves.length > 0) {
+            // Add opening information
+            const opening = await identifyOpening(gameData.moves);
+            gameData.opening = opening;
+            
+            // Add game to the graph
+            await openingGraph.addGame(gameData);
+          }
+          
+          return gameData;
+        },
+        {
+          batchSize: 1, // Process one game at a time
+          yieldEvery: 5, // Yield every 5 games when in foreground 
+          backgroundYieldEvery: 1, // Yield after every game in background for maximum speed
+          onProgress: (progress) => {
+            // Progress goes from 50% to 95% during game processing
+            const gameProgress = (progress.percentage / 100) * 45; // 0-45% for games
+            const totalProgress = Math.round(50 + gameProgress); // Add to base 50%
+            setSyncProgress(totalProgress);
+            
+            // Update status every 25 games or at completion
+            if (progress.processed % 25 === 0 || progress.processed === progress.total) {
+              setSyncStatus(`Processing games: ${progress.processed}/${progress.total} complete... ${progress.isBackground ? '(background)' : ''}`);
             }
-          });
+            
+            // Log progress every 50 games
+            if (progress.processed % 50 === 0 || progress.processed === progress.total) {
+              console.log(`🔄 Silent import: Processed ${progress.processed}/${progress.total} games ${progress.isBackground ? '(background mode - immediate yielding)' : ''}`);
+            }
+          },
+          onError: (error, game, index) => {
+            console.warn(`Error processing game ${index}:`, error);
+            // Continue with other games - don't stop the whole process
+          }
         }
-      }
+      );
 
       setSyncProgress(95);
       setSyncStatus('Finalizing sync and saving opening graph...');

@@ -275,11 +275,16 @@ export default function Layout() {
                   <Tooltip key={item.name} delayDuration={0}>
                     <TooltipTrigger asChild>
                       <Link
-                        to={item.url}
+                        to={isSyncing || isImporting ? '#' : item.url}
+                        onClick={(e) => {
+                          if (isSyncing || isImporting) {
+                            e.preventDefault();
+                          }
+                        }}
                         className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 group outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0 ${
                           location.pathname === item.url
                             ? "bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-300 border border-amber-500/30"
-                            : "text-slate-300 hover:text-white hover:bg-slate-700/50 border border-transparent"
+                            : `text-slate-300 hover:text-white hover:bg-slate-700/50 border border-transparent ${(isSyncing || isImporting) ? 'opacity-50 cursor-not-allowed' : ''}`
                         } ${isSidebarCollapsed ? 'justify-center' : ''}`}
                       >
                         <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -410,7 +415,7 @@ export default function Layout() {
                   <TooltipTrigger asChild>
                     <Button
                       onClick={handleSettingsOpen}
-                      disabled={isImporting}
+                      disabled={isImporting || isSyncing}
                       size="sm"
                       variant="outline"
                       className={`border-slate-600 text-slate-300 hover:bg-slate-700 transition-all duration-200 ${isSidebarCollapsed ? 'px-3' : 'justify-start'}`}
@@ -434,7 +439,7 @@ export default function Layout() {
                   <TooltipTrigger asChild>
                     <Button
                       onClick={() => setShowLogoutDialog(true)}
-                      disabled={isImporting || isLoggingOut}
+                      disabled={isImporting || isLoggingOut || isSyncing}
                       size="sm"
                       variant="outline"
                       className={`border-slate-600 text-slate-300 hover:bg-slate-700 transition-all duration-200 ${isSidebarCollapsed ? 'px-3' : 'justify-start'}`}
@@ -538,9 +543,10 @@ export default function Layout() {
                   <TooltipTrigger asChild>
                     <Button
                       onClick={toggleSidebar}
+                      disabled={isSyncing || isImporting}
                       variant="ghost"
                       size="sm"
-                      className={`w-full text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all duration-200 ${isSidebarCollapsed ? 'px-3' : 'justify-center'}`}
+                      className={`w-full text-slate-400 hover:text-white hover:bg-slate-700/50 transition-all duration-200 ${isSidebarCollapsed ? 'px-3' : 'justify-center'} ${(isSyncing || isImporting) ? 'opacity-50 cursor-not-allowed' : ''}`}
                       title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                     >
                       {isSidebarCollapsed ? (
