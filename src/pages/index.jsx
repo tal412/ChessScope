@@ -1,8 +1,8 @@
 import Layout from "./Layout.jsx";
 import LoginPage from "./LoginPage";
 import PerformanceGraph from "./PerformanceGraph";
-import OpeningsBook from "./OpeningsBook";
-import OpeningEditor from "./OpeningEditor";
+import StudiesBook from "./StudiesBook";
+import StudyEditor from "./StudyEditor";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2, Shield, Crown, Heart, Code, DollarSign, Users, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -239,10 +239,10 @@ function PagesContent() {
             <Route path="/" element={<Layout />}>
                 <Route index element={<PerformanceGraph />} />
                 <Route path="PerformanceGraph" element={<PerformanceGraph />} />
-                <Route path="openings-book" element={<OpeningsBook />} />
-                <Route path="openings-book/editor/new" element={<OpeningEditor />} />
-                <Route path="openings-book/editor/:openingId" element={<OpeningEditor />} />
-                <Route path="openings-book/opening/:openingId" element={<OpeningEditor />} />
+                <Route path="studies-book" element={<StudiesBook />} />
+                <Route path="studies-book/editor/new" element={<StudyEditor />} />
+                <Route path="studies-book/editor/:studyId" element={<StudyEditor />} />
+                <Route path="studies-book/study/:studyId" element={<StudyEditor />} />
                 {/* Redirect authenticated users away from login */}
                 <Route path="login" element={<PerformanceGraph />} />
             </Route>

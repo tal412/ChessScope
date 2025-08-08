@@ -1,7 +1,7 @@
 // Storage manager for OpeningGraph using IndexedDB
 // This replaces the old approach of storing thousands of individual games and nodes
 
-import { OpeningGraph } from './openingGraph.js';
+import { OpeningGraph } from './studyGraph.js';
 
 const DB_NAME = 'ChessScopeGraph';
 const DB_VERSION = 1;

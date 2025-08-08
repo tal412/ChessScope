@@ -12,7 +12,7 @@ import {
   AlertTriangle,
   Eye
 } from 'lucide-react';
-import { UserOpening, UserOpeningMove, MoveAnnotation } from '@/api/entities';
+import { UserStudy, UserStudyMove, MoveAnnotation } from '@/api/studyEntities';
 import { Chess } from 'chess.js';
 import { loadOpeningGraph } from '@/api/graphStorage';
 import ChessAnalysisView from '../components/analysis/ChessAnalysisView';
@@ -116,19 +116,19 @@ class MoveNode {
 
 export default function OpeningEditor() {
   const navigate = useNavigate();
-  const { openingId } = useParams();
-  const isNewOpening = !openingId;
+  const { studyId } = useParams();
+  const isNewStudy = !studyId;
   
   // Detect if we're in view mode vs edit mode based on the URL path
   const location = useLocation();
-  const isViewMode = location.pathname.includes('/openings-book/opening/');
-  const isEditMode = location.pathname.includes('/openings-book/editor/') || isNewOpening;
+  const isViewMode = location.pathname.includes('/studies-book/opening/');
+  const isEditMode = location.pathname.includes('/studies-book/editor/') || isNewStudy;
   
   console.log('🔧 Mode detection:', {
     pathname: location.pathname,
     isViewMode,
     isEditMode,
-    isNewOpening
+    isNewStudy
   });
   
   // Form state
@@ -137,7 +137,7 @@ export default function OpeningEditor() {
   
   // Initialize form state from URL parameters for new openings
   useEffect(() => {
-    if (isNewOpening) {
+    if (isNewStudy) {
       const urlParams = new URLSearchParams(window.location.search);
       const nameParam = urlParams.get('name');
       const colorParam = urlParams.get('color');
@@ -145,7 +145,7 @@ export default function OpeningEditor() {
       if (nameParam) setName(nameParam);
       if (colorParam && ['white', 'black'].includes(colorParam)) setColor(colorParam);
     }
-  }, [isNewOpening]);
+  }, [isNewStudy]);
   
   // Move tree state
   const [moveTree, setMoveTree] = useState(new MoveNode('Start', 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'));
@@ -160,7 +160,7 @@ export default function OpeningEditor() {
   
   // Auto-save state
   const autoSaveTimeoutRef = useRef(null);
-  const [savedOpeningId, setSavedOpeningId] = useState(null);
+  const [savedStudyId, setSavedOpeningId] = useState(null);
   
   // Hover state for chessboard arrows
   const [hoveredMove, setHoveredMove] = useState(null);
@@ -251,8 +251,8 @@ export default function OpeningEditor() {
   // Load existing opening
   const loadedOpeningIdRef = useRef(null);
   useEffect(() => {
-    if (!isNewOpening) {
-      const currentOpeningId = parseInt(openingId);
+    if (!isNewStudy) {
+      const currentOpeningId = parseInt(studyId);
       const hasTreeData = moveTree && moveTree.children.length > 0;
       const isSameOpening = loadedOpeningIdRef.current === currentOpeningId;
       const hasValidOpeningData = hasTreeData && name && name.trim() !== '';
@@ -270,7 +270,7 @@ export default function OpeningEditor() {
       setCurrentNode(moveTree);
       setCurrentPath([]);
     }
-  }, [openingId]);
+  }, [studyId]);
 
   // Auto-save function
   const autoSave = useCallback(async () => {
@@ -311,24 +311,24 @@ export default function OpeningEditor() {
         initial_view_fen: initialViewFen
       };
       
-      let savedOpening;
-      if (!savedOpeningId) {
+      let savedStudy;
+      if (!savedStudyId) {
         // First time saving - create new opening
-        savedOpening = await UserOpening.create(openingData);
-        setSavedOpeningId(savedOpening.id);
+        savedStudy = await UserStudy.create(openingData);
+        setSavedOpeningId(savedStudy.id);
         // Update URL to edit mode for existing opening
-        window.history.replaceState(null, '', `/openings-book/editor/${savedOpening.id}`);
+        window.history.replaceState(null, '', `/studies-book/editor/${savedStudy.id}`);
       } else {
         // Update existing opening
-        await UserOpening.update(savedOpeningId, openingData);
-        savedOpening = { id: savedOpeningId };
+        await UserStudy.update(savedStudyId, openingData);
+        savedStudy = { id: savedStudyId };
       }
       
       // Clear existing moves
-      const existingMoves = await UserOpeningMove.getByOpeningId(savedOpening.id);
+      const existingMoves = await UserStudyMove.getByStudyId(savedStudy.id);
       for (const move of existingMoves) {
         await MoveAnnotation.deleteByMoveId(move.id);
-        await UserOpeningMove.delete(move.id);
+        await UserStudyMove.delete(move.id);
       }
       
       // Save new moves
@@ -337,7 +337,7 @@ export default function OpeningEditor() {
         if (node.san === 'Start') return;
         
         const moveData = {
-          opening_id: savedOpening.id,
+          study_id: savedStudy.id,
           fen: node.fen,
           san: node.san,
           move_number: moveNumber++,
@@ -348,7 +348,7 @@ export default function OpeningEditor() {
           arrows: node.arrows || []
         };
         
-        const savedMove = await UserOpeningMove.create(moveData);
+        const savedMove = await UserStudyMove.create(moveData);
         
         if (node.links && node.links.length > 0) {
           for (const link of node.links) {
@@ -375,7 +375,7 @@ export default function OpeningEditor() {
     } catch (error) {
       console.error('Auto-save error:', error);
     }
-  }, [isViewMode, name, color, moveTree, savedOpeningId]);
+  }, [isViewMode, name, color, moveTree, savedStudyId]);
 
   // Immediate auto-save on changes
   useEffect(() => {
@@ -825,9 +825,9 @@ export default function OpeningEditor() {
     try {
       setLoading(true);
       
-      const openings = await UserOpening.filter({ id: parseInt(openingId) });
+      const openings = await UserStudy.filter({ id: parseInt(studyId) });
       if (openings.length === 0) {
-        navigate('/openings-book');
+        navigate('/studies-book');
         return;
       }
       
@@ -836,7 +836,7 @@ export default function OpeningEditor() {
       setColor(opening.color);
       setSavedOpeningId(opening.id);
       
-      const moves = await UserOpeningMove.getByOpeningId(parseInt(openingId));
+      const moves = await UserStudyMove.getByStudyId(parseInt(studyId));
       
       const root = new MoveNode('Start', opening.initial_fen);
       const nodeMap = new Map();
@@ -901,11 +901,11 @@ export default function OpeningEditor() {
         setCurrentPath([]);
       }
       
-      loadedOpeningIdRef.current = parseInt(openingId);
+      loadedOpeningIdRef.current = parseInt(studyId);
       
     } catch (error) {
       console.error('Error loading opening:', error);
-      navigate('/openings-book');
+      navigate('/studies-book');
     } finally {
       setLoading(false);
     }
@@ -1198,11 +1198,11 @@ export default function OpeningEditor() {
 
   // Simple navigation handlers - no more dialogs!
   const handleNavigateBack = () => {
-    navigate('/openings-book');
+    navigate('/studies-book');
   };
 
   const handleCancel = () => {
-    navigate('/openings-book');
+    navigate('/studies-book');
   };
 
   if (loading) {
@@ -1265,10 +1265,10 @@ export default function OpeningEditor() {
       name,
       lastSaved: null, // Remove save status
       onSave: null, // Remove manual save option
-      onEdit: () => navigate(`/openings-book/editor/${openingId}`),
-      onView: () => navigate(`/openings-book/opening/${openingId}`),
+      onEdit: () => navigate(`/studies-book/editor/${studyId}`),
+      onView: () => navigate(`/studies-book/opening/${studyId}`),
       onNavigateBack: handleNavigateBack,
-      openingId,
+      studyId,
       selectedPlayer: color,
       onSelectedPlayerChange: (newColor) => {
         console.log('🎨 Player color changed from', color, 'to', newColor);
@@ -1299,7 +1299,7 @@ export default function OpeningEditor() {
     isViewMode,
     name,
     navigate,
-    openingId,
+    studyId,
     handleNavigateBack,
     color,
     graphData,

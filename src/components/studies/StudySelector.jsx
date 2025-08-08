@@ -11,24 +11,27 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { BookOpen, Crown, Shield, ExternalLink, Loader2 } from 'lucide-react';
-import { checkPositionInOpenings } from '@/api/openingEntities';
-import OpeningDetailsDialog from './OpeningDetailsDialog';
+import { checkPositionInStudies } from '@/api/studyEntities';
+import StudyDetailsDialog from './StudyDetailsDialog';
 
-export default function OpeningSelector({ fen, trigger, children, openings = [] }) {
+export default function StudySelector({ fen, trigger, children, studies = [] }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
 
-  const handleOpeningClick = (openingId) => {
+  const handleStudyClick = (studyId) => {
     setOpen(false);
-    navigate(`/openings-book/opening/${openingId}`);
+    navigate(`/studies-book/study/${studyId}`);
   };
 
-  const handleCreateOpening = (openingDetails) => {
+  const handleCreateStudy = (studyDetails) => {
     const params = new URLSearchParams({
-      name: openingDetails.name,
-      color: openingDetails.color
+      name: studyDetails.name,
+      color: studyDetails.color,
+      initialFen: studyDetails.initialFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+      startingPgn: studyDetails.startingPgn || '',
+      tags: studyDetails.selectedTags?.map(tag => tag.id).join(',') || ''
     });
-    navigate(`/openings-book/editor/new?${params.toString()}`);
+    navigate(`/studies-book/editor/new?${params.toString()}`);
   };
 
   const triggerElement = trigger || (
@@ -46,32 +49,32 @@ export default function OpeningSelector({ fen, trigger, children, openings = [] 
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-amber-500" />
-            Openings containing this position
+            Studies containing this position
           </DialogTitle>
         </DialogHeader>
         
         <div className="mt-4">
-          {openings.length === 0 ? (
+          {studies.length === 0 ? (
             <div className="text-center py-8 text-slate-400">
               <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
-              <p>No saved openings contain this position</p>
-              <OpeningDetailsDialog 
-                onConfirm={handleCreateOpening}
-                title="Create New Opening"
-                confirmText="Create Opening"
+              <p>No saved studies contain this position</p>
+              <StudyDetailsDialog 
+                onConfirm={handleCreateStudy}
+                title="Create New Study"
+                confirmText="Create Study"
               >
                 <Button className="mt-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white">
-                  Create New Opening
+                  Create New Study
                 </Button>
-              </OpeningDetailsDialog>
+              </StudyDetailsDialog>
             </div>
           ) : (
             <ScrollArea className="max-h-[400px]">
               <div className="space-y-2">
-                {openings.map((opening) => (
+                {studies.map((study) => (
                   <button
-                    key={opening.id}
-                    onClick={() => handleOpeningClick(opening.id)}
+                    key={study.id}
+                    onClick={() => handleStudyClick(study.id)}
                     className="w-full p-3 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors text-left group"
                   >
                     <div className="flex items-center justify-between">
@@ -80,16 +83,38 @@ export default function OpeningSelector({ fen, trigger, children, openings = [] 
                           <BookOpen className="w-5 h-5 text-amber-400" />
                         </div>
                         <div>
-                          <p className="font-medium text-slate-100">{opening.name}</p>
+                          <p className="font-medium text-slate-100">{study.name}</p>
                           <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className={`text-xs ${opening.color === 'white' ? 'border-amber-500/50 text-amber-400' : 'border-slate-500 text-slate-400'}`}>
-                              {opening.color === 'white' ? (
+                            <Badge variant="outline" className={`text-xs ${study.color === 'white' ? 'border-amber-500/50 text-amber-400' : 'border-slate-500 text-slate-400'}`}>
+                              {study.color === 'white' ? (
                                 <Crown className="w-3 h-3 mr-1" />
                               ) : (
                                 <Shield className="w-3 h-3 mr-1" />
                               )}
-                              {opening.color}
+                              {study.color}
                             </Badge>
+                            {/* Show tags if available */}
+                            {study.tags && study.tags.length > 0 && (
+                              <div className="flex gap-1">
+                                {study.tags.slice(0, 2).map(tag => (
+                                  <Badge
+                                    key={tag.id}
+                                    variant="outline"
+                                    className="text-xs px-1 py-0"
+                                    style={{
+                                      borderColor: tag.color,
+                                      color: tag.color,
+                                      fontSize: '10px'
+                                    }}
+                                  >
+                                    {tag.name}
+                                  </Badge>
+                                ))}
+                                {study.tags.length > 2 && (
+                                  <span className="text-xs text-slate-400">+{study.tags.length - 2}</span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -104,4 +129,4 @@ export default function OpeningSelector({ fen, trigger, children, openings = [] 
       </DialogContent>
     </Dialog>
   );
-} 
+}

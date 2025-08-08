@@ -105,7 +105,7 @@ export default function Layout() {
 
   const navigationItems = [
     { name: "Performance Graph", url: createPageUrl("PerformanceGraph"), icon: Network },
-    { name: "Openings Book", url: createPageUrl("openings-book"), icon: BookOpen },
+    { name: "Studies Book", url: createPageUrl("studies-book"), icon: BookOpen },
   ];
 
   const handleManualSync = async () => {

@@ -5,7 +5,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { loadOpeningGraph } from '../api/graphStorage';
-import { getAllOpeningPositionsMap } from '../api/openingEntities';
+import { getAllStudyPositionsMap } from '../api/studyEntities';
 import { useAuth } from '../contexts/AuthContext';
 import ChessAnalysisView from '../components/analysis/ChessAnalysisView';
 import { createPerformanceGraphConfig } from '../components/analysis/ChessAnalysisViewConfig.jsx';
@@ -404,7 +404,7 @@ function PerformanceGraphContent() {
       if (!username) return;
       
       try {
-        const fenToOpeningsMap = await getAllOpeningPositionsMap(username);
+        const fenToOpeningsMap = await getAllStudyPositionsMap(username);
         console.log(`🗂️ Loaded opening positions map:`, fenToOpeningsMap.size, 'FEN positions');
         // Debug: Show some sample FENs from the map
         if (fenToOpeningsMap.size > 0) {

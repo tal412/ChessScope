@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { extractGameData, extractGameDataGeneric } from '../utils/PgnParser';
-import { identifyOpening } from '../utils/OpeningDatabase';
+import { identifyOpening } from '../utils/StudyDatabase';
 import { 
   saveOpeningGraph, 
   loadOpeningGraph, 
@@ -8,7 +8,7 @@ import {
   deleteOpeningGraph,
   clearAllGraphs
 } from '@/api/graphStorage';
-import { OpeningGraph } from '@/api/openingGraph';
+import { OpeningGraph } from '@/api/studyGraph';
 import { backgroundProcessor } from '../utils/BackgroundProcessor';
 
 const AuthContext = createContext();

@@ -74,28 +74,125 @@ export const initDatabase = async () => {
 // Run database migrations
 const runMigrations = async () => {
   try {
-    // Check if is_initial_move column exists in user_opening_moves table
-    const moveTableInfo = db.exec("PRAGMA table_info(user_opening_moves)");
+    // Check if tables need to be migrated from opening to study terminology
+    const tablesList = db.exec("SELECT name FROM sqlite_master WHERE type='table'");
+    const existingTables = tablesList.length > 0 ? tablesList[0].values.map(row => row[0]) : [];
     
-    if (moveTableInfo.length > 0) {
-      const moveColumns = moveTableInfo[0].values.map(row => row[1]); // row[1] is the column name
+    // Migrate user_openings to user_studies
+    if (existingTables.includes('user_openings') && !existingTables.includes('user_studies')) {
+      console.log('Migrating user_openings table to user_studies');
       
-      if (!moveColumns.includes('is_initial_move')) {
-        console.log('Adding is_initial_move column to user_opening_moves table');
-        db.run('ALTER TABLE user_opening_moves ADD COLUMN is_initial_move BOOLEAN DEFAULT 0');
-      }
+      // Create new user_studies table with enhanced schema
+      db.run(`
+        CREATE TABLE user_studies (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT NOT NULL,
+          name TEXT NOT NULL,
+          color TEXT NOT NULL,
+          initial_fen TEXT DEFAULT 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+          initial_moves TEXT DEFAULT '[]',
+          initial_view_fen TEXT DEFAULT 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+          starting_pgn TEXT DEFAULT '',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(username, name)
+        )
+      `);
+      
+      // Copy data from old table to new table
+      db.run(`
+        INSERT INTO user_studies (id, username, name, color, initial_fen, initial_moves, initial_view_fen, created_at, updated_at)
+        SELECT id, username, name, color, initial_fen, initial_moves, 
+               COALESCE(initial_view_fen, 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'),
+               created_at, updated_at
+        FROM user_openings
+      `);
+      
+      // Drop old table
+      db.run('DROP TABLE user_openings');
     }
-
-    // Check if initial_view_fen column exists in user_openings table
-    const openingTableInfo = db.exec("PRAGMA table_info(user_openings)");
     
-    if (openingTableInfo.length > 0) {
-      const openingColumns = openingTableInfo[0].values.map(row => row[1]); // row[1] is the column name
+    // Migrate user_opening_moves to user_study_moves
+    if (existingTables.includes('user_opening_moves') && !existingTables.includes('user_study_moves')) {
+      console.log('Migrating user_opening_moves table to user_study_moves');
       
-      if (!openingColumns.includes('initial_view_fen')) {
-        console.log('Adding initial_view_fen column to user_openings table');
-        db.run('ALTER TABLE user_openings ADD COLUMN initial_view_fen TEXT DEFAULT \'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1\'');
-      }
+      // Create new user_study_moves table
+      db.run(`
+        CREATE TABLE user_study_moves (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          study_id INTEGER NOT NULL,
+          fen TEXT NOT NULL,
+          san TEXT NOT NULL,
+          uci TEXT,
+          move_number INTEGER NOT NULL,
+          parent_fen TEXT,
+          is_main_line BOOLEAN DEFAULT 1,
+          is_initial_move BOOLEAN DEFAULT 0,
+          evaluation TEXT,
+          comment TEXT,
+          arrows TEXT,
+          highlights TEXT,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (study_id) REFERENCES user_studies(id) ON DELETE CASCADE,
+          UNIQUE(study_id, fen, parent_fen)
+        )
+      `);
+      
+      // Copy data from old table to new table
+      db.run(`
+        INSERT INTO user_study_moves (id, study_id, fen, san, uci, move_number, parent_fen, is_main_line, is_initial_move, evaluation, comment, arrows, highlights, created_at)
+        SELECT id, opening_id, fen, san, uci, move_number, parent_fen, is_main_line, 
+               COALESCE(is_initial_move, 0), evaluation, comment, arrows, highlights, created_at
+        FROM user_opening_moves
+      `);
+      
+      // Drop old table
+      db.run('DROP TABLE user_opening_moves');
+    }
+    
+    // Create study_tags table if it doesn't exist
+    if (!existingTables.includes('study_tags')) {
+      console.log('Creating study_tags table');
+      db.run(`
+        CREATE TABLE study_tags (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          color TEXT NOT NULL DEFAULT '#6366f1',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+      
+      // Insert default tags
+      const defaultTags = [
+        { name: 'Opening', color: '#22c55e' },
+        { name: 'Middlegame', color: '#3b82f6' },
+        { name: 'Endgame', color: '#f59e0b' },
+        { name: 'Tactics', color: '#ef4444' },
+        { name: 'Strategy', color: '#8b5cf6' },
+        { name: 'Defense', color: '#06b6d4' }
+      ];
+      
+      const stmt = db.prepare('INSERT OR IGNORE INTO study_tags (name, color) VALUES (?, ?)');
+      defaultTags.forEach(tag => {
+        stmt.run([tag.name, tag.color]);
+      });
+      stmt.free();
+    }
+    
+    // Create study_tags_mapping table if it doesn't exist
+    if (!existingTables.includes('study_tags_mapping')) {
+      console.log('Creating study_tags_mapping table');
+      db.run(`
+        CREATE TABLE study_tags_mapping (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          study_id INTEGER NOT NULL,
+          tag_id INTEGER NOT NULL,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          FOREIGN KEY (study_id) REFERENCES user_studies(id) ON DELETE CASCADE,
+          FOREIGN KEY (tag_id) REFERENCES study_tags(id) ON DELETE CASCADE,
+          UNIQUE(study_id, tag_id)
+        )
+      `);
     }
   } catch (error) {
     console.error('Error running migrations:', error);
@@ -159,9 +256,9 @@ const createTables = async () => {
       )
     `);
 
-    // Create tables for Openings Book feature
+    // Create tables for Studies Book feature
     db.run(`
-      CREATE TABLE IF NOT EXISTS user_openings (
+      CREATE TABLE IF NOT EXISTS user_studies (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT NOT NULL,
         name TEXT NOT NULL,
@@ -169,6 +266,7 @@ const createTables = async () => {
         initial_fen TEXT DEFAULT 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
         initial_moves TEXT DEFAULT '[]',
         initial_view_fen TEXT DEFAULT 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        starting_pgn TEXT DEFAULT '',
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(username, name)
@@ -176,9 +274,9 @@ const createTables = async () => {
     `);
     
     db.run(`
-      CREATE TABLE IF NOT EXISTS user_opening_moves (
+      CREATE TABLE IF NOT EXISTS user_study_moves (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        opening_id INTEGER NOT NULL,
+        study_id INTEGER NOT NULL,
         fen TEXT NOT NULL,
         san TEXT NOT NULL,
         uci TEXT,
@@ -191,8 +289,45 @@ const createTables = async () => {
         arrows TEXT,
         highlights TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (opening_id) REFERENCES user_openings(id) ON DELETE CASCADE,
-        UNIQUE(opening_id, fen, parent_fen)
+        FOREIGN KEY (study_id) REFERENCES user_studies(id) ON DELETE CASCADE,
+        UNIQUE(study_id, fen, parent_fen)
+      )
+    `);
+    
+    db.run(`
+      CREATE TABLE IF NOT EXISTS study_tags (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL UNIQUE,
+        color TEXT NOT NULL DEFAULT '#6366f1',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    // Insert default tags if they don't exist
+    const defaultTags = [
+      { name: 'Opening', color: '#22c55e' },
+      { name: 'Middlegame', color: '#3b82f6' },
+      { name: 'Endgame', color: '#f59e0b' },
+      { name: 'Tactics', color: '#ef4444' },
+      { name: 'Strategy', color: '#8b5cf6' },
+      { name: 'Defense', color: '#06b6d4' }
+    ];
+    
+    const stmt = db.prepare('INSERT OR IGNORE INTO study_tags (name, color) VALUES (?, ?)');
+    defaultTags.forEach(tag => {
+      stmt.run([tag.name, tag.color]);
+    });
+    stmt.free();
+    
+    db.run(`
+      CREATE TABLE IF NOT EXISTS study_tags_mapping (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        study_id INTEGER NOT NULL,
+        tag_id INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (study_id) REFERENCES user_studies(id) ON DELETE CASCADE,
+        FOREIGN KEY (tag_id) REFERENCES study_tags(id) ON DELETE CASCADE,
+        UNIQUE(study_id, tag_id)
       )
     `);
     
@@ -205,7 +340,7 @@ const createTables = async () => {
         url TEXT,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (move_id) REFERENCES user_opening_moves(id) ON DELETE CASCADE
+        FOREIGN KEY (move_id) REFERENCES user_study_moves(id) ON DELETE CASCADE
       )
     `);
 
@@ -219,11 +354,13 @@ const createTables = async () => {
     db.run('CREATE INDEX IF NOT EXISTS idx_opening_nodes_color ON opening_nodes(color)');
     db.run('CREATE INDEX IF NOT EXISTS idx_opening_nodes_total_games ON opening_nodes(total_games)');
     
-    // Create indexes for Openings Book feature
-    db.run('CREATE INDEX IF NOT EXISTS idx_user_openings_username ON user_openings(username)');
-    db.run('CREATE INDEX IF NOT EXISTS idx_user_opening_moves_opening_id ON user_opening_moves(opening_id)');
-    db.run('CREATE INDEX IF NOT EXISTS idx_user_opening_moves_fen ON user_opening_moves(fen)');
+    // Create indexes for Studies Book feature
+    db.run('CREATE INDEX IF NOT EXISTS idx_user_studies_username ON user_studies(username)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_user_study_moves_study_id ON user_study_moves(study_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_user_study_moves_fen ON user_study_moves(fen)');
     db.run('CREATE INDEX IF NOT EXISTS idx_move_annotations_move_id ON move_annotations(move_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_study_tags_mapping_study_id ON study_tags_mapping(study_id)');
+    db.run('CREATE INDEX IF NOT EXISTS idx_study_tags_mapping_tag_id ON study_tags_mapping(tag_id)');
 
     // Run database migrations
     await runMigrations();
@@ -448,11 +585,15 @@ export class BaseModel {
     const query = `DELETE FROM ${this.tableName} WHERE id = ?`;
     
     try {
+      console.log(`🗑️ BaseModel.delete: Executing query on table ${this.tableName} for id ${id}`);
       const stmt = db.prepare(query);
-      stmt.run([id]);
+      const result = stmt.run([id]);
+      console.log(`🗑️ BaseModel.delete: Query result:`, result);
       stmt.free();
       
+      console.log(`💾 BaseModel.delete: Saving database...`);
       saveDatabase();
+      console.log(`✅ BaseModel.delete: Delete completed successfully for ${this.tableName} id ${id}`);
       return { success: true };
     } catch (error) {
       console.error(`Error deleting record from ${this.tableName}:`, error);

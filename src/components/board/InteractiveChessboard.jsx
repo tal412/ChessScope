@@ -7,9 +7,9 @@ import { NavigationButtons, NavigationPresets } from '@/components/ui/navigation
 import { ChevronLeft, ChevronRight, RotateCcw, GripVertical, ArrowUpDown, Info, Fish, Loader2, AlertTriangle, BookOpen } from 'lucide-react';
 import { Chess } from 'chess.js';
 import PositionInfoDialog from './PositionInfoDialog';
-import OpeningSelector from '../openings/OpeningSelector';
-import { getOpeningFromFen } from '../../utils/OpeningDatabase';
-import { checkPositionInOpenings } from '@/api/openingEntities';
+import StudySelector from '../studies/StudySelector';
+import { getOpeningFromFen } from '../../utils/StudyDatabase';
+import { checkPositionInStudies } from '@/api/studyEntities';
 import { 
   getPositionAfterMoves, 
   getPositionFromFen, 
@@ -56,7 +56,7 @@ export default function InteractiveChessboard({
   onArrowDraw = null, // Callback for when user draws an arrow
   drawingMode = false, // Whether drawing mode is active
   onDrawingModeChange = null, // Callback when drawing mode changes
-  showOpeningSelector = true, // Control whether to show the opening selector book icon
+  showStudySelector = true, // Control whether to show the opening selector book icon
   moveTree = null, // Opening tree (for opening editor/viewer modes)
   mode = 'performance', // 'performance' | 'opening-editor' | 'opening-viewer'
   positionStatus = 'normal', // 'normal' | 'extended_game' | 'not_in_repertoire'
@@ -1552,9 +1552,9 @@ export default function InteractiveChessboard({
 
           {/* Right side - Position Info Button and Book Icon */}
           <div className="flex items-center gap-1">
-            {console.log(`🔍 Opening selector visibility - showOpeningSelector: ${showOpeningSelector}, positionInOpenings: ${positionInOpenings.length}, mode: ${mode}`)}
-            {showOpeningSelector && (
-              <OpeningSelector fen={game.fen()} openings={positionInOpenings}>
+            {console.log(`🔍 Opening selector visibility - showStudySelector: ${showStudySelector}, positionInOpenings: ${positionInOpenings.length}, mode: ${mode}`)}
+            {showStudySelector && (
+              <StudySelector fen={game.fen()} openings={positionInOpenings}>
                 <Button
                   variant="outline"
                   size="sm"
@@ -1574,7 +1574,7 @@ export default function InteractiveChessboard({
                     <span className="ml-1 text-xs">{positionInOpenings.length}</span>
                   )}
                 </Button>
-              </OpeningSelector>
+              </StudySelector>
             )}
             {openingGraph && currentMoves.length > 0 && (
               <PositionInfoDialog

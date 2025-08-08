@@ -3,7 +3,8 @@
   "permissions": {
     "allow": [
       "Bash(git add:*)",
-      "Bash(grep:*)"
+      "Bash(grep:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }
