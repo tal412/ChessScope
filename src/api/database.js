@@ -6,6 +6,9 @@ let SQL = null;
 let isInitializing = false;
 let isInitialized = false;
 
+// Export the database instance getter
+export const getDb = () => db;
+
 // Check if database is ready
 export const isDatabaseReady = () => {
   return isInitialized && db !== null;

@@ -161,8 +161,8 @@ export const createOpeningEditorConfig = ({
   onDrawingModeChange = null,
   detailsPanel = null
 }) => {
-  const isViewMode = mode === 'view';
-  const isEditMode = mode === 'edit';
+  const isViewMode = mode === 'view' || mode === 'opening-viewer';
+  const isEditMode = mode === 'edit' || mode === 'opening-editor';
   
   // Helper to format last saved time
   const getAutoSaveStatus = () => {

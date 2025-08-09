@@ -12,7 +12,7 @@ import {
   AlertTriangle,
   Eye
 } from 'lucide-react';
-import { UserStudy, UserStudyMove, MoveAnnotation } from '@/api/studyEntities';
+import { userStudy as UserStudy, userStudyMove as UserStudyMove, moveAnnotation as MoveAnnotation } from '@/api/studyEntities';
 import { Chess } from 'chess.js';
 import { loadOpeningGraph } from '@/api/graphStorage';
 import ChessAnalysisView from '../components/analysis/ChessAnalysisView';
@@ -121,7 +121,7 @@ export default function OpeningEditor() {
   
   // Detect if we're in view mode vs edit mode based on the URL path
   const location = useLocation();
-  const isViewMode = location.pathname.includes('/studies-book/opening/');
+  const isViewMode = location.pathname.includes('/studies-book/study/');
   const isEditMode = location.pathname.includes('/studies-book/editor/') || isNewStudy;
   
   console.log('🔧 Mode detection:', {
@@ -1261,12 +1261,12 @@ export default function OpeningEditor() {
     });
     
     return createOpeningEditorConfig({
-      mode: isViewMode ? 'view' : 'edit',
+      mode: isViewMode ? 'opening-viewer' : 'opening-editor',
       name,
       lastSaved: null, // Remove save status
       onSave: null, // Remove manual save option
-      onEdit: () => navigate(`/studies-book/editor/${studyId}`),
-      onView: () => navigate(`/studies-book/opening/${studyId}`),
+      onEdit: isViewMode ? () => navigate(`/studies-book/editor/${studyId}`) : null,
+      onView: isEditMode ? () => navigate(`/studies-book/study/${studyId}`) : null,
       onNavigateBack: handleNavigateBack,
       studyId,
       selectedPlayer: color,

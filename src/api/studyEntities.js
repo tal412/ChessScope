@@ -244,7 +244,7 @@ export class StudyTagsMapping extends BaseModel {
 
     // Try to get database instance from the global scope
     const dbModule = await import('./database.js');
-    const dbInstance = dbModule.db || window.db;
+    const dbInstance = dbModule.getDb() || window.db;
     
     if (!dbInstance) {
       console.warn('No database instance available for tags query');
@@ -300,7 +300,7 @@ export class StudyTagsMapping extends BaseModel {
 
     // Try to get database instance from the global scope
     const dbModule = await import('./database.js');
-    const dbInstance = dbModule.db || window.db;
+    const dbInstance = dbModule.getDb() || window.db;
     
     if (!dbInstance) {
       console.warn('No database instance available for tag removal');
