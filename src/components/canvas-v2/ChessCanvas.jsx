@@ -323,8 +323,9 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
           ? JSON.parse(lastFittedGraphRef.current).nodeCount
           : 0;
 
-        // Animate only if the graph was already substantially loaded, not on the initial placeholder -> data transition.
-        const shouldAnimate = previousNodeCount > 1;
+        // Animate when transitioning between loaded states or when adding the first move to an opening
+        // Don't animate on initial load (0 -> 1) but do animate when adding moves (1 -> 2+)
+        const shouldAnimate = previousNodeCount >= 1 && processedGraphData.nodes.length > previousNodeCount;
 
         console.log(`🔄 Auto-fitting due to graph change (animate: ${shouldAnimate})`, {
           nodeCount: processedGraphData.nodes.length,

@@ -153,7 +153,9 @@ export const useCanvasRenderState = (graphData, dimensions, mode) => {
       setHasValidTransform(true);
       
       // Mark initialization complete
-      if (positioned.length > 1 || (mode === 'opening' && positioned.length >= 1)) {
+      // For opening mode, wait until we have at least 2 nodes (Start + first move) to ensure proper animation
+      // For performance mode, wait until we have more than 1 node
+      if (positioned.length > 1) {
         setIsInitializing(false);
         setIsInitialPositioningComplete(true);
       } else {
