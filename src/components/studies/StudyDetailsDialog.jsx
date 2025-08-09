@@ -40,6 +40,8 @@ export default function StudyDetailsDialog({
   const [newTagName, setNewTagName] = useState('');
   const [newTagColor, setNewTagColor] = useState('#22c55e');
   const [error, setError] = useState('');
+  const [fenError, setFenError] = useState('');
+  const [pgnError, setPgnError] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Load available tags when dialog opens
@@ -78,7 +80,8 @@ export default function StudyDetailsDialog({
       });
       
       setAvailableTags(prev => [...prev, newTag].sort((a, b) => a.name.localeCompare(b.name)));
-      setSelectedTags(prev => [...prev, newTag]); // Auto-select the new tag
+      // Auto-select the new tag only if under the limit
+      setSelectedTags(prev => prev.length < MAX_TAGS ? [...prev, newTag] : prev);
       setNewTagName('');
       setNewTagColor('#22c55e');
       setShowNewTagForm(false);
@@ -93,6 +96,8 @@ export default function StudyDetailsDialog({
     '#22c55e', '#3b82f6', '#f59e0b', '#ef4444', 
     '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'
   ];
+
+  const MAX_TAGS = 3;
 
   const validatePosition = (fen) => {
     try {
@@ -123,9 +128,38 @@ export default function StudyDetailsDialog({
     }
   };
 
+  // Real-time FEN validation
+  const handleFenChange = (value) => {
+    setStartingFen(value);
+    if (value.trim()) {
+      const error = validatePosition(value.trim());
+      setFenError(error || '');
+    } else {
+      setFenError('');
+    }
+    if (error) setError('');
+  };
+
+  // Real-time PGN validation
+  const handlePgnChange = (value) => {
+    setStartingPgn(value);
+    if (value.trim()) {
+      const error = validatePgn(value.trim());
+      setPgnError(error || '');
+    } else {
+      setPgnError('');
+    }
+    if (error) setError('');
+  };
+
   const handleConfirm = async () => {
     if (!name.trim()) {
       setError('Study name is required');
+      return;
+    }
+
+    // Check for field-specific errors
+    if (fenError || pgnError) {
       return;
     }
 
@@ -135,23 +169,23 @@ export default function StudyDetailsDialog({
     // Validate starting position based on method
     if (startingMethod === 'fen') {
       if (!startingFen.trim()) {
-        setError('FEN position is required');
+        setFenError('FEN position is required');
         return;
       }
-      const fenError = validatePosition(startingFen.trim());
-      if (fenError) {
-        setError(fenError);
+      const validation = validatePosition(startingFen.trim());
+      if (validation) {
+        setFenError(validation);
         return;
       }
       finalFen = startingFen.trim();
     } else if (startingMethod === 'pgn') {
       if (!startingPgn.trim()) {
-        setError('PGN moves are required');
+        setPgnError('PGN moves are required');
         return;
       }
-      const pgnError = validatePgn(startingPgn.trim());
-      if (pgnError) {
-        setError(pgnError);
+      const validation = validatePgn(startingPgn.trim());
+      if (validation) {
+        setPgnError(validation);
         return;
       }
       
@@ -168,7 +202,7 @@ export default function StudyDetailsDialog({
         finalFen = chess.fen();
         finalPgn = startingPgn.trim();
       } catch (error) {
-        setError('Error processing PGN moves');
+        setPgnError('Error processing PGN moves');
         return;
       }
     }
@@ -217,6 +251,8 @@ export default function StudyDetailsDialog({
     setNewTagName('');
     setNewTagColor('#22c55e');
     setError('');
+    setFenError('');
+    setPgnError('');
   };
 
   const handleCancel = () => {
@@ -228,9 +264,14 @@ export default function StudyDetailsDialog({
     setSelectedTags(prev => {
       const exists = prev.find(t => t.id === tag.id);
       if (exists) {
+        // Remove tag (always allowed)
         return prev.filter(t => t.id !== tag.id);
       } else {
-        return [...prev, tag];
+        // Add tag only if under the limit
+        if (prev.length < MAX_TAGS) {
+          return [...prev, tag];
+        }
+        return prev; // Don't add if at max limit
       }
     });
   };
@@ -323,6 +364,8 @@ export default function StudyDetailsDialog({
                 onClick={() => {
                   setStartingMethod('standard');
                   setError('');
+                  setFenError('');
+                  setPgnError('');
                 }}
                 disabled={loading}
                 className={cn(
@@ -339,6 +382,8 @@ export default function StudyDetailsDialog({
                 onClick={() => {
                   setStartingMethod('fen');
                   setError('');
+                  setFenError('');
+                  setPgnError('');
                 }}
                 disabled={loading}
                 className={cn(
@@ -355,6 +400,8 @@ export default function StudyDetailsDialog({
                 onClick={() => {
                   setStartingMethod('pgn');
                   setError('');
+                  setFenError('');
+                  setPgnError('');
                 }}
                 disabled={loading}
                 className={cn(
@@ -372,15 +419,24 @@ export default function StudyDetailsDialog({
               <div className="space-y-2">
                 <Input
                   value={startingFen}
-                  onChange={(e) => {
-                    setStartingFen(e.target.value);
-                    if (error) setError('');
-                  }}
+                  onChange={(e) => handleFenChange(e.target.value)}
                   placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
-                  className="bg-slate-700 border-slate-600 text-slate-100 placeholder:text-slate-400 font-mono text-sm"
+                  className={cn(
+                    "bg-slate-700 text-slate-100 placeholder:text-slate-400 font-mono text-sm",
+                    fenError 
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500" 
+                      : "border-slate-600"
+                  )}
                   disabled={loading}
                 />
-                <p className="text-xs text-slate-400">Enter a FEN position to start your study from</p>
+                {fenError ? (
+                  <p className="text-xs text-red-400 flex items-center gap-1">
+                    <span className="w-4 h-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">!</span>
+                    {fenError}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-400">Enter a FEN position to start your study from</p>
+                )}
               </div>
             )}
             
@@ -388,15 +444,24 @@ export default function StudyDetailsDialog({
               <div className="space-y-2">
                 <Textarea
                   value={startingPgn}
-                  onChange={(e) => {
-                    setStartingPgn(e.target.value);
-                    if (error) setError('');
-                  }}
+                  onChange={(e) => handlePgnChange(e.target.value)}
                   placeholder="1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5"
-                  className="bg-slate-700 border-slate-600 text-slate-100 placeholder:text-slate-400 font-mono text-sm min-h-[80px]"
+                  className={cn(
+                    "bg-slate-700 text-slate-100 placeholder:text-slate-400 font-mono text-sm min-h-[80px]",
+                    pgnError 
+                      ? "border-red-500 focus:border-red-500 focus:ring-red-500" 
+                      : "border-slate-600"
+                  )}
                   disabled={loading}
                 />
-                <p className="text-xs text-slate-400">Enter the moves to reach your starting position</p>
+                {pgnError ? (
+                  <p className="text-xs text-red-400 flex items-center gap-1">
+                    <span className="w-4 h-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">!</span>
+                    {pgnError}
+                  </p>
+                ) : (
+                  <p className="text-xs text-slate-400">Enter the moves to reach your starting position</p>
+                )}
               </div>
             )}
           </div>
@@ -404,17 +469,28 @@ export default function StudyDetailsDialog({
           {/* Tags Selection */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label className="text-slate-300 flex items-center gap-2">
-                <Tags className="w-4 h-4" />
-                Tags
-              </Label>
+              <div className="flex items-center gap-2">
+                <Label className="text-slate-300 flex items-center gap-2">
+                  <Tags className="w-4 h-4" />
+                  Tags
+                </Label>
+                <span className="text-xs text-slate-500">
+                  ({selectedTags.length}/{MAX_TAGS})
+                </span>
+              </div>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 onClick={() => setShowNewTagForm(!showNewTagForm)}
-                disabled={loading}
-                className="h-6 text-xs text-slate-400 hover:text-slate-300"
+                disabled={loading || (selectedTags.length >= MAX_TAGS && !showNewTagForm)}
+                className={cn(
+                  "h-6 text-xs transition-all",
+                  (selectedTags.length >= MAX_TAGS && !showNewTagForm)
+                    ? "text-slate-500 cursor-not-allowed"
+                    : "text-slate-400 hover:text-slate-300"
+                )}
+                title={(selectedTags.length >= MAX_TAGS && !showNewTagForm) ? "Maximum tags reached" : undefined}
               >
                 <Plus className="w-3 h-3 mr-1" />
                 Add Tag
@@ -424,6 +500,12 @@ export default function StudyDetailsDialog({
             {/* New Tag Form */}
             {showNewTagForm && (
               <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600 space-y-3">
+                {selectedTags.length >= MAX_TAGS && (
+                  <div className="p-2 bg-amber-900/20 border border-amber-700/50 rounded text-xs text-amber-400">
+                    <span className="font-medium">Note:</span> You've reached the {MAX_TAGS} tag limit. 
+                    New tags will be created but not automatically selected.
+                  </div>
+                )}
                 <div className="grid grid-cols-1 gap-3">
                   <Input
                     placeholder="Tag name..."
@@ -499,21 +581,28 @@ export default function StudyDetailsDialog({
               <div className="flex flex-wrap gap-2">
                 {availableTags.map(tag => {
                   const isSelected = selectedTags.find(t => t.id === tag.id);
+                  const isAtLimit = selectedTags.length >= MAX_TAGS;
+                  const canSelect = isSelected || !isAtLimit;
+                  
                   return (
                     <Badge
                       key={tag.id}
                       variant="outline"
                       className={cn(
-                        "cursor-pointer transition-all duration-200 border-2",
+                        "transition-all duration-200 border-2",
+                        canSelect ? "cursor-pointer" : "cursor-not-allowed opacity-50",
                         isSelected 
                           ? 'border-current text-white' 
-                          : 'border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300'
+                          : canSelect
+                            ? 'border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300'
+                            : 'border-slate-700 text-slate-500'
                       )}
                       style={{
                         backgroundColor: isSelected ? tag.color : 'transparent',
                         borderColor: isSelected ? tag.color : undefined
                       }}
-                      onClick={() => !loading && toggleTag(tag)}
+                      onClick={() => !loading && canSelect && toggleTag(tag)}
+                      title={!canSelect ? `Maximum ${MAX_TAGS} tags allowed` : undefined}
                     >
                       {tag.name}
                       {isSelected && <X className="w-3 h-3 ml-1" />}
@@ -523,7 +612,12 @@ export default function StudyDetailsDialog({
               </div>
             )}
             
-            <p className="text-xs text-slate-400">Select tags to categorize your study, or create new ones</p>
+            <p className="text-xs text-slate-400">
+              Select up to {MAX_TAGS} tags to categorize your study, or create new ones
+              {selectedTags.length >= MAX_TAGS && (
+                <span className="text-amber-400 ml-1">(Maximum reached)</span>
+              )}
+            </p>
           </div>
 
           {error && (
@@ -545,10 +639,10 @@ export default function StudyDetailsDialog({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={loading || !name.trim()}
+            disabled={loading || !name.trim() || fenError || pgnError}
             className={cn(
               "flex-1 text-white transition-all duration-200",
-              loading || !name.trim()
+              loading || !name.trim() || fenError || pgnError
                 ? "bg-transparent border border-slate-600 text-slate-500 cursor-not-allowed"
                 : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
             )}
