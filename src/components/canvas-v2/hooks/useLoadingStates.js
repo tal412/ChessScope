@@ -8,7 +8,18 @@ export function useLoadingStates({
   enableAutoFit = true,
   autoFitDelay = 200,
 }) {
-  const [isInitializing, setIsInitializing] = useState(true);
+  // Check if this is the first time initializing (no persisted state)
+  const isFirstTimeInit = useState(() => {
+    try {
+      const hasPersistedTransform = localStorage.getItem('chess-canvas-transform');
+      const hasEverInitialized = localStorage.getItem('chess-canvas-ever-initialized');
+      return !hasPersistedTransform && !hasEverInitialized;
+    } catch (e) {
+      return true; // Assume first time if localStorage fails
+    }
+  })[0];
+
+  const [isInitializing, setIsInitializing] = useState(isFirstTimeInit);
   const [isAutoFitPending, setIsAutoFitPending] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [hasValidTransform, setHasValidTransform] = useState(false);
@@ -24,6 +35,15 @@ export function useLoadingStates({
    */
   const setInitializingState = useCallback((initializing) => {
     setIsInitializing(initializing);
+    
+    // Mark that canvas has been initialized at least once
+    if (!initializing) {
+      try {
+        localStorage.setItem('chess-canvas-ever-initialized', 'true');
+      } catch (e) {
+        console.warn('Failed to mark canvas as initialized:', e);
+      }
+    }
   }, []);
 
   /**
@@ -121,7 +141,13 @@ export function useLoadingStates({
    * @returns {boolean} True if canvas should be visible
    */
   const shouldShowCanvas = useCallback(({ width = 0, height = 0 } = {}, transform = null, initialTransform = null) => {
-    // Basic visibility requirements
+    // If we have positioned nodes and valid dimensions/transform, show canvas
+    // Don't require initialization to complete if we're not on first-time init
+    if (!isFirstTimeInit && positionedNodes.length > 0 && width > 0 && height > 0 && transform && hasValidTransform) {
+      return true;
+    }
+
+    // Basic visibility requirements for first-time init
     const basicRequirements = !(
       isInitializing ||
       positionedNodes.length === 0 ||
@@ -161,7 +187,7 @@ export function useLoadingStates({
     );
     
     return transformMatches;
-  }, [isInitializing, positionedNodes.length, isInitialPositioningComplete, hasValidTransform, hasUserInteracted]);
+  }, [isInitializing, positionedNodes.length, isInitialPositioningComplete, hasValidTransform, hasUserInteracted, isFirstTimeInit]);
 
   /**
    * Check if initialization overlay should be shown
@@ -172,8 +198,31 @@ export function useLoadingStates({
    * @returns {boolean} True if initialization overlay should be shown
    */
   const shouldShowInitializationOverlay = useCallback(({ width = 0, height = 0 } = {}, transform = null, isGenerating = false, initialTransform = null) => {
-    return !shouldShowCanvas({ width, height }, transform, initialTransform) && !isGenerating;
-  }, [shouldShowCanvas]);
+    // Don't show overlay if currently generating
+    if (isGenerating) {
+      return false;
+    }
+
+    // Only show initialization overlay if:
+    // 1. This is the first time ever initializing, OR
+    // 2. We have no data to show yet (no positioned nodes)
+    if (!isFirstTimeInit && positionedNodes.length > 0) {
+      return false;
+    }
+
+    // Basic requirements to not show overlay
+    const hasBasicRequirements = !(
+      isInitializing ||
+      positionedNodes.length === 0 ||
+      (!isInitialPositioningComplete && positionedNodes.length > 0) ||
+      width === 0 ||
+      height === 0 ||
+      !transform ||
+      !hasValidTransform
+    );
+    
+    return !hasBasicRequirements;
+  }, [isInitializing, positionedNodes.length, isInitialPositioningComplete, hasValidTransform, isFirstTimeInit]);
 
   /**
    * Check if auto-fit overlay should be shown

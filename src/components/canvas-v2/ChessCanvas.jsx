@@ -276,20 +276,44 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
       loadingStates.updatePositionedNodes(processedGraphData.nodes);
       loadingStates.setInitialPositioningComplete(true);
       
-      // Only set valid transform and finish initializing when we have the optimal transform
-      const hasOptimalTransform = initialTransform.scale !== 1 || initialTransform.translateX !== 0 || initialTransform.translateY !== 0;
-      if (hasOptimalTransform) {
+      // Check if we have persisted zoom state (meaning not first-time init)
+      const hasPersistedZoom = (() => {
+        try {
+          return localStorage.getItem('chess-canvas-transform') !== null;
+        } catch (e) {
+          return false;
+        }
+      })();
+
+      // If we have persisted zoom, skip the optimal transform check and mark as ready immediately
+      if (hasPersistedZoom) {
         loadingStates.setValidTransform(true);
         loadingStates.setInitializingState(false);
-        // console.log('✅ Canvas ready with optimal transform');
+        // console.log('✅ Canvas ready with persisted zoom state');
       } else {
-        // console.log('⏳ Waiting for optimal transform calculation');
+        // Only set valid transform and finish initializing when we have the optimal transform
+        const hasOptimalTransform = initialTransform.scale !== 1 || initialTransform.translateX !== 0 || initialTransform.translateY !== 0;
+        if (hasOptimalTransform) {
+          loadingStates.setValidTransform(true);
+          loadingStates.setInitializingState(false);
+          // console.log('✅ Canvas ready with optimal transform');
+        } else {
+          // console.log('⏳ Waiting for optimal transform calculation');
+        }
       }
     } else {
       loadingStates.updatePositionedNodes([]);
       loadingStates.setInitialPositioningComplete(false);
       loadingStates.setValidTransform(false);
-      loadingStates.setInitializingState(true);
+      // Only set initializing to true if this is actually a first-time init
+      const isFirstTime = (() => {
+        try {
+          return !localStorage.getItem('chess-canvas-ever-initialized');
+        } catch (e) {
+          return true;
+        }
+      })();
+      loadingStates.setInitializingState(isFirstTime);
     }
   }, [processedGraphData.nodes.length, initialTransform, loadingStates]);
 

@@ -9,11 +9,38 @@ import { calculateOptimalTransform } from '../utils/geometry.js';
  * @returns {Object} Zoom state and controls
  */
 export function useZoom(dimensions = { width: 800, height: 600 }, initialTransform = null) {
-  const [transform, setTransform] = useState(
-    initialTransform || { scale: 1, translateX: 0, translateY: 0 }
-  );
+  // Load persisted zoom state from localStorage if available
+  const getPersistedTransform = useCallback(() => {
+    try {
+      const saved = localStorage.getItem('chess-canvas-transform');
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.warn('Failed to load persisted zoom state:', e);
+    }
+    return initialTransform || { scale: 1, translateX: 0, translateY: 0 };
+  }, [initialTransform]);
+
+  const [transform, setTransform] = useState(getPersistedTransform);
   const transformRef = useRef(transform);
   transformRef.current = transform;
+
+  // Persist transform to localStorage whenever it changes
+  const persistTransform = useCallback((newTransform) => {
+    try {
+      localStorage.setItem('chess-canvas-transform', JSON.stringify(newTransform));
+    } catch (e) {
+      console.warn('Failed to persist zoom state:', e);
+    }
+  }, []);
+
+  // Wrapped setTransform that also persists to localStorage
+  const setTransformWithPersistence = useCallback((newTransform) => {
+    const transform = typeof newTransform === 'function' ? newTransform(transformRef.current) : newTransform;
+    setTransform(transform);
+    persistTransform(transform);
+  }, [persistTransform]);
   
   const animationRef = useRef(null);
   
@@ -23,8 +50,8 @@ export function useZoom(dimensions = { width: 800, height: 600 }, initialTransfo
    */
   const setZoom = useCallback((scale) => {
     const clampedScale = Math.max(ZOOM_CONFIG.MIN, Math.min(ZOOM_CONFIG.MAX, scale));
-    setTransform(prev => ({ ...prev, scale: clampedScale }));
-  }, []);
+    setTransformWithPersistence(prev => ({ ...prev, scale: clampedScale }));
+  }, [setTransformWithPersistence]);
   
   /**
    * Set pan position
@@ -32,35 +59,35 @@ export function useZoom(dimensions = { width: 800, height: 600 }, initialTransfo
    * @param {number} y - Y translation
    */
   const setPan = useCallback((x, y) => {
-    setTransform(prev => ({ ...prev, translateX: x, translateY: y }));
-  }, []);
+    setTransformWithPersistence(prev => ({ ...prev, translateX: x, translateY: y }));
+  }, [setTransformWithPersistence]);
   
   /**
    * Zoom in by scale factor
    */
   const zoomIn = useCallback(() => {
-    setTransform(prev => ({
+    setTransformWithPersistence(prev => ({
       ...prev,
       scale: Math.min(ZOOM_CONFIG.MAX, prev.scale * ZOOM_CONFIG.SCALE_FACTOR_IN)
     }));
-  }, []);
+  }, [setTransformWithPersistence]);
   
   /**
    * Zoom out by scale factor
    */
   const zoomOut = useCallback(() => {
-    setTransform(prev => ({
+    setTransformWithPersistence(prev => ({
       ...prev,
       scale: Math.max(ZOOM_CONFIG.MIN, prev.scale * ZOOM_CONFIG.SCALE_FACTOR)
     }));
-  }, []);
+  }, [setTransformWithPersistence]);
   
   /**
    * Reset zoom to 1:1
    */
   const resetZoom = useCallback(() => {
-    setTransform({ scale: 1, translateX: 0, translateY: 0 });
-  }, []);
+    setTransformWithPersistence({ scale: 1, translateX: 0, translateY: 0 });
+  }, [setTransformWithPersistence]);
   
   /**
    * Fit nodes to viewport with animation
@@ -111,7 +138,7 @@ export function useZoom(dimensions = { width: 800, height: 600 }, initialTransfo
         // Safety check - force stop after max duration
         if (elapsed > maxDuration) {
           console.warn('Animation forced to stop after max duration');
-          setTransform(optimalTransform);
+          setTransformWithPersistence(optimalTransform);
           animationRef.current = null;
           if (onComplete) {
             onComplete();
@@ -122,7 +149,7 @@ export function useZoom(dimensions = { width: 800, height: 600 }, initialTransfo
         // Check if animation should stop
         if (progress >= 1) {
           // Animation complete - set final transform and clean up
-          setTransform(optimalTransform);
+          setTransformWithPersistence(optimalTransform);
           animationRef.current = null;
           if (onComplete) {
             onComplete();
@@ -139,7 +166,7 @@ export function useZoom(dimensions = { width: 800, height: 600 }, initialTransfo
           translateY: startTransform.translateY + (optimalTransform.translateY - startTransform.translateY) * easeOut,
         };
         
-        setTransform(currentTransform);
+        setTransform(currentTransform); // Don't persist intermediate animation states
         
         // Continue animation
         animationRef.current = requestAnimationFrame(animateStep);
@@ -147,12 +174,12 @@ export function useZoom(dimensions = { width: 800, height: 600 }, initialTransfo
       
       animationRef.current = requestAnimationFrame(animateStep);
     } else {
-      setTransform(optimalTransform);
+      setTransformWithPersistence(optimalTransform);
       if (onComplete) {
         onComplete();
       }
     }
-  }, [dimensions]);
+  }, [dimensions, setTransformWithPersistence]);
   
   /**
    * Apply zoom at a specific point (like mouse position)
@@ -163,7 +190,7 @@ export function useZoom(dimensions = { width: 800, height: 600 }, initialTransfo
     const centerX = point.x * dimensions.width;
     const centerY = point.y * dimensions.height;
     
-    setTransform(prev => {
+    setTransformWithPersistence(prev => {
       const newScale = Math.max(ZOOM_CONFIG.MIN, Math.min(ZOOM_CONFIG.MAX, prev.scale * scaleFactor));
       const scaleRatio = newScale / prev.scale;
       
@@ -173,15 +200,15 @@ export function useZoom(dimensions = { width: 800, height: 600 }, initialTransfo
         translateY: centerY - (centerY - prev.translateY) * scaleRatio,
       };
     });
-  }, [dimensions]);
+  }, [dimensions, setTransformWithPersistence]);
   
   /**
    * Update transform directly (for external control)
    * @param {Object} newTransform - New transform object
    */
   const updateTransform = useCallback((newTransform) => {
-    setTransform(newTransform);
-  }, []);
+    setTransformWithPersistence(newTransform);
+  }, [setTransformWithPersistence]);
   
   /**
    * Check if currently animating
