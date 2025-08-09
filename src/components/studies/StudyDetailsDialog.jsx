@@ -11,9 +11,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Crown, Shield, Edit, Plus, Loader2, BookOpen, X, Tags, Palette } from 'lucide-react';
+import { Crown, Shield, Edit, Plus, Loader2, BookOpen, X, Tags } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { studyTag } from '@/api/studyEntities';
 
@@ -31,9 +30,8 @@ export default function StudyDetailsDialog({
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(defaultName);
   const [color, setColor] = useState(defaultColor);
-  const [startingMethod, setStartingMethod] = useState('standard'); // 'standard', 'fen', 'pgn'
+  const [startingMethod, setStartingMethod] = useState('standard'); // 'standard', 'fen'
   const [startingFen, setStartingFen] = useState('');
-  const [startingPgn, setStartingPgn] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
   const [availableTags, setAvailableTags] = useState([]);
   const [showNewTagForm, setShowNewTagForm] = useState(false);
@@ -41,7 +39,6 @@ export default function StudyDetailsDialog({
   const [newTagColor, setNewTagColor] = useState('#22c55e');
   const [error, setError] = useState('');
   const [fenError, setFenError] = useState('');
-  const [pgnError, setPgnError] = useState('');
   const [loading, setLoading] = useState(false);
 
   // Load available tags when dialog opens
@@ -108,25 +105,6 @@ export default function StudyDetailsDialog({
     }
   };
 
-  const validatePgn = (pgn) => {
-    try {
-      const chess = new Chess();
-      const moves = pgn.trim().split(/\s+/).filter(move => {
-        // Remove move numbers and annotations
-        return !/^\d+\./.test(move) && move !== '' && !move.startsWith('{') && !move.endsWith('}');
-      });
-      
-      for (const move of moves) {
-        const result = chess.move(move);
-        if (!result) {
-          return `Invalid move: ${move}`;
-        }
-      }
-      return null;
-    } catch (error) {
-      return 'Invalid PGN format';
-    }
-  };
 
   // Real-time FEN validation
   const handleFenChange = (value) => {
@@ -140,17 +118,6 @@ export default function StudyDetailsDialog({
     if (error) setError('');
   };
 
-  // Real-time PGN validation
-  const handlePgnChange = (value) => {
-    setStartingPgn(value);
-    if (value.trim()) {
-      const error = validatePgn(value.trim());
-      setPgnError(error || '');
-    } else {
-      setPgnError('');
-    }
-    if (error) setError('');
-  };
 
   const handleConfirm = async () => {
     if (!name.trim()) {
@@ -159,12 +126,11 @@ export default function StudyDetailsDialog({
     }
 
     // Check for field-specific errors
-    if (fenError || pgnError) {
+    if (fenError) {
       return;
     }
 
     let finalFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-    let finalPgn = '';
 
     // Validate starting position based on method
     if (startingMethod === 'fen') {
@@ -178,33 +144,6 @@ export default function StudyDetailsDialog({
         return;
       }
       finalFen = startingFen.trim();
-    } else if (startingMethod === 'pgn') {
-      if (!startingPgn.trim()) {
-        setPgnError('PGN moves are required');
-        return;
-      }
-      const validation = validatePgn(startingPgn.trim());
-      if (validation) {
-        setPgnError(validation);
-        return;
-      }
-      
-      // Calculate final position from PGN
-      try {
-        const chess = new Chess();
-        const moves = startingPgn.trim().split(/\s+/).filter(move => {
-          return !/^\d+\./.test(move) && move !== '' && !move.startsWith('{') && !move.endsWith('}');
-        });
-        
-        for (const move of moves) {
-          chess.move(move);
-        }
-        finalFen = chess.fen();
-        finalPgn = startingPgn.trim();
-      } catch (error) {
-        setPgnError('Error processing PGN moves');
-        return;
-      }
     }
 
     setError('');
@@ -216,7 +155,6 @@ export default function StudyDetailsDialog({
           name: name.trim(), 
           color,
           initialFen: finalFen,
-          startingPgn: finalPgn,
           selectedTags
         });
       } else {
@@ -225,7 +163,6 @@ export default function StudyDetailsDialog({
           name: name.trim(),
           color: color,
           initialFen: finalFen,
-          startingPgn: finalPgn,
           tags: selectedTags.map(tag => tag.id).join(',')
         });
         navigate(`/studies-book/editor/new?${params.toString()}`);
@@ -245,14 +182,12 @@ export default function StudyDetailsDialog({
     setColor(defaultColor);
     setStartingMethod('standard');
     setStartingFen('');
-    setStartingPgn('');
     setSelectedTags([]);
     setShowNewTagForm(false);
     setNewTagName('');
     setNewTagColor('#22c55e');
     setError('');
     setFenError('');
-    setPgnError('');
   };
 
   const handleCancel = () => {
@@ -365,7 +300,6 @@ export default function StudyDetailsDialog({
                   setStartingMethod('standard');
                   setError('');
                   setFenError('');
-                  setPgnError('');
                 }}
                 disabled={loading}
                 className={cn(
@@ -383,7 +317,6 @@ export default function StudyDetailsDialog({
                   setStartingMethod('fen');
                   setError('');
                   setFenError('');
-                  setPgnError('');
                 }}
                 disabled={loading}
                 className={cn(
@@ -394,24 +327,6 @@ export default function StudyDetailsDialog({
                 )}
               >
                 FEN
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setStartingMethod('pgn');
-                  setError('');
-                  setFenError('');
-                  setPgnError('');
-                }}
-                disabled={loading}
-                className={cn(
-                  "flex-1 h-10 px-3 rounded-md text-sm font-medium transition-all duration-200 border",
-                  startingMethod === 'pgn' 
-                    ? 'bg-amber-500 text-white border-amber-500' 
-                    : 'bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700/50',
-                )}
-              >
-                PGN
               </button>
             </div>
             
@@ -436,31 +351,6 @@ export default function StudyDetailsDialog({
                   </p>
                 ) : (
                   <p className="text-xs text-slate-400">Enter a FEN position to start your study from</p>
-                )}
-              </div>
-            )}
-            
-            {startingMethod === 'pgn' && (
-              <div className="space-y-2">
-                <Textarea
-                  value={startingPgn}
-                  onChange={(e) => handlePgnChange(e.target.value)}
-                  placeholder="1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5"
-                  className={cn(
-                    "bg-slate-700 text-slate-100 placeholder:text-slate-400 font-mono text-sm min-h-[80px]",
-                    pgnError 
-                      ? "border-red-500 focus:border-red-500 focus:ring-red-500" 
-                      : "border-slate-600"
-                  )}
-                  disabled={loading}
-                />
-                {pgnError ? (
-                  <p className="text-xs text-red-400 flex items-center gap-1">
-                    <span className="w-4 h-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">!</span>
-                    {pgnError}
-                  </p>
-                ) : (
-                  <p className="text-xs text-slate-400">Enter the moves to reach your starting position</p>
                 )}
               </div>
             )}
@@ -639,10 +529,10 @@ export default function StudyDetailsDialog({
           </Button>
           <Button
             onClick={handleConfirm}
-            disabled={loading || !name.trim() || fenError || pgnError}
+            disabled={loading || !name.trim() || fenError}
             className={cn(
               "flex-1 text-white transition-all duration-200",
-              loading || !name.trim() || fenError || pgnError
+              loading || !name.trim() || fenError
                 ? "bg-transparent border border-slate-600 text-slate-500 cursor-not-allowed"
                 : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
             )}

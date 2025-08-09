@@ -134,7 +134,6 @@ export default function StudiesBook() {
       name: studyDetails.name,
       color: studyDetails.color,
       initialFen: studyDetails.initialFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-      startingPgn: studyDetails.startingPgn || '',
       tags: tagIds
     });
     

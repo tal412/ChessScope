@@ -19,7 +19,6 @@ import ChessAnalysisView from '../components/analysis/ChessAnalysisView';
 import MoveDetailsSection from '../components/analysis/MoveDetailsSection';
 import { createOpeningEditorConfig } from '../components/analysis/ChessAnalysisViewConfig.jsx';
 import { createOpeningClusters } from '../utils/clusteringAnalysis';
-import { extractMovesFromPgn } from '../utils/PgnParser.jsx';
 
 // Move tree node structure
 class MoveNode {
@@ -156,7 +155,6 @@ export default function OpeningEditor() {
       const nameParam = urlParams.get('name');
       const colorParam = urlParams.get('color');
       const fenParam = urlParams.get('initialFen');
-      const pgnParam = urlParams.get('startingPgn');
       const tagsParam = urlParams.get('tags');
       
       if (nameParam) setName(nameParam);
@@ -178,48 +176,6 @@ export default function OpeningEditor() {
         setTreeChangeVersion(v => v + 1);
       }
       
-      // If we have starting PGN moves, apply them after initializing the tree
-      if (pgnParam) {
-        try {
-          // Always start from the starting position, not fenParam
-          const startingFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
-          const chess = new Chess(startingFen);
-          
-          // Use PgnParser to properly extract moves from the PGN string
-          const moves = extractMovesFromPgn(pgnParam);
-          
-          // Create tree with the correct starting position
-          const rootNode = new MoveNode('Start', startingFen);
-          let currentTreeNode = rootNode;
-          
-          // Apply each move from the PGN
-          for (const moveStr of moves) {
-            try {
-              const move = chess.move(moveStr);
-              if (move) {
-                currentTreeNode = currentTreeNode.addChild(move.san, chess.fen());
-              } else {
-                console.error(`Failed to apply move: ${moveStr}`);
-                break;
-              }
-            } catch (moveError) {
-              console.error(`Error applying move ${moveStr}:`, moveError);
-              break;
-            }
-          }
-          
-          // Calculate main line
-          MoveNode.calculateMainLine(rootNode);
-          
-          setMoveTree(rootNode);
-          // Set current node to the final position (end of the game)
-          setCurrentNode(currentTreeNode);
-          setTreeVersion(v => v + 1);
-          setTreeChangeVersion(v => v + 1);
-        } catch (error) {
-          console.error('Error applying PGN moves:', error);
-        }
-      }
     }
   }, [isNewStudy]);
   
