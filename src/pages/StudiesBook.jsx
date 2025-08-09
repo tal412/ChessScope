@@ -173,14 +173,18 @@ export default function StudiesBook() {
     setSelectedFolder(folderId ? parseInt(folderId) : null);
   }, [searchParams]);
 
-  const loadStudies = async () => {
+  const loadStudies = async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader) {
+        setLoading(true);
+      }
       const username = localStorage.getItem('chesscope_username');
       
       if (!username) {
         console.warn('No username found');
-        setLoading(false);
+        if (showLoader) {
+          setLoading(false);
+        }
         return;
       }
 
@@ -204,7 +208,9 @@ export default function StudiesBook() {
     } catch (error) {
       console.error('Error loading studies:', error);
     } finally {
-      setLoading(false);
+      if (showLoader) {
+        setLoading(false);
+      }
     }
   };
 
@@ -310,7 +316,7 @@ export default function StudiesBook() {
     
     try {
       await userStudy.delete(deleteStudy.id);
-      await loadStudies();
+      await loadStudies(false); // Don't show loader for deletion
       setDeleteStudy(null);
     } catch (error) {
       console.error('Error deleting study:', error);
@@ -354,7 +360,7 @@ export default function StudiesBook() {
       
       await studyFolder.delete(folder.id);
       await loadFolders();
-      await loadStudies();
+      await loadStudies(false); // Don't show loader for folder deletion
     } catch (error) {
       console.error('Error deleting folder:', error);
     }
@@ -380,7 +386,7 @@ export default function StudiesBook() {
     try {
       const folderId = targetFolder ? targetFolder.id : null;
       await userStudy.update(study.id, { folder_id: folderId });
-      await loadStudies();
+      await loadStudies(false); // Don't show loader for quick updates
     } catch (error) {
       console.error('Error moving study to folder:', error);
     }
@@ -430,8 +436,26 @@ export default function StudiesBook() {
         const folder = folders.find(f => f.id === overInfo.id);
         
         if (study && folder && study.folder_id !== folder.id) {
-          await userStudy.update(study.id, { folder_id: folder.id });
-          await loadStudies();
+          // Immediately update local state to prevent animation back
+          setStudies(prevStudies => 
+            prevStudies.map(s => 
+              s.id === study.id 
+                ? { ...s, folder_id: folder.id }
+                : s
+            )
+          );
+          
+          // Then update database in background
+          userStudy.update(study.id, { folder_id: folder.id })
+            .then(() => {
+              // Reload to ensure consistency (without loader)
+              loadStudies(false);
+            })
+            .catch(error => {
+              console.error('Error moving study to folder:', error);
+              // Revert local state on error
+              loadStudies(false);
+            });
         }
         setActiveId(null);
         return;
@@ -479,7 +503,7 @@ export default function StudiesBook() {
               }));
               
               await userStudy.updatePositions(studyPositions);
-              await loadStudies();
+              await loadStudies(false); // Don't show loader for reordering
             }
           }
         }
@@ -555,16 +579,18 @@ export default function StudiesBook() {
                 ← Back
               </Button>
             )}
-            <FolderCreateDialog onCreateFolder={handleCreateFolder}>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white"
-              >
-                <FolderPlus className="w-4 h-4 mr-2" />
-                New Folder
-              </Button>
-            </FolderCreateDialog>
+            {selectedFolder === null && (
+              <FolderCreateDialog onCreateFolder={handleCreateFolder}>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white"
+                >
+                  <FolderPlus className="w-4 h-4 mr-2" />
+                  New Folder
+                </Button>
+              </FolderCreateDialog>
+            )}
             <TagManagementDialog onTagsChanged={handleTagsChanged}>
               <Button 
                 variant="outline" 
@@ -734,38 +760,69 @@ export default function StudiesBook() {
             )}
             strategy={rectSortingStrategy}
           >
-            {/* Items Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
-              {displayedItems.map((item) => {
-                // Check if this is a study (has initial_fen) or folder
-                const isStudy = item.hasOwnProperty('initial_fen');
-                
-                if (isStudy) {
-                  return (
-                    <SortableStudyCard
-                      key={`study-${item.id}`}
-                      study={item}
-                      onClick={() => handleStudyClick(item.id)}
-                      onEdit={() => handleEditStudy(null, item.id)}
-                      onDelete={() => setDeleteStudy(item)}
-                      onMoveToFolder={handleMoveStudyToFolder}
-                      folders={folders}
-                    />
-                  );
-                } else {
-                  return (
-                    <DroppableFolderCard
-                      key={`folder-${item.id}`}
-                      folder={item}
-                      studiesCount={getStudiesInFolder(item.id)}
-                      onClick={() => handleFolderClick(item)}
-                      onEdit={handleEditFolder}
-                      onDelete={handleDeleteFolder}
-                    />
-                  );
-                }
-              })}
-            </div>
+            {selectedFolder === null ? (
+              // Root view: Show folders first, then unfoldered studies in separate sections
+              <div className="space-y-6">
+                {/* Folders Section */}
+                {folders.length > 0 && (
+                  <div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
+                      {folders.map((folder) => (
+                        <DroppableFolderCard
+                          key={`folder-${folder.id}`}
+                          folder={folder}
+                          studiesCount={getStudiesInFolder(folder.id)}
+                          onClick={() => handleFolderClick(folder)}
+                          onEdit={handleEditFolder}
+                          onDelete={handleDeleteFolder}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Unfoldered Studies Section */}
+                {filteredStudies.filter(study => !study.folder_id || study.folder_id === null).length > 0 && (
+                  <div>
+                    {folders.length > 0 && (
+                      <div className="border-t border-slate-700 pt-6">
+                        <h3 className="text-sm font-medium text-slate-400 mb-4">Other Studies</h3>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
+                      {filteredStudies
+                        .filter(study => !study.folder_id || study.folder_id === null)
+                        .map((study) => (
+                          <SortableStudyCard
+                            key={`study-${study.id}`}
+                            study={study}
+                            onClick={() => handleStudyClick(study.id)}
+                            onEdit={() => handleEditStudy(null, study.id)}
+                            onDelete={() => setDeleteStudy(study)}
+                            onMoveToFolder={handleMoveStudyToFolder}
+                            folders={folders}
+                          />
+                        ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              // Folder view: Show only studies in the selected folder
+              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
+                {filteredStudies.map((study) => (
+                  <SortableStudyCard
+                    key={`study-${study.id}`}
+                    study={study}
+                    onClick={() => handleStudyClick(study.id)}
+                    onEdit={() => handleEditStudy(null, study.id)}
+                    onDelete={() => setDeleteStudy(study)}
+                    onMoveToFolder={handleMoveStudyToFolder}
+                    folders={folders}
+                  />
+                ))}
+              </div>
+            )}
           </SortableContext>
 
           {/* Drag Overlay */}
