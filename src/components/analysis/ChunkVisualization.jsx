@@ -382,8 +382,11 @@ export default function ChunkVisualization({
 
   // Helper function to generate better opening information based on move and context
   const generateOpeningInfo = useCallback((move, currentPath) => {
-    // If we have an openingGraph, try to get actual ECO information
-    if (openingGraph) {
+    // Only use openingGraph if we don't have a custom move tree with non-standard starting position
+    const hasCustomStartingPosition = customMoveTree && customMoveTree.fen !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+    
+    // If we have an openingGraph and we're starting from standard position, try to get actual ECO information
+    if (openingGraph && !hasCustomStartingPosition) {
       try {
         // Build the complete move sequence including this move
         const fullPath = [...currentPath, move];
@@ -455,7 +458,7 @@ export default function ChunkVisualization({
         name: moveNumber <= 6 ? `Opening Move ${moveNumber}` : 'Middle Game' 
       };
     }
-  }, [openingGraph, isWhiteTree]);
+  }, [openingGraph, isWhiteTree, customMoveTree]);
 
   // Helper function to get moves from custom move tree
   const getMovesFromCustomTree = (path, isWhiteTree) => {

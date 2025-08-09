@@ -61,13 +61,37 @@ export default function InteractiveChessboard({
   moveTree = null, // Opening tree (for opening editor/viewer modes)
   mode = 'performance', // 'performance' | 'opening-editor' | 'opening-viewer'
   positionStatus = 'normal', // 'normal' | 'extended_game' | 'not_in_repertoire'
-  nodeOpeningsMap = new Map() // Pre-loaded FEN to openings mapping
+  nodeOpeningsMap = new Map(), // Pre-loaded FEN to openings mapping
+  startingFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' // Starting position FEN
 }) {
   const containerRef = useRef(null);
   const isInternalMoveRef = useRef(false); // Track if move change is internal
   const chessgroundRef = useRef(null); // Reference to chessground component
   const [currentMoveIndex, setCurrentMoveIndex] = useState(currentMoves.length);
   const [orientation, setOrientation] = useState(isWhiteTree ? 'white' : 'black');
+  
+  // Track the previous starting FEN to avoid unnecessary resets
+  const prevStartingFenRef = useRef(startingFen);
+  
+  // Handle starting FEN changes - reset the game when starting FEN changes
+  useEffect(() => {
+    if (prevStartingFenRef.current !== startingFen) {
+      console.log('🔄 Starting FEN changed, resetting game to:', startingFen);
+      prevStartingFenRef.current = startingFen;
+      
+      const newGame = new Chess(startingFen);
+      // Apply current moves to the new starting position
+      for (let i = 0; i < Math.min(currentMoveIndex, currentMoves.length); i++) {
+        try {
+          newGame.move(currentMoves[i]);
+        } catch (e) {
+          console.warn('Invalid move when changing starting FEN:', currentMoves[i]);
+          break;
+        }
+      }
+      setGame(newGame);
+    }
+  }, [startingFen, currentMoves, currentMoveIndex]);
   
   // Debug prop changes
   useEffect(() => {
@@ -91,7 +115,7 @@ export default function InteractiveChessboard({
   
   // Chess game state - single source of truth
   const [game, setGame] = useState(() => {
-    const initialGame = new Chess();
+    const initialGame = new Chess(startingFen);
     // Apply current moves to initial game
     for (let i = 0; i < Math.min(currentMoveIndex, currentMoves.length); i++) {
       try {
@@ -380,7 +404,7 @@ export default function InteractiveChessboard({
       return;
     }
     
-    const newGame = new Chess();
+    const newGame = new Chess(startingFen);
     
     // Apply moves up to current index
     for (let i = 0; i < Math.min(currentMoveIndex, currentMoves.length); i++) {
@@ -403,7 +427,7 @@ export default function InteractiveChessboard({
     setSelected(null);
     setTopMoves([]); // Clear Stockfish arrows when position changes externally
     setStockfishEnabled(false); // Disable Stockfish on position changes
-  }, [stableCurrentMoves, currentMoveIndex]);
+  }, [stableCurrentMoves, currentMoveIndex, startingFen]);
 
   // Update move index when current moves change from external source
   useEffect(() => {
@@ -748,7 +772,7 @@ export default function InteractiveChessboard({
   const updateOpeningInfoFromGraph = useCallback((moves) => {
     try {
       // Create a temporary game to get the FEN for these moves
-      const tempGame = new Chess();
+      const tempGame = new Chess(startingFen);
       for (const move of moves) {
         tempGame.move(move);
       }
@@ -777,7 +801,7 @@ export default function InteractiveChessboard({
     }
     
     return false; // Could not update synchronously
-  }, [graphNodes]);
+  }, [graphNodes, startingFen]);
 
   // Synchronously update opening info when currentMoves changes (from external node clicks)
   useEffect(() => {
@@ -1580,7 +1604,7 @@ export default function InteractiveChessboard({
                 </Button>
               </StudySelector>
             )}
-            {openingGraph && currentMoves.length > 0 && (
+            {openingGraph && currentMoves.length > 0 && startingFen === 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' && (
               <PositionInfoDialog
                 openingGraph={openingGraph}
                 currentMoves={currentMoves}

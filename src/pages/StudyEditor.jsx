@@ -135,21 +135,83 @@ export default function OpeningEditor() {
   const [name, setName] = useState('');
   const [color, setColor] = useState('white');
   
+  // Get initial FEN from URL parameters or use default
+  const getInitialFen = () => {
+    if (isNewStudy) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const fenParam = urlParams.get('initialFen');
+      if (fenParam) {
+        return fenParam;
+      }
+    }
+    return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  };
+  
   // Initialize form state from URL parameters for new openings
   useEffect(() => {
     if (isNewStudy) {
       const urlParams = new URLSearchParams(window.location.search);
       const nameParam = urlParams.get('name');
       const colorParam = urlParams.get('color');
+      const fenParam = urlParams.get('initialFen');
+      const pgnParam = urlParams.get('startingPgn');
       
       if (nameParam) setName(nameParam);
       if (colorParam && ['white', 'black'].includes(colorParam)) setColor(colorParam);
+      
+      // If we have a custom FEN, update the move tree
+      if (fenParam && fenParam !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
+        const newTree = new MoveNode('Start', fenParam);
+        setMoveTree(newTree);
+        setCurrentNode(newTree);
+        setTreeVersion(v => v + 1);
+        setTreeChangeVersion(v => v + 1);
+      }
+      
+      // If we have starting PGN moves, apply them after initializing the tree
+      if (pgnParam) {
+        try {
+          const chess = new Chess(fenParam || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+          const moves = pgnParam.trim().split(/\s+/).filter(move => {
+            return !/^\d+\./.test(move) && move !== '' && !move.startsWith('{') && !move.endsWith('}');
+          });
+          
+          let currentTreeNode = fenParam ? new MoveNode('Start', fenParam) : new MoveNode('Start', 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+          
+          // Apply each move from the PGN
+          for (const moveStr of moves) {
+            const move = chess.move(moveStr);
+            if (move) {
+              currentTreeNode = currentTreeNode.addChild(move.san, chess.fen());
+            } else {
+              console.error(`Failed to apply move: ${moveStr}`);
+              break;
+            }
+          }
+          
+          // Get the root of the tree
+          while (currentTreeNode.parent) {
+            currentTreeNode = currentTreeNode.parent;
+          }
+          
+          // Calculate main line
+          MoveNode.calculateMainLine(currentTreeNode);
+          
+          setMoveTree(currentTreeNode);
+          setCurrentNode(currentTreeNode);
+          setTreeVersion(v => v + 1);
+          setTreeChangeVersion(v => v + 1);
+        } catch (error) {
+          console.error('Error applying PGN moves:', error);
+        }
+      }
     }
   }, [isNewStudy]);
   
-  // Move tree state
-  const [moveTree, setMoveTree] = useState(new MoveNode('Start', 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'));
-  const [currentNode, setCurrentNode] = useState(moveTree);
+  // Move tree state - initialize with FEN from URL or default
+  const initialTree = useMemo(() => new MoveNode('Start', getInitialFen()), []);
+  const [moveTree, setMoveTree] = useState(initialTree);
+  const [currentNode, setCurrentNode] = useState(initialTree);
   const [currentPath, setCurrentPath] = useState([]);
   const [treeVersion, setTreeVersion] = useState(0);
   const [treeChangeVersion, setTreeChangeVersion] = useState(0);
