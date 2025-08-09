@@ -4,7 +4,8 @@
     "allow": [
       "Bash(git add:*)",
       "Bash(grep:*)",
-      "Bash(mv:*)"
+      "Bash(mv:*)",
+      "Bash(npx eslint:*)"
     ],
     "deny": []
   }
