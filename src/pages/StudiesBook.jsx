@@ -78,6 +78,7 @@ export default function StudiesBook() {
         userStudies.map(async (study) => {
           try {
             const tags = await studyTagsMapping.getTagsByStudyId(study.id);
+            console.log('📋 StudiesBook: Loaded tags for study', study.name, '(id:', study.id, '):', tags);
             return { ...study, tags: tags || [] };
           } catch (error) {
             console.warn('Error loading tags for study:', study.id, error);
@@ -124,14 +125,22 @@ export default function StudiesBook() {
 
   // Handle creating a new study - now handled by the dialog
   const handleCreateStudy = async (studyDetails) => {
+    const tagIds = studyDetails.selectedTags?.map(tag => tag.id).join(',') || '';
+    console.log('📋 StudiesBook: Creating study with details:', studyDetails);
+    console.log('📋 StudiesBook: Selected tags:', studyDetails.selectedTags);
+    console.log('📋 StudiesBook: Tag IDs string:', tagIds);
+    
     const params = new URLSearchParams({
       name: studyDetails.name,
       color: studyDetails.color,
       initialFen: studyDetails.initialFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
       startingPgn: studyDetails.startingPgn || '',
-      tags: studyDetails.selectedTags?.map(tag => tag.id).join(',') || ''
+      tags: tagIds
     });
-    navigate(`/studies-book/editor/new?${params.toString()}`);
+    
+    const url = `/studies-book/editor/new?${params.toString()}`;
+    console.log('📋 StudiesBook: Navigating to URL:', url);
+    navigate(url);
   };
 
   // Handle study click - go to analysis view
@@ -350,7 +359,8 @@ export default function StudiesBook() {
 
         {/* Studies Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
-          {filteredStudies.map((study) => (
+          {filteredStudies.map((study) => {
+            return (
             <Card 
               key={study.id}
               className="bg-slate-800 border-slate-700 hover:border-amber-500/50 transition-all cursor-pointer group"
@@ -373,7 +383,10 @@ export default function StudiesBook() {
                       </Badge>
                     </div>
                     {/* Tags */}
-                    {study.tags && study.tags.length > 0 && (
+                    {(() => {
+                      console.log('📋 StudiesBook UI: Checking tags for study', study.name, ':', study.tags, 'length:', study.tags?.length);
+                      return study.tags && study.tags.length > 0;
+                    })() && (
                       <div className="flex flex-wrap gap-1 mt-2">
                         {study.tags.slice(0, 3).map(tag => (
                           <Badge 
@@ -441,7 +454,8 @@ export default function StudiesBook() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
         </div>
       </div>

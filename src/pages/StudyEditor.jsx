@@ -12,7 +12,7 @@ import {
   AlertTriangle,
   Eye
 } from 'lucide-react';
-import { userStudy as UserStudy, userStudyMove as UserStudyMove, moveAnnotation as MoveAnnotation } from '@/api/studyEntities';
+import { userStudy as UserStudy, userStudyMove as UserStudyMove, moveAnnotation as MoveAnnotation, studyTagsMapping } from '@/api/studyEntities';
 import { Chess } from 'chess.js';
 import { loadOpeningGraph } from '@/api/graphStorage';
 import ChessAnalysisView from '../components/analysis/ChessAnalysisView';
@@ -134,6 +134,7 @@ export default function OpeningEditor() {
   // Form state
   const [name, setName] = useState('');
   const [color, setColor] = useState('white');
+  const [selectedTagIds, setSelectedTagIds] = useState([]);
   
   // Get initial FEN from URL parameters or use default
   const getInitialFen = () => {
@@ -155,9 +156,17 @@ export default function OpeningEditor() {
       const colorParam = urlParams.get('color');
       const fenParam = urlParams.get('initialFen');
       const pgnParam = urlParams.get('startingPgn');
+      const tagsParam = urlParams.get('tags');
       
       if (nameParam) setName(nameParam);
       if (colorParam && ['white', 'black'].includes(colorParam)) setColor(colorParam);
+      if (tagsParam) {
+        const tagIds = tagsParam.split(',').filter(id => id.trim()).map(id => parseInt(id.trim()));
+        console.log('🏷️ StudyEditor: Parsed tags from URL:', tagsParam, '-> tag IDs:', tagIds);
+        setSelectedTagIds(tagIds);
+      } else {
+        console.log('🏷️ StudyEditor: No tags parameter in URL');
+      }
       
       // If we have a custom FEN, update the move tree
       if (fenParam && fenParam !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1') {
@@ -336,6 +345,7 @@ export default function OpeningEditor() {
 
   // Auto-save function
   const autoSave = useCallback(async () => {
+    console.log('💾 StudyEditor: Auto-save triggered. selectedTagIds:', selectedTagIds);
     if (isViewMode || !name.trim()) return;
     
     try {
@@ -378,6 +388,23 @@ export default function OpeningEditor() {
         // First time saving - create new opening
         savedStudy = await UserStudy.create(openingData);
         setSavedOpeningId(savedStudy.id);
+        
+        // Save tag associations for new study
+        if (selectedTagIds.length > 0) {
+          console.log('💾 StudyEditor: Saving tag associations for new study:', savedStudy.id, 'tags:', selectedTagIds);
+          for (const tagId of selectedTagIds) {
+            try {
+              console.log('💾 StudyEditor: Adding tag', tagId, 'to study', savedStudy.id);
+              await studyTagsMapping.addTagToStudy(savedStudy.id, tagId);
+              console.log('✅ StudyEditor: Successfully added tag', tagId, 'to study', savedStudy.id);
+            } catch (error) {
+              console.error('❌ StudyEditor: Error adding tag', tagId, 'to study:', error);
+            }
+          }
+        } else {
+          console.log('💾 StudyEditor: No tags to save for new study');
+        }
+        
         // Update URL to edit mode for existing opening
         window.history.replaceState(null, '', `/studies-book/editor/${savedStudy.id}`);
       } else {
@@ -437,7 +464,7 @@ export default function OpeningEditor() {
     } catch (error) {
       console.error('Auto-save error:', error);
     }
-  }, [isViewMode, name, color, moveTree, savedStudyId]);
+  }, [isViewMode, name, color, moveTree, savedStudyId, selectedTagIds]);
 
   // Immediate auto-save on changes
   useEffect(() => {
@@ -458,7 +485,7 @@ export default function OpeningEditor() {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     };
-  }, [name, color, moveTree, treeChangeVersion, autoSave, isViewMode]);
+  }, [name, color, moveTree, treeChangeVersion, autoSave, isViewMode, selectedTagIds]);
 
   // Load performance graph data
   useEffect(() => {
@@ -1267,17 +1294,6 @@ export default function OpeningEditor() {
     navigate('/studies-book');
   };
 
-  if (loading) {
-    return (
-      <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="w-12 h-12 text-amber-500 animate-spin mx-auto mb-4" />
-          <p className="text-slate-300">Loading opening...</p>
-        </div>
-      </div>
-    );
-  }
-
   // Create move details section (memoized to update when currentNode changes)
   const moveDetailsSection = useMemo(() => {
     console.log('🔧 Creating move details section for node:', currentNode?.san || 'null');
@@ -1378,6 +1394,17 @@ export default function OpeningEditor() {
     drawingMode,
     moveDetailsSection
   ]);
+
+  if (loading) {
+    return (
+      <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-12 h-12 text-amber-500 animate-spin mx-auto mb-4" />
+          <p className="text-slate-300">Loading opening...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full w-full bg-slate-900">
