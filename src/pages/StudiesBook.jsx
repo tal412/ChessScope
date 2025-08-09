@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -133,6 +133,7 @@ function DroppableFolderCard({ folder, ...props }) {
 
 export default function StudiesBook() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isSyncing, syncProgress, syncStatus } = useAuth();
   const [studies, setStudies] = useState([]);
   const [folders, setFolders] = useState([]);
@@ -143,7 +144,10 @@ export default function StudiesBook() {
   const [filterColor, setFilterColor] = useState('all'); // 'all', 'white', 'black'
   const [deleteStudy, setDeleteStudy] = useState(null);
   const [activeId, setActiveId] = useState(null);
-  const [selectedFolder, setSelectedFolder] = useState(null); // null = show all, 'root' = show unfoldered
+  
+  // Get folder from URL params
+  const folderIdFromUrl = searchParams.get('folder');
+  const [selectedFolder, setSelectedFolder] = useState(folderIdFromUrl ? parseInt(folderIdFromUrl) : null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -162,6 +166,12 @@ export default function StudiesBook() {
     loadFolders();
     loadTags();
   }, []);
+
+  // Update selectedFolder when URL changes
+  useEffect(() => {
+    const folderId = searchParams.get('folder');
+    setSelectedFolder(folderId ? parseInt(folderId) : null);
+  }, [searchParams]);
 
   const loadStudies = async () => {
     try {
@@ -351,7 +361,19 @@ export default function StudiesBook() {
   };
 
   const handleFolderClick = (folder) => {
-    setSelectedFolder(folder.id);
+    // When clicking a folder, update the URL
+    setSearchParams({ folder: folder.id.toString() });
+  };
+
+  const handleBackClick = () => {
+    // Remove folder param to go back to root
+    setSearchParams({});
+  };
+
+  const getCurrentFolderName = () => {
+    if (selectedFolder === null) return null;
+    const folder = folders.find(f => f.id === selectedFolder);
+    return folder ? folder.name : 'Unknown Folder';
   };
 
   const handleMoveStudyToFolder = async (study, targetFolder) => {
@@ -503,7 +525,11 @@ export default function StudiesBook() {
     <div className="min-h-screen bg-slate-900 flex flex-col">
       {/* Header using AppBar */}
       <AppBar
-        title="Studies Book"
+        title={
+          selectedFolder !== null 
+            ? `Studies Book / ${getCurrentFolderName()}`
+            : "Studies Book"
+        }
         icon={BookOpen}
         centerControls={
           <div className="relative flex-1 max-w-md">
@@ -523,10 +549,10 @@ export default function StudiesBook() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => setSelectedFolder(null)}
+                onClick={handleBackClick}
                 className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white"
               >
-                ← Back to All
+                ← Back
               </Button>
             )}
             <FolderCreateDialog onCreateFolder={handleCreateFolder}>
