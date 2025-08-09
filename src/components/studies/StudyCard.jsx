@@ -14,11 +14,30 @@ import {
   Edit,
   Trash2,
   ChevronRight,
-  FolderInput
+  FolderInput,
+  Folder,
+  BookOpen,
+  Star,
+  Heart,
+  Target,
+  Briefcase,
+  Archive
 } from 'lucide-react';
 import Chessground from 'react-chessground';
 import 'react-chessground/dist/styles/chessground.css';
 import { cn } from '@/lib/utils';
+
+const FOLDER_ICONS = {
+  'folder': Folder,
+  'book': BookOpen,
+  'star': Star,
+  'heart': Heart,
+  'target': Target,
+  'briefcase': Briefcase,
+  'archive': Archive,
+  'crown': Crown,
+  'shield': Shield
+};
 
 export default function StudyCard({ 
   study, 
@@ -28,6 +47,7 @@ export default function StudyCard({
   onMoveToFolder,
   folders = [],
   isDragging = false,
+  folderInfo = null, // Display folder info when filtering by tags
   className = ""
 }) {
   const handleContextAction = (action, e) => {
@@ -61,6 +81,23 @@ export default function StudyCard({
                     )}
                     {study.color.charAt(0).toUpperCase() + study.color.slice(1)}
                   </Badge>
+                  {folderInfo && (
+                    <Badge 
+                      variant="outline" 
+                      className="text-xs px-1.5 py-0.5 flex items-center gap-1"
+                      style={{
+                        borderColor: `${folderInfo.color}50`,
+                        color: folderInfo.color,
+                        backgroundColor: `${folderInfo.color}10`
+                      }}
+                    >
+                      {React.createElement(
+                        FOLDER_ICONS[folderInfo.icon] || Folder,
+                        { className: "w-2.5 h-2.5" }
+                      )}
+                      {folderInfo.name}
+                    </Badge>
+                  )}
                 </div>
                 {/* Tags */}
                 {study.tags && study.tags.length > 0 && (

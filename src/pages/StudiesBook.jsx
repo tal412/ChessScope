@@ -65,7 +65,7 @@ import { cn } from '@/lib/utils';
 
 
 // Sortable wrapper components
-function SortableStudyCard({ study, ...props }) {
+function SortableStudyCard({ study, folderInfo, ...props }) {
   const {
     attributes,
     listeners,
@@ -82,7 +82,7 @@ function SortableStudyCard({ study, ...props }) {
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <StudyCard study={study} isDragging={isDragging} {...props} />
+      <StudyCard study={study} isDragging={isDragging} folderInfo={folderInfo} {...props} />
     </div>
   );
 }
@@ -273,12 +273,24 @@ export default function StudiesBook() {
       return filteredStudies;
     }
     
+    // If filtering by tags, show all matching studies (no folders)
+    if (selectedTagIds.length > 0) {
+      return filteredStudies;
+    }
+    
     // Show both folders and unfoldered studies
     const unfolderedStudies = filteredStudies.filter(study => !study.folder_id || study.folder_id === null);
     return [...folders, ...unfolderedStudies];
   };
 
   const displayedItems = getDisplayedItems();
+
+  // Get folder info for a study
+  const getFolderInfoForStudy = (study) => {
+    if (!study.folder_id) return null;
+    const folder = folders.find(f => f.id === study.folder_id);
+    return folder ? { name: folder.name, color: folder.color, icon: folder.icon } : null;
+  };
 
   // Handle creating a new study - now handled by the dialog
   const handleCreateStudy = async (studyDetails) => {
@@ -761,52 +773,77 @@ export default function StudiesBook() {
             strategy={rectSortingStrategy}
           >
             {selectedFolder === null ? (
-              // Root view: Show folders first, then unfoldered studies in separate sections
-              <div className="space-y-6">
-                {/* Folders Section */}
-                {folders.length > 0 && (
-                  <div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
-                      {folders.map((folder) => (
-                        <DroppableFolderCard
-                          key={`folder-${folder.id}`}
-                          folder={folder}
-                          studiesCount={getStudiesInFolder(folder.id)}
-                          onClick={() => handleFolderClick(folder)}
-                          onEdit={handleEditFolder}
-                          onDelete={handleDeleteFolder}
-                        />
-                      ))}
-                    </div>
+              selectedTagIds.length > 0 ? (
+                // Tag filtering view: Show all matching studies with folder names
+                <div>
+                  <div className="mb-4">
+                    <h3 className="text-sm font-medium text-slate-400">
+                      Studies with selected tags ({filteredStudies.length} found)
+                    </h3>
                   </div>
-                )}
-
-                {/* Unfoldered Studies Section */}
-                {filteredStudies.filter(study => !study.folder_id || study.folder_id === null).length > 0 && (
-                  <div>
-                    {folders.length > 0 && (
-                      <div className="border-t border-slate-700 pt-6">
-                        <h3 className="text-sm font-medium text-slate-400 mb-4">Other Studies</h3>
-                      </div>
-                    )}
-                    <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
-                      {filteredStudies
-                        .filter(study => !study.folder_id || study.folder_id === null)
-                        .map((study) => (
-                          <SortableStudyCard
-                            key={`study-${study.id}`}
-                            study={study}
-                            onClick={() => handleStudyClick(study.id)}
-                            onEdit={() => handleEditStudy(null, study.id)}
-                            onDelete={() => setDeleteStudy(study)}
-                            onMoveToFolder={handleMoveStudyToFolder}
-                            folders={folders}
+                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
+                    {filteredStudies.map((study) => (
+                      <SortableStudyCard
+                        key={`study-${study.id}`}
+                        study={study}
+                        onClick={() => handleStudyClick(study.id)}
+                        onEdit={() => handleEditStudy(null, study.id)}
+                        onDelete={() => setDeleteStudy(study)}
+                        onMoveToFolder={handleMoveStudyToFolder}
+                        folders={folders}
+                        folderInfo={getFolderInfoForStudy(study)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                // Root view: Show folders first, then unfoldered studies in separate sections
+                <div className="space-y-6">
+                  {/* Folders Section */}
+                  {folders.length > 0 && (
+                    <div>
+                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
+                        {folders.map((folder) => (
+                          <DroppableFolderCard
+                            key={`folder-${folder.id}`}
+                            folder={folder}
+                            studiesCount={getStudiesInFolder(folder.id)}
+                            onClick={() => handleFolderClick(folder)}
+                            onEdit={handleEditFolder}
+                            onDelete={handleDeleteFolder}
                           />
                         ))}
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+
+                  {/* Unfoldered Studies Section */}
+                  {filteredStudies.filter(study => !study.folder_id || study.folder_id === null).length > 0 && (
+                    <div>
+                      {folders.length > 0 && (
+                        <div className="border-t border-slate-700 pt-6">
+                          <h3 className="text-sm font-medium text-slate-400 mb-4">Other Studies</h3>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
+                        {filteredStudies
+                          .filter(study => !study.folder_id || study.folder_id === null)
+                          .map((study) => (
+                            <SortableStudyCard
+                              key={`study-${study.id}`}
+                              study={study}
+                              onClick={() => handleStudyClick(study.id)}
+                              onEdit={() => handleEditStudy(null, study.id)}
+                              onDelete={() => setDeleteStudy(study)}
+                              onMoveToFolder={handleMoveStudyToFolder}
+                              folders={folders}
+                            />
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
             ) : (
               // Folder view: Show only studies in the selected folder
               <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
