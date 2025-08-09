@@ -27,7 +27,7 @@ export class UserStudy extends BaseModel {
   constructor() {
     super('user_studies', [
       'username', 'name', 'color', 'initial_fen', 
-      'initial_moves', 'starting_pgn'
+      'initial_moves', 'starting_pgn', 'folder_id', 'position'
     ]);
   }
 
@@ -56,6 +56,76 @@ export class UserStudy extends BaseModel {
   async getByName(username, name) {
     const results = await this.filter({ username, name });
     return results.length > 0 ? results[0] : null;
+  }
+
+  async getByFolder(folderId) {
+    return this.filter({ folder_id: folderId }, 'position');
+  }
+
+  async getUnfolderedByUsername(username) {
+    if (!isDatabaseReady()) {
+      try {
+        await waitForDatabase(5000);
+      } catch (error) {
+        console.warn('Database not ready for unfoldered studies:', error);
+        return [];
+      }
+    }
+
+    const dbModule = await import('./database.js');
+    const dbInstance = dbModule.getDb() || window.db;
+    
+    if (!dbInstance) {
+      console.warn('No database instance available for unfoldered studies');
+      return [];
+    }
+
+    const query = 'SELECT * FROM user_studies WHERE username = ? AND (folder_id IS NULL OR folder_id = 0) ORDER BY position';
+    
+    try {
+      const stmt = dbInstance.prepare(query);
+      stmt.bind([username]);
+      const rows = [];
+      
+      while (stmt.step()) {
+        rows.push(this.transformRow(stmt.getAsObject()));
+      }
+      
+      stmt.free();
+      return rows;
+    } catch (error) {
+      console.error('Error getting unfoldered studies:', error);
+      return [];
+    }
+  }
+
+  async updatePositions(studyPositions) {
+    if (!isDatabaseReady()) {
+      try {
+        await waitForDatabase(5000);
+      } catch (error) {
+        console.warn('Database not ready for study position update:', error);
+        return;
+      }
+    }
+
+    const dbModule = await import('./database.js');
+    const dbInstance = dbModule.getDb() || window.db;
+    
+    if (!dbInstance) {
+      console.warn('No database instance available for study position update');
+      return;
+    }
+
+    for (const { id, position, folderId } of studyPositions) {
+      try {
+        const stmt = dbInstance.prepare('UPDATE user_studies SET position = ?, folder_id = ? WHERE id = ?');
+        stmt.run([position, folderId || null, id]);
+        stmt.free();
+      } catch (error) {
+        console.error('Error updating study position:', error);
+      }
+    }
   }
 
   transformRow(row) {
@@ -226,6 +296,46 @@ export class StudyTag extends BaseModel {
   }
 }
 
+// StudyFolder model for organizing studies in folders
+export class StudyFolder extends BaseModel {
+  constructor() {
+    super('study_folders', ['username', 'name', 'icon', 'color', 'position']);
+  }
+
+  async getByUsername(username) {
+    return this.filter({ username }, 'position');
+  }
+
+  async updatePositions(folderPositions) {
+    if (!isDatabaseReady()) {
+      try {
+        await waitForDatabase(5000);
+      } catch (error) {
+        console.warn('Database not ready for position update:', error);
+        return;
+      }
+    }
+
+    const dbModule = await import('./database.js');
+    const dbInstance = dbModule.getDb() || window.db;
+    
+    if (!dbInstance) {
+      console.warn('No database instance available for position update');
+      return;
+    }
+
+    for (const { id, position } of folderPositions) {
+      try {
+        const stmt = dbInstance.prepare('UPDATE study_folders SET position = ? WHERE id = ?');
+        stmt.run([position, id]);
+        stmt.free();
+      } catch (error) {
+        console.error('Error updating folder position:', error);
+      }
+    }
+  }
+}
+
 // StudyTagsMapping model for managing study-tag relationships
 export class StudyTagsMapping extends BaseModel {
   constructor() {
@@ -327,6 +437,7 @@ export const userStudyMove = new UserStudyMove();
 export const moveAnnotation = new MoveAnnotation();
 export const studyTag = new StudyTag();
 export const studyTagsMapping = new StudyTagsMapping();
+export const studyFolder = new StudyFolder();
 
 // Legacy exports for backward compatibility during transition
 export const UserOpening = UserStudy;

@@ -197,6 +197,34 @@ const runMigrations = async () => {
         )
       `);
     }
+    
+    // Add folder support to user_studies table
+    const columnsResult = db.exec("PRAGMA table_info(user_studies)");
+    const existingColumns = columnsResult.length > 0 ? columnsResult[0].values.map(row => row[1]) : [];
+    
+    if (existingTables.includes('user_studies') && !existingColumns.includes('folder_id')) {
+      console.log('Adding folder support to user_studies table');
+      db.run('ALTER TABLE user_studies ADD COLUMN folder_id INTEGER');
+      db.run('ALTER TABLE user_studies ADD COLUMN position INTEGER DEFAULT 0');
+    }
+    
+    // Create study_folders table if it doesn't exist
+    if (!existingTables.includes('study_folders')) {
+      console.log('Creating study_folders table');
+      db.run(`
+        CREATE TABLE study_folders (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username TEXT NOT NULL,
+          name TEXT NOT NULL,
+          icon TEXT DEFAULT 'folder',
+          color TEXT DEFAULT '#6366f1',
+          position INTEGER DEFAULT 0,
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(username, name)
+        )
+      `);
+    }
   } catch (error) {
     console.error('Error running migrations:', error);
     // Don't throw error to prevent breaking the app
@@ -270,8 +298,11 @@ const createTables = async () => {
         initial_moves TEXT DEFAULT '[]',
         initial_view_fen TEXT DEFAULT 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
         starting_pgn TEXT DEFAULT '',
+        folder_id INTEGER,
+        position INTEGER DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (folder_id) REFERENCES study_folders(id) ON DELETE SET NULL,
         UNIQUE(username, name)
       )
     `);
@@ -321,6 +352,20 @@ const createTables = async () => {
       stmt.run([tag.name, tag.color]);
     });
     stmt.free();
+    
+    db.run(`
+      CREATE TABLE IF NOT EXISTS study_folders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        name TEXT NOT NULL,
+        icon TEXT DEFAULT 'folder',
+        color TEXT DEFAULT '#6366f1',
+        position INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(username, name)
+      )
+    `);
     
     db.run(`
       CREATE TABLE IF NOT EXISTS study_tags_mapping (

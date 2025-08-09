@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -11,6 +10,26 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  useDroppable,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+} from '@dnd-kit/sortable';
+import {
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { 
   BookOpen, 
   Plus, 
@@ -22,11 +41,10 @@ import {
   Eye,
   ChevronRight,
   Loader2,
-  Filter
+  Filter,
+  FolderPlus
 } from 'lucide-react';
-import { userStudy, studyTag, studyTagsMapping } from '@/api/studyEntities';
-import Chessground from 'react-chessground';
-import 'react-chessground/dist/styles/chessground.css';
+import { userStudy, studyTag, studyTagsMapping, studyFolder } from '@/api/studyEntities';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -40,23 +58,108 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import StudyDetailsDialog from '@/components/studies/StudyDetailsDialog';
 import TagManagementDialog from '@/components/studies/TagManagementDialog';
+import FolderCard from '@/components/studies/FolderCard';
+import FolderCreateDialog from '@/components/studies/FolderCreateDialog';
+import StudyCard from '@/components/studies/StudyCard';
 import { cn } from '@/lib/utils';
 
+
+// Sortable wrapper components
+function SortableStudyCard({ study, ...props }) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: `study-${study.id}` });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
+      <StudyCard study={study} isDragging={isDragging} {...props} />
+    </div>
+  );
+}
+
+function DroppableFolderCard({ folder, ...props }) {
+  const { isOver, setNodeRef: setDroppableRef } = useDroppable({
+    id: `folder-drop-${folder.id}`,
+  });
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef: setSortableRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ 
+    id: `folder-${folder.id}`,
+    data: {
+      type: 'folder',
+      folder: folder
+    }
+  });
+
+  // Only apply transform when the folder itself is being dragged
+  const sortableStyle = {
+    transform: isDragging ? CSS.Transform.toString(transform) : undefined,
+    transition: isDragging ? transition : undefined,
+  };
+
+  // Combine refs
+  const combinedRef = (node) => {
+    setDroppableRef(node);
+    setSortableRef(node);
+  };
+
+  return (
+    <div ref={combinedRef} style={sortableStyle} {...attributes} {...listeners}>
+      <FolderCard 
+        folder={folder} 
+        isDragging={isDragging}
+        isDragOver={isOver}
+        {...props} 
+      />
+    </div>
+  );
+}
 
 export default function StudiesBook() {
   const navigate = useNavigate();
   const { isSyncing, syncProgress, syncStatus } = useAuth();
   const [studies, setStudies] = useState([]);
+  const [folders, setFolders] = useState([]);
   const [availableTags, setAvailableTags] = useState([]);
   const [selectedTagIds, setSelectedTagIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterColor, setFilterColor] = useState('all'); // 'all', 'white', 'black'
   const [deleteStudy, setDeleteStudy] = useState(null);
+  const [activeId, setActiveId] = useState(null);
+  const [selectedFolder, setSelectedFolder] = useState(null); // null = show all, 'root' = show unfoldered
 
-  // Load user's studies and tags
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  // Load user's studies, folders, and tags
   useEffect(() => {
     loadStudies();
+    loadFolders();
     loadTags();
   }, []);
 
@@ -107,21 +210,59 @@ export default function StudiesBook() {
     }
   };
 
+  const loadFolders = async () => {
+    try {
+      const username = localStorage.getItem('chesscope_username');
+      
+      if (!username) {
+        console.warn('No username found for folders');
+        return;
+      }
+
+      const userFolders = await studyFolder.getByUsername(username);
+      setFolders(userFolders);
+    } catch (error) {
+      console.error('Error loading folders:', error);
+    }
+  };
+
   const handleTagsChanged = () => {
     console.log('🔄 StudiesBook: handleTagsChanged called - reloading tags and studies...');
     loadTags();
     loadStudies(); // Reload studies to get updated tag information
   };
 
-  // Filter studies based on search, color, and tags
+  // Filter studies based on search, color, tags, and selected folder
   const filteredStudies = studies.filter(study => {
     const matchesSearch = study.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesColor = filterColor === 'all' || study.color === filterColor;
     const matchesTags = selectedTagIds.length === 0 || 
       (study.tags && study.tags.some(tag => selectedTagIds.includes(tag.id)));
     
-    return matchesSearch && matchesColor && matchesTags;
+    // Filter by selected folder
+    let matchesFolder = true;
+    if (selectedFolder === 'root') {
+      matchesFolder = !study.folder_id || study.folder_id === null;
+    } else if (selectedFolder !== null) {
+      matchesFolder = study.folder_id === selectedFolder;
+    }
+    
+    return matchesSearch && matchesColor && matchesTags && matchesFolder;
   });
+
+  // Get displayed items (folders + studies)
+  const getDisplayedItems = () => {
+    if (selectedFolder !== null) {
+      // Show only studies in selected folder or root
+      return filteredStudies;
+    }
+    
+    // Show both folders and unfoldered studies
+    const unfolderedStudies = filteredStudies.filter(study => !study.folder_id || study.folder_id === null);
+    return [...folders, ...unfolderedStudies];
+  };
+
+  const displayedItems = getDisplayedItems();
 
   // Handle creating a new study - now handled by the dialog
   const handleCreateStudy = async (studyDetails) => {
@@ -164,6 +305,172 @@ export default function StudiesBook() {
     } catch (error) {
       console.error('Error deleting study:', error);
     }
+  };
+
+  // Folder management functions
+  const handleCreateFolder = async (folderData) => {
+    try {
+      const username = localStorage.getItem('chesscope_username');
+      if (!username) return;
+
+      await studyFolder.create({
+        ...folderData,
+        username,
+        position: folders.length
+      });
+      
+      await loadFolders();
+    } catch (error) {
+      console.error('Error creating folder:', error);
+    }
+  };
+
+  const handleEditFolder = async (updatedFolder) => {
+    try {
+      await studyFolder.update(updatedFolder.id, updatedFolder);
+      await loadFolders();
+    } catch (error) {
+      console.error('Error editing folder:', error);
+    }
+  };
+
+  const handleDeleteFolder = async (folder) => {
+    try {
+      // Move studies out of folder first
+      const folderStudies = studies.filter(study => study.folder_id === folder.id);
+      for (const study of folderStudies) {
+        await userStudy.update(study.id, { folder_id: null });
+      }
+      
+      await studyFolder.delete(folder.id);
+      await loadFolders();
+      await loadStudies();
+    } catch (error) {
+      console.error('Error deleting folder:', error);
+    }
+  };
+
+  const handleFolderClick = (folder) => {
+    setSelectedFolder(folder.id);
+  };
+
+  const handleMoveStudyToFolder = async (study, targetFolder) => {
+    try {
+      const folderId = targetFolder ? targetFolder.id : null;
+      await userStudy.update(study.id, { folder_id: folderId });
+      await loadStudies();
+    } catch (error) {
+      console.error('Error moving study to folder:', error);
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (event) => {
+    setActiveId(event.active.id);
+  };
+
+  const handleDragEnd = async (event) => {
+    const { active, over } = event;
+    
+    if (!over) {
+      setActiveId(null);
+      return;
+    }
+
+    const activeId = active.id;
+    const overId = over.id;
+
+    // Parse item types and IDs
+    const getItemInfo = (id) => {
+      const strId = String(id);
+      if (strId.startsWith('study-')) {
+        return { type: 'study', id: parseInt(strId.replace('study-', '')) };
+      } else if (strId.startsWith('folder-drop-')) {
+        return { type: 'folder-drop', id: parseInt(strId.replace('folder-drop-', '')) };
+      } else if (strId.startsWith('folder-')) {
+        return { type: 'folder', id: parseInt(strId.replace('folder-', '')) };
+      }
+      return null;
+    };
+
+    const activeInfo = getItemInfo(activeId);
+    const overInfo = getItemInfo(overId);
+
+    if (!activeInfo) {
+      setActiveId(null);
+      return;
+    }
+
+    try {
+      // Handle study being dropped on folder (priority handling)
+      if (activeInfo.type === 'study' && (overInfo?.type === 'folder' || overInfo?.type === 'folder-drop')) {
+        const study = studies.find(s => s.id === activeInfo.id);
+        const folder = folders.find(f => f.id === overInfo.id);
+        
+        if (study && folder && study.folder_id !== folder.id) {
+          await userStudy.update(study.id, { folder_id: folder.id });
+          await loadStudies();
+        }
+        setActiveId(null);
+        return;
+      }
+
+      // Only proceed with reordering if we're not dropping on a folder
+      if (!overInfo || activeId === overId) {
+        setActiveId(null);
+        return;
+      }
+      
+      // Handle reordering within the same type and context
+      if (activeInfo.type === overInfo.type) {
+        if (activeInfo.type === 'folder' && selectedFolder === null) {
+          // Reorder folders (only in root view)
+          const oldIndex = folders.findIndex(f => f.id === activeInfo.id);
+          const newIndex = folders.findIndex(f => f.id === overInfo.id);
+          
+          if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+            const newFolders = arrayMove(folders, oldIndex, newIndex);
+            const folderPositions = newFolders.map((folder, index) => ({
+              id: folder.id,
+              position: index
+            }));
+            
+            await studyFolder.updatePositions(folderPositions);
+            await loadFolders();
+          }
+        } else if (activeInfo.type === 'study') {
+          // Reorder studies within same folder context
+          const activeStudy = studies.find(s => s.id === activeInfo.id);
+          const overStudy = studies.find(s => s.id === overInfo.id);
+          
+          if (activeStudy && overStudy && activeStudy.folder_id === overStudy.folder_id) {
+            const contextStudies = filteredStudies.filter(s => s.folder_id === activeStudy.folder_id);
+            const oldIndex = contextStudies.findIndex(s => s.id === activeInfo.id);
+            const newIndex = contextStudies.findIndex(s => s.id === overInfo.id);
+            
+            if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+              const newStudies = arrayMove(contextStudies, oldIndex, newIndex);
+              const studyPositions = newStudies.map((study, index) => ({
+                id: study.id,
+                position: index,
+                folderId: study.folder_id
+              }));
+              
+              await userStudy.updatePositions(studyPositions);
+              await loadStudies();
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error handling drag end:', error);
+    }
+    
+    setActiveId(null);
+  };
+
+  const getStudiesInFolder = (folderId) => {
+    return studies.filter(study => study.folder_id === folderId).length;
   };
 
   if (loading && !isSyncing) {
@@ -212,6 +519,26 @@ export default function StudiesBook() {
         }
         rightControls={
           <>
+            {selectedFolder !== null && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => setSelectedFolder(null)}
+                className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white"
+              >
+                ← Back to All
+              </Button>
+            )}
+            <FolderCreateDialog onCreateFolder={handleCreateFolder}>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white"
+              >
+                <FolderPlus className="w-4 h-4 mr-2" />
+                New Folder
+              </Button>
+            </FolderCreateDialog>
             <TagManagementDialog onTagsChanged={handleTagsChanged}>
               <Button 
                 variant="outline" 
@@ -328,134 +655,112 @@ export default function StudiesBook() {
         )}
 
         {/* Empty State */}
-        {filteredStudies.length === 0 && (
+        {displayedItems.length === 0 && (
           <div className="text-center py-16">
             <BookOpen className="w-16 h-16 text-slate-600 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-slate-300 mb-2">
               {searchTerm || filterColor !== 'all' || selectedTagIds.length > 0
-                ? 'No studies found' 
-                : 'No studies yet'}
+                ? 'No items found' 
+                : selectedFolder !== null 
+                  ? 'This folder is empty'
+                  : 'No studies yet'}
             </h3>
             <p className="text-slate-400 mb-6">
               {searchTerm || filterColor !== 'all' || selectedTagIds.length > 0
                 ? 'Try adjusting your search or filters'
-                : 'Create your first study to get started'}
+                : selectedFolder !== null
+                  ? 'Drag studies here or create new ones'
+                  : 'Create your first study or folder to get started'}
             </p>
-            {!searchTerm && filterColor === 'all' && selectedTagIds.length === 0 && (
-              <StudyDetailsDialog 
-                onConfirm={handleCreateStudy}
-                title="Create Your First Study"
-                confirmText="Create Study"
-              >
-                <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Your First Study
-                </Button>
-              </StudyDetailsDialog>
+            {!searchTerm && filterColor === 'all' && selectedTagIds.length === 0 && selectedFolder === null && (
+              <div className="flex gap-4 justify-center">
+                <StudyDetailsDialog 
+                  onConfirm={handleCreateStudy}
+                  title="Create Your First Study"
+                  confirmText="Create Study"
+                >
+                  <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Your First Study
+                  </Button>
+                </StudyDetailsDialog>
+                <FolderCreateDialog onCreateFolder={handleCreateFolder}>
+                  <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+                    <FolderPlus className="w-4 h-4 mr-2" />
+                    Create Your First Folder
+                  </Button>
+                </FolderCreateDialog>
+              </div>
             )}
           </div>
         )}
 
-        {/* Studies Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
-          {filteredStudies.map((study) => {
-            return (
-            <Card 
-              key={study.id}
-              className="bg-slate-800 border-slate-700 hover:border-amber-500/50 transition-all cursor-pointer group"
-              onClick={() => handleStudyClick(study.id)}
-            >
-              <CardHeader className="pb-2 pt-3 px-3">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0">
-                    <CardTitle className="text-sm text-slate-100 truncate leading-tight">
-                      {study.name}
-                    </CardTitle>
-                    <div className="flex items-center gap-1 mt-1">
-                      <Badge variant="outline" className={`text-xs px-1.5 py-0.5 ${study.color === 'white' ? 'border-amber-500/50 text-amber-400' : 'border-slate-500 text-slate-400'}`}>
-                        {study.color === 'white' ? (
-                          <Crown className="w-2.5 h-2.5 mr-1" />
-                        ) : (
-                          <Shield className="w-2.5 h-2.5 mr-1" />
-                        )}
-                        {study.color.charAt(0).toUpperCase() + study.color.slice(1)}
-                      </Badge>
-                    </div>
-                    {/* Tags */}
-                    {(() => {
-                      console.log('📋 StudiesBook UI: Checking tags for study', study.name, ':', study.tags, 'length:', study.tags?.length);
-                      return study.tags && study.tags.length > 0;
-                    })() && (
-                      <div className="flex flex-wrap gap-1 mt-2">
-                        {study.tags.slice(0, 3).map(tag => (
-                          <Badge 
-                            key={tag.id}
-                            variant="outline"
-                            className="text-xs px-1 py-0"
-                            style={{
-                              borderColor: tag.color,
-                              color: tag.color,
-                              fontSize: '10px'
-                            }}
-                          >
-                            {tag.name}
-                          </Badge>
-                        ))}
-                        {study.tags.length > 3 && (
-                          <Badge variant="outline" className="text-xs px-1 py-0 border-slate-500 text-slate-400" style={{ fontSize: '10px' }}>
-                            +{study.tags.length - 3}
-                          </Badge>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={(e) => handleEditStudy(e, study.id)}
-                      className="h-6 w-6 p-0"
-                    >
-                      <Edit className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeleteStudy(study);
-                      }}
-                      className="h-6 w-6 p-0 text-red-400 hover:text-red-300"
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pb-3 px-3">
-                {/* Mini Chessboard Preview */}
-                <div className="aspect-square mb-2 rounded-md overflow-hidden bg-slate-900">
-                  <Chessground
-                    fen={study.initial_view_fen || study.initial_fen}
-                    orientation={study.color}
-                    viewOnly={true}
-                    coordinates={false}
-                    style={{
-                      width: '100%',
-                      height: '100%'
-                    }}
-                  />
-                </div>
+        {/* Drag and Drop Context */}
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext 
+            items={displayedItems.map(item => 
+              item.hasOwnProperty('initial_fen') ? `study-${item.id}` : `folder-${item.id}`
+            )}
+            strategy={rectSortingStrategy}
+          >
+            {/* Items Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
+              {displayedItems.map((item) => {
+                // Check if this is a study (has initial_fen) or folder
+                const isStudy = item.hasOwnProperty('initial_fen');
                 
-                <div className="flex items-center justify-between text-xs text-slate-500">
-                  <span>{study.initial_moves?.length || 0} moves</span>
-                  <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </div>
-              </CardContent>
-            </Card>
-            );
-          })}
-        </div>
+                if (isStudy) {
+                  return (
+                    <SortableStudyCard
+                      key={`study-${item.id}`}
+                      study={item}
+                      onClick={() => handleStudyClick(item.id)}
+                      onEdit={() => handleEditStudy(null, item.id)}
+                      onDelete={() => setDeleteStudy(item)}
+                      onMoveToFolder={handleMoveStudyToFolder}
+                      folders={folders}
+                    />
+                  );
+                } else {
+                  return (
+                    <DroppableFolderCard
+                      key={`folder-${item.id}`}
+                      folder={item}
+                      studiesCount={getStudiesInFolder(item.id)}
+                      onClick={() => handleFolderClick(item)}
+                      onEdit={handleEditFolder}
+                      onDelete={handleDeleteFolder}
+                    />
+                  );
+                }
+              })}
+            </div>
+          </SortableContext>
+
+          {/* Drag Overlay */}
+          <DragOverlay>
+            {activeId ? (
+              (() => {
+                const activeIdStr = String(activeId);
+                if (activeIdStr.startsWith('study-')) {
+                  const studyId = parseInt(activeIdStr.replace('study-', ''));
+                  const study = studies.find(s => s.id === studyId);
+                  return study ? <StudyCard study={study} isDragging /> : null;
+                } else if (activeIdStr.startsWith('folder-')) {
+                  const folderId = parseInt(activeIdStr.replace('folder-', ''));
+                  const folder = folders.find(f => f.id === folderId);
+                  return folder ? <FolderCard folder={folder} isDragging /> : null;
+                }
+                return null;
+              })()
+            ) : null}
+          </DragOverlay>
+        </DndContext>
         </div>
       </div>
 
