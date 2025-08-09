@@ -369,7 +369,7 @@ export default function StudiesBook() {
                         ) : (
                           <Shield className="w-2.5 h-2.5 mr-1" />
                         )}
-                        {study.color}
+                        {study.color.charAt(0).toUpperCase() + study.color.slice(1)}
                       </Badge>
                     </div>
                     {/* Tags */}
