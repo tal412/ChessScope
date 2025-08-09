@@ -45,6 +45,16 @@ export const cleanMoveNotation = (move) => {
   return cleanMove || null;
 };
 
+// Normalize FEN for position comparison (remove move counters)
+export const normalizeFen = (fen) => {
+  if (!fen) return '';
+  // Split FEN into parts
+  const parts = fen.split(' ');
+  // Keep only position, turn, castling, and en passant
+  // Remove halfmove clock and fullmove number for position comparison
+  return parts.slice(0, 4).join(' ');
+};
+
 // Get FEN position after applying moves
 export const getPositionAfterMoves = (moves) => {
   const game = applyMovesToGame(moves);

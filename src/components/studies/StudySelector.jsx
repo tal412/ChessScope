@@ -14,9 +14,15 @@ import { BookOpen, Crown, Shield, ExternalLink, Loader2 } from 'lucide-react';
 import { checkPositionInStudies } from '@/api/studyEntities';
 import StudyDetailsDialog from './StudyDetailsDialog';
 
-export default function StudySelector({ fen, trigger, children, studies = [] }) {
+export default function StudySelector({ fen, trigger, children, openings = [] }) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 StudySelector - openings prop:', openings);
+    console.log('🔍 StudySelector - fen prop:', fen);
+  }, [openings, fen]);
 
   const handleStudyClick = (studyId) => {
     setOpen(false);
@@ -54,7 +60,7 @@ export default function StudySelector({ fen, trigger, children, studies = [] }) 
         </DialogHeader>
         
         <div className="mt-4">
-          {studies.length === 0 ? (
+          {openings.length === 0 ? (
             <div className="text-center py-8 text-slate-400">
               <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>No saved studies contain this position</p>
@@ -71,7 +77,7 @@ export default function StudySelector({ fen, trigger, children, studies = [] }) 
           ) : (
             <ScrollArea className="max-h-[400px]">
               <div className="space-y-2">
-                {studies.map((study) => (
+                {openings.map((study) => (
                   <button
                     key={study.id}
                     onClick={() => handleStudyClick(study.id)}

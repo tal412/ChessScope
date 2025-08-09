@@ -1,4 +1,5 @@
 import { BaseModel, isDatabaseReady, waitForDatabase } from './database';
+import { normalizeFen } from '../utils/chessUtils';
 
 // Get database reference for complex queries
 let db = null;
@@ -349,6 +350,9 @@ export const checkPositionInStudies = async (fen, username) => {
       }
     }
     
+    // Normalize the input FEN for comparison
+    const normalizedInputFen = normalizeFen(fen);
+    
     // Get all user studies
     const studies = await userStudy.getByUsername(username);
     const studyIds = studies.map(s => s.id);
@@ -359,18 +363,20 @@ export const checkPositionInStudies = async (fen, username) => {
     const matchingStudies = [];
     
     for (const studyId of studyIds) {
-      const moves = await userStudyMove.filter({ 
-        study_id: studyId, 
-        fen: fen 
-      });
+      // Get all moves for this study
+      const moves = await userStudyMove.getByStudyId(studyId);
       
-      if (moves.length > 0) {
+      // Check if any move matches the normalized FEN
+      const hasPosition = moves.some(move => normalizeFen(move.fen) === normalizedInputFen);
+      
+      if (hasPosition) {
         const study = studies.find(s => s.id === studyId);
         if (study) {
           matchingStudies.push({
             id: study.id,
             name: study.name,
-            color: study.color
+            color: study.color,
+            tags: study.tags || []
           });
         }
       }
@@ -435,17 +441,21 @@ export const getAllStudyPositionsMap = async (username) => {
       const moves = await userStudyMove.getByStudyId(study.id);
       
       for (const move of moves) {
-        if (!fenToStudiesMap.has(move.fen)) {
-          fenToStudiesMap.set(move.fen, []);
+        // Normalize FEN for consistent comparison
+        const normalizedFen = normalizeFen(move.fen);
+        
+        if (!fenToStudiesMap.has(normalizedFen)) {
+          fenToStudiesMap.set(normalizedFen, []);
         }
         
         // Only add if not already in the array (avoid duplicates)
-        const existingStudies = fenToStudiesMap.get(move.fen);
+        const existingStudies = fenToStudiesMap.get(normalizedFen);
         if (!existingStudies.some(s => s.id === study.id)) {
           existingStudies.push({
             id: study.id,
             name: study.name,
-            color: study.color
+            color: study.color,
+            tags: study.tags || []
           });
         }
       }

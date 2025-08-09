@@ -16,7 +16,8 @@ import {
   makeMove, 
   stringToMoves,
   movesToString,
-  getCurrentTurn
+  getCurrentTurn,
+  normalizeFen
 } from '@/utils/chessUtils';
 
 // Helper function to get arrow color based on win rate (matching ChunkVisualization colors)
@@ -423,10 +424,11 @@ export default function InteractiveChessboard({
         showOpeningGraphMessage
       });
       
-      // Create cache key that includes both FEN and move sequence for opening modes
+      // Create cache key that includes both normalized FEN and move sequence for opening modes
+      const normalizedFenForCache = normalizeFen(currentFen);
       const cacheKey = (mode === 'opening-editor' || mode === 'opening-viewer') 
-        ? `${currentFen}_${currentMoves.join('')}` 
-        : currentFen;
+        ? `${normalizedFenForCache}_${currentMoves.join('')}` 
+        : normalizedFenForCache;
       
         // Check if we already have this position cached
   if (openingLoadingCache.has(cacheKey)) {
@@ -452,8 +454,9 @@ export default function InteractiveChessboard({
     console.log(`🔍 Using opening info from graph node:`, openingInfo);
     
     // Check if position exists in user's saved openings using pre-loaded map
-    const inOpenings = nodeOpeningsMap.has(currentFen) ? nodeOpeningsMap.get(currentFen) : [];
-    console.log(`🔍 Graph node path - checking nodeOpeningsMap for FEN: ${currentFen}, found: ${inOpenings.length} openings`);
+    const normalizedFen = normalizeFen(currentFen);
+    const inOpenings = nodeOpeningsMap.has(normalizedFen) ? nodeOpeningsMap.get(normalizedFen) : [];
+    console.log(`🔍 Graph node path - checking nodeOpeningsMap for normalized FEN: ${normalizedFen}, found: ${inOpenings.length} openings`);
     
     setCurrentOpeningInfo(openingInfo);
     setPositionExistsInGraph(true);
@@ -582,9 +585,10 @@ export default function InteractiveChessboard({
          }
        
        // Check if position exists in user's saved openings using pre-loaded map
-       const inOpenings = nodeOpeningsMap.has(currentFen) ? nodeOpeningsMap.get(currentFen) : [];
-       console.log(`🔍 Position check - FEN: ${currentFen}, Map size: ${nodeOpeningsMap.size}, Found: ${inOpenings.length} openings`);
-       console.log(`🔍 Map has this FEN:`, nodeOpeningsMap.has(currentFen));
+       const normalizedFen = normalizeFen(currentFen);
+       const inOpenings = nodeOpeningsMap.has(normalizedFen) ? nodeOpeningsMap.get(normalizedFen) : [];
+       console.log(`🔍 Position check - normalized FEN: ${normalizedFen}, Map size: ${nodeOpeningsMap.size}, Found: ${inOpenings.length} openings`);
+       console.log(`🔍 Map has this normalized FEN:`, nodeOpeningsMap.has(normalizedFen));
        if (nodeOpeningsMap.size > 0 && nodeOpeningsMap.size < 10) {
          console.log(`🔍 All FENs in map:`, Array.from(nodeOpeningsMap.keys()));
        }
