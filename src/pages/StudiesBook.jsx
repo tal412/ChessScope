@@ -273,8 +273,8 @@ export default function StudiesBook() {
       return filteredStudies;
     }
     
-    // If filtering by tags, show all matching studies (no folders)
-    if (selectedTagIds.length > 0) {
+    // If filtering by tags OR searching, show all matching studies (no folders)
+    if (selectedTagIds.length > 0 || searchTerm.trim()) {
       return filteredStudies;
     }
     
@@ -773,12 +773,18 @@ export default function StudiesBook() {
             strategy={rectSortingStrategy}
           >
             {selectedFolder === null ? (
-              selectedTagIds.length > 0 ? (
-                // Tag filtering view: Show all matching studies with folder names
+              (selectedTagIds.length > 0 || searchTerm.trim()) ? (
+                // Filtering view: Show all matching studies with folder names
                 <div>
                   <div className="mb-4">
                     <h3 className="text-sm font-medium text-slate-400">
-                      Studies with selected tags ({filteredStudies.length} found)
+                      {selectedTagIds.length > 0 && searchTerm.trim() ? (
+                        `Studies matching "${searchTerm}" with selected tags (${filteredStudies.length} found)`
+                      ) : selectedTagIds.length > 0 ? (
+                        `Studies with selected tags (${filteredStudies.length} found)`
+                      ) : (
+                        `Studies matching "${searchTerm}" (${filteredStudies.length} found)`
+                      )}
                     </h3>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
