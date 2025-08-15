@@ -10,6 +10,9 @@ import {
 } from '@/api/graphStorage';
 import { OpeningGraph } from '@/api/studyGraph';
 import { backgroundProcessor } from '../utils/BackgroundProcessor';
+import { googleAuth } from '../services/GoogleAuth.js';
+import { suppressBackups, enableBackups } from '../api/database.js';
+import { googleDriveBackup } from '../services/GoogleDriveBackup.js';
 
 const AuthContext = createContext();
 
@@ -74,6 +77,7 @@ export const AuthProvider = ({ children }) => {
         const authData = JSON.parse(savedAuth);
         setUser(authData.user);
         setIsAuthenticated(true);
+        
         // Mark that we need to auto-sync based on frequency, but don't do it yet
         if (shouldAutoSync(authData.user)) {
           setPendingAutoSync(authData.user);
@@ -135,6 +139,7 @@ export const AuthProvider = ({ children }) => {
       return () => clearTimeout(syncTimer);
     }
   }, [pendingAutoSync, isLoading, isSyncing]);
+
 
   const login = async (username, platform = 'chess.com', importSettings = null, googleAccount = null) => {
     try {
@@ -226,6 +231,18 @@ export const AuthProvider = ({ children }) => {
       if (backgroundProcessor.getStatus().isRunning) {
         console.log('🛑 Stopping background processor...');
         backgroundProcessor.stop();
+      }
+      
+      // Sign out from Google account if signed in
+      try {
+        if (googleAuth.isSignedIn) {
+          console.log('🔄 Signing out from Google account...');
+          await googleAuth.signOut();
+          console.log('✅ Signed out from Google account');
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to sign out from Google account:', error);
+        // Continue with logout even if Google sign-out fails
       }
       
       // Get platform-specific identifier before clearing auth data for IndexedDB cleanup
@@ -323,6 +340,16 @@ export const AuthProvider = ({ children }) => {
       
       // Basic cleanup as fallback
       try {
+        // Try to sign out from Google as part of fallback
+        if (googleAuth.isSignedIn) {
+          try {
+            await googleAuth.signOut();
+            console.log('✅ Signed out from Google (fallback)');
+          } catch (googleError) {
+            console.warn('⚠️ Google sign-out failed in fallback:', googleError);
+          }
+        }
+        
         localStorage.removeItem('chessScope_auth');
         localStorage.removeItem('chesscope_username');
         sessionStorage.clear();
@@ -482,6 +509,9 @@ export const AuthProvider = ({ children }) => {
     } = importSettings;
 
     try {
+      // CRITICAL: Suppress automatic backups during sync to prevent overwriting studies
+      suppressBackups();
+      
       setImportProgress(5);
       setImportStatus('Connecting to server...');
 
@@ -653,6 +683,19 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Import games error:', error);
       throw error;
+    } finally {
+      // CRITICAL: Always re-enable backups, even if import fails
+      enableBackups();
+      
+      // Trigger a backup now that studies are preserved and import is complete
+      try {
+        if (googleDriveBackup) {
+          googleDriveBackup.markDataChanged();
+          console.log('✅ Triggered backup after successful import');
+        }
+      } catch (error) {
+        console.warn('Failed to trigger backup after import:', error);
+      }
     }
   };
 
@@ -668,6 +711,9 @@ export const AuthProvider = ({ children }) => {
     } = importSettings;
 
     try {
+      // CRITICAL: Suppress automatic backups during sync to prevent overwriting studies
+      suppressBackups();
+      
       setSyncStatus('Connecting to server...');
       setSyncProgress(5);
       
@@ -825,6 +871,19 @@ export const AuthProvider = ({ children }) => {
     } catch (error) {
       console.error('Silent import error:', error);
       throw error;
+    } finally {
+      // CRITICAL: Always re-enable backups, even if sync fails
+      enableBackups();
+      
+      // Trigger a backup now that studies are preserved and sync is complete
+      try {
+        if (googleDriveBackup) {
+          googleDriveBackup.markDataChanged();
+          console.log('✅ Triggered backup after successful sync');
+        }
+      } catch (error) {
+        console.warn('Failed to trigger backup after sync:', error);
+      }
     }
   };
 

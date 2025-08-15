@@ -82,6 +82,7 @@ export const initDatabase = async () => {
       // Load existing database
       const uint8Array = new Uint8Array(JSON.parse(existingDb));
       db = new SQL.Database(uint8Array);
+      
     } else {
       // Create new database
       db = new SQL.Database();
@@ -472,6 +473,21 @@ const createTables = async () => {
   }
 };
 
+// Flag to prevent automatic backups during sync operations
+let backupSuppressed = false;
+
+// Suppress automatic backups during critical operations
+export const suppressBackups = () => {
+  backupSuppressed = true;
+  console.log('🚫 Automatic backups suppressed');
+};
+
+// Re-enable automatic backups
+export const enableBackups = () => {
+  backupSuppressed = false;
+  console.log('✅ Automatic backups re-enabled');
+};
+
 // Save database to localStorage with compression and error handling
 const saveDatabase = async () => {
   try {
@@ -486,15 +502,19 @@ const saveDatabase = async () => {
     
     localStorage.setItem('chesscope_db', dataString);
     
-    // Notify backup service of data change
-    try {
-      const backupService = await getBackupService();
-      if (backupService) {
-        backupService.markDataChanged();
+    // Only notify backup service if backups are not suppressed
+    if (!backupSuppressed) {
+      try {
+        const backupService = await getBackupService();
+        if (backupService) {
+          backupService.markDataChanged();
+        }
+      } catch (error) {
+        // Backup service not available or failed, continue normally
+        console.log('Backup service not available:', error.message);
       }
-    } catch (error) {
-      // Backup service not available or failed, continue normally
-      console.log('Backup service not available:', error.message);
+    } else {
+      console.log('🚫 Backup skipped - suppressed during sync operation');
     }
   } catch (error) {
     if (error.name === 'QuotaExceededError') {

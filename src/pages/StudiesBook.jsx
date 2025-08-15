@@ -168,6 +168,7 @@ export default function StudiesBook() {
         // Wait for database to be ready before loading data
         await waitForDatabase();
         
+        
         // Load all data once database is ready
         await Promise.all([
           loadStudies(),

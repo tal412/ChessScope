@@ -10,9 +10,8 @@ function App() {
     // Initialize auto backup service on app mount
     console.log('🚀 App: Initializing auto backup service...');
     autoBackupService.initialize().then(() => {
-      console.log('🚀 App: Auto backup service initialized, performing visit backup...');
-      // Perform backup on every app visit
-      autoBackupService.performVisitBackup();
+      console.log('🚀 App: Auto backup service initialized');
+      // Don't perform automatic backup on visit - let user choose to backup or restore
     }).catch(error => {
       console.error('🚀 App: Failed to initialize auto backup service:', error);
     });

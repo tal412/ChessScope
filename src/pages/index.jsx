@@ -3,6 +3,7 @@ import LoginPage from "./LoginPage";
 import PerformanceGraph from "./PerformanceGraph";
 import StudiesBook from "./StudiesBook";
 import StudyEditor from "./StudyEditor";
+import GoogleDriveSyncPage from "./GoogleDriveSyncPage";
 import { useAuth } from "@/contexts/AuthContext";
 import { Loader2, Shield, Crown, Heart, Code, DollarSign, Users, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -243,6 +244,7 @@ function PagesContent() {
                 <Route path="studies-book/editor/new" element={<StudyEditor />} />
                 <Route path="studies-book/editor/:studyId" element={<StudyEditor />} />
                 <Route path="studies-book/study/:studyId" element={<StudyEditor />} />
+                <Route path="google-drive-sync" element={<GoogleDriveSyncPage />} />
                 {/* Redirect authenticated users away from login */}
                 <Route path="login" element={<PerformanceGraph />} />
             </Route>

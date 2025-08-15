@@ -63,11 +63,7 @@ class GoogleDriveBackupService {
       
       this.isBackupEnabled = true;
       
-      // Perform initial backup
-      await this.performBackup();
-      
-      // Check for updates from Google Drive on startup (only once)
-      await this.checkForUpdates();
+      // Don't perform automatic backup on enable - let user choose to backup or restore
       
       console.log('Google Drive backup enabled successfully');
       return true;
@@ -164,6 +160,7 @@ class GoogleDriveBackupService {
     if (!this.isBackupEnabled || !googleAuth.isSignedIn) {
       return false;
     }
+
 
     try {
       this.backupInProgress = true;
@@ -322,16 +319,12 @@ class GoogleDriveBackupService {
       const dataString = JSON.stringify(Array.from(uint8Array));
       localStorage.setItem('chesscope_db', dataString);
 
-      console.log('Database restore completed successfully');
+      // Debug: Check what we actually restored
+      console.log('Database restore completed successfully - size:', dbData.byteLength, 'bytes');
+      console.log('Stored database string length:', dataString.length);
       
-      // Dispatch restore event
-      window.dispatchEvent(new CustomEvent('backupRestored', { 
-        detail: { 
-          backupTime: backupFile.modifiedTime,
-          fileId: backupFile.id
-        }
-      }));
-
+      console.log('✅ Database restored successfully! Reloading page...');
+      
       // Reload page to reinitialize with restored data
       window.location.reload();
       
@@ -386,6 +379,62 @@ class GoogleDriveBackupService {
     }
   }
 
+  // Get detailed backup content info by analyzing the database
+  async getBackupContentInfo() {
+    try {
+      const backupInfo = await this.getBackupInfo();
+      if (!backupInfo) {
+        return null;
+      }
+
+      // Download and analyze the backup file to show what's inside
+      const downloadResponse = await fetch(`https://www.googleapis.com/drive/v3/files/${backupInfo.fileId}?alt=media`, {
+        headers: {
+          'Authorization': `Bearer ${googleAuth.getAccessToken()}`
+        }
+      });
+
+      if (!downloadResponse.ok) {
+        throw new Error(`Failed to download backup for analysis: ${downloadResponse.statusText}`);
+      }
+
+      const dbData = await downloadResponse.arrayBuffer();
+      
+      // Load the backup database temporarily to analyze its contents
+      const SQL = await import('sql.js');
+      const sql = await SQL.default({
+        locateFile: file => `https://sql.js.org/dist/${file}`
+      });
+      
+      const uint8Array = new Uint8Array(dbData);
+      const tempDb = new sql.Database(uint8Array);
+      
+      // Query the backup database to see what's inside
+      const studiesResult = tempDb.exec("SELECT COUNT(*) as count FROM user_studies");
+      const studyCount = studiesResult.length > 0 ? studiesResult[0].values[0][0] : 0;
+      
+      const usernamesResult = tempDb.exec("SELECT DISTINCT username FROM user_studies LIMIT 5");
+      const usernames = usernamesResult.length > 0 ? usernamesResult[0].values.map(row => row[0]) : [];
+      
+      const foldersResult = tempDb.exec("SELECT COUNT(*) as count FROM study_folders");
+      const folderCount = foldersResult.length > 0 ? foldersResult[0].values[0][0] : 0;
+      
+      // Clean up
+      tempDb.close();
+      
+      return {
+        ...backupInfo,
+        studyCount,
+        usernames,
+        folderCount,
+        hasData: studyCount > 0
+      };
+    } catch (error) {
+      console.error('Error analyzing backup content:', error);
+      return null;
+    }
+  }
+
   markDataChanged() {
     this.pendingChanges = true;
     // Trigger immediate backup if enabled
@@ -397,82 +446,6 @@ class GoogleDriveBackupService {
   }
 
 
-  async checkForUpdates() {
-    if (!this.isBackupEnabled || !googleAuth.isSignedIn || !this.backupFolderId) {
-      return false;
-    }
-
-    // Only check once per session, or if more than 5 minutes have passed
-    const now = Date.now();
-    if (this.hasAskedAboutRestore && this.lastRestoreCheckTime) {
-      const timeSinceLastCheck = now - this.lastRestoreCheckTime;
-      if (timeSinceLastCheck < 5 * 60 * 1000) { // 5 minutes
-        console.log('Skipping restore check - already asked this session');
-        return false;
-      }
-    }
-
-    try {
-      console.log('Checking for Google Drive backup updates...');
-      
-      // Get remote backup info
-      const remoteBackupInfo = await this.getBackupInfo();
-      if (!remoteBackupInfo) {
-        console.log('No remote backup found');
-        return false;
-      }
-
-      // Get local database last modified time from localStorage metadata
-      const localDbString = localStorage.getItem('chesscope_db');
-      if (!localDbString) {
-        console.log('No local database found, remote backup is newer');
-        // Mark that we've checked
-        this.hasAskedAboutRestore = true;
-        this.lastRestoreCheckTime = now;
-        return true;
-      }
-
-      // For now, we'll use a simple heuristic: compare sizes
-      // A more sophisticated approach would store metadata about last sync time
-      const localSize = new Blob([localDbString]).size;
-      const sizeDifferencePercent = Math.abs(remoteBackupInfo.size - localSize) / Math.max(remoteBackupInfo.size, localSize) * 100;
-      
-      // If there's a significant size difference (>5%), prompt user ONCE
-      if (sizeDifferencePercent > 5 && !this.hasAskedAboutRestore) {
-        console.log(`Remote backup size differs significantly from local: remote=${remoteBackupInfo.sizeFormatted}, local=${this.formatFileSize(localSize)}`);
-        
-        // Mark that we've asked to prevent repeated prompts
-        this.hasAskedAboutRestore = true;
-        this.lastRestoreCheckTime = now;
-        // Persist to localStorage to survive page reloads
-        this.updateSessionData({
-          hasAskedAboutRestore: true,
-          lastRestoreCheckTime: now
-        });
-        
-        const shouldRestore = confirm(
-          `A different version of your studies was found in Google Drive backup.\n\n` +
-          `Remote backup: ${remoteBackupInfo.sizeFormatted} (modified ${remoteBackupInfo.lastModified.toLocaleString()})\n` +
-          `Local database: ${this.formatFileSize(localSize)}\n\n` +
-          `Would you like to restore from the remote backup? This will replace your current local data.`
-        );
-        
-        if (shouldRestore) {
-          await this.restoreFromBackup();
-          return true;
-        }
-      } else if (sizeDifferencePercent > 5) {
-        console.log('Remote backup differs but already asked user this session');
-      } else {
-        console.log('Local and remote backups appear to be similar in size');
-      }
-      
-      return false;
-    } catch (error) {
-      console.error('Error checking for backup updates:', error);
-      return false;
-    }
-  }
 
   formatFileSize(bytes) {
     if (bytes === 0) return '0 Bytes';

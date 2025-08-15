@@ -13,8 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import ProfilePopup from "@/components/ProfilePopup";
-import BackupStatusIcon from "@/components/BackupStatusIcon";
+import DriveBackupSection from "@/components/DriveBackupSection";
 import { Network, User, Settings, Shield, RefreshCw, Loader2, Calendar as CalendarIcon, Globe, CheckCircle, AlertCircle, LogOut, ChevronLeft, ChevronRight, Github, Linkedin, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -77,7 +76,6 @@ export default function Layout() {
     return savedState ? JSON.parse(savedState) : false;
   });
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [tempSettings, setTempSettings] = useState({});
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLoggingOutTransition, setIsLoggingOutTransition] = useState(false);
@@ -380,6 +378,16 @@ export default function Layout() {
                 <div className="border-t border-slate-700/30 my-1"></div>
               )}
               
+              {/* Drive Backup Section */}
+              {user && (
+                <DriveBackupSection isSidebarCollapsed={isSidebarCollapsed} />
+              )}
+              
+              {/* Separator Line */}
+              {user && (
+                <div className="border-t border-slate-700/30 my-1"></div>
+              )}
+              
               {/* Action Buttons */}
               <div className="flex flex-col gap-2">
                 <Tooltip delayDuration={0}>
@@ -417,30 +425,6 @@ export default function Layout() {
                 <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>
                     <Button
-                      onClick={() => setIsProfileOpen(true)}
-                      disabled={isImporting || isSyncing}
-                      size="sm"
-                      variant="outline"
-                      className={`border-slate-600 text-slate-300 hover:bg-slate-700 transition-all duration-200 ${isSidebarCollapsed ? 'px-3' : 'justify-start'}`}
-                    >
-                      <User className="w-4 h-4 flex-shrink-0" />
-                      {!isSidebarCollapsed && <span className="ml-2">Profile</span>}
-                    </Button>
-                  </TooltipTrigger>
-                  {isSidebarCollapsed && (
-                    <TooltipContent 
-                      side="right" 
-                      className="bg-slate-800 border-slate-700 text-white"
-                      sideOffset={10}
-                    >
-                      <p>Profile</p>
-                    </TooltipContent>
-                  )}
-                </Tooltip>
-
-                <Tooltip delayDuration={0}>
-                  <TooltipTrigger asChild>
-                    <Button
                       onClick={handleSettingsOpen}
                       disabled={isImporting || isSyncing}
                       size="sm"
@@ -461,8 +445,6 @@ export default function Layout() {
                     </TooltipContent>
                   )}
                 </Tooltip>
-
-                <BackupStatusIcon isSidebarCollapsed={isSidebarCollapsed} />
 
                 <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>
@@ -936,8 +918,6 @@ export default function Layout() {
           </AlertDialogContent>
         </AlertDialog>
 
-        {/* Profile Dialog */}
-        <ProfilePopup isOpen={isProfileOpen} onOpenChange={setIsProfileOpen} />
       </div>
     </TooltipProvider>
   );
