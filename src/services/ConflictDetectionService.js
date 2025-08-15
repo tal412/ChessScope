@@ -101,19 +101,35 @@ class ConflictDetectionService {
       tags: remoteData.tags?.length || 0
     };
 
-    // Check for significant structural differences
+    // Only flag as conflict if there are FEWER items locally than remote
+    // (suggesting deletions while remote had additions)
+    // Simple additions locally are NOT conflicts
     Object.keys(localCounts).forEach(key => {
-      const diff = Math.abs(localCounts[key] - remoteCounts[key]);
-      if (diff > 0) {
-        conflicts.hasConflicts = true;
-        conflicts.details.push({
-          type: 'count_mismatch',
-          category: key,
-          local: localCounts[key],
-          remote: remoteCounts[key],
-          difference: diff,
-          message: `${key} count differs: local ${localCounts[key]}, remote ${remoteCounts[key]}`
-        });
+      const localCount = localCounts[key];
+      const remoteCount = remoteCounts[key];
+      
+      // Check for potential deletion conflicts
+      // If remote has items that local doesn't, we need to check if they're actually missing
+      if (remoteCount > localCount) {
+        // Check if remote items are actually missing locally (deleted) vs just not synced yet
+        const localIds = new Set((localData[key] || []).map(item => item.id));
+        const remoteIds = new Set((remoteData[key] || []).map(item => item.id));
+        
+        const missingInLocal = Array.from(remoteIds).filter(id => !localIds.has(id));
+        
+        if (missingInLocal.length > 0) {
+          // These items exist remotely but not locally - could be deletions or not synced
+          // Only mark as conflict if we can't determine the cause
+          conflicts.details.push({
+            type: 'potential_deletion',
+            category: key,
+            local: localCount,
+            remote: remoteCount,
+            missingIds: missingInLocal,
+            message: `Remote has ${missingInLocal.length} ${key} not found locally - may need sync`
+          });
+          // Don't mark as conflict yet - let timestamp check determine real conflicts
+        }
       }
     });
 

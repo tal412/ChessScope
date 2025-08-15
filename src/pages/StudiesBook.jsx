@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { AppBar } from '@/components/ui/flexible-layout';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,7 +43,8 @@ import {
   ChevronRight,
   Loader2,
   Filter,
-  FolderPlus
+  FolderPlus,
+  AlertTriangle
 } from 'lucide-react';
 import { userStudy, studyTag, studyTagsMapping, studyFolder } from '@/api/studyEntities';
 import { waitForDatabase } from '@/api/database';
@@ -63,7 +65,7 @@ import FolderCard from '@/components/studies/FolderCard';
 import FolderCreateDialog from '@/components/studies/FolderCreateDialog';
 import StudyCard from '@/components/studies/StudyCard';
 import { cn } from '@/lib/utils';
-import { autoDriveSync } from '../services/AutoDriveSync.js';
+import { cloudSyncManager } from '../services/CloudSyncManager.js';
 
 
 // Sortable wrapper components
@@ -170,14 +172,11 @@ export default function StudiesBook() {
   useEffect(() => {
     const initializeAndLoadData = async () => {
       try {
-        // Initialize auto sync service
-        await autoDriveSync.initialize();
+        // Get initial sync status (App already initialized cloudSyncManager)
+        const status = cloudSyncManager.getStatus();
+        setHasConflicts(status.hasConflicts);
         
-        // Check for conflicts
-        const conflictsExist = await autoDriveSync.checkForConflicts();
-        setHasConflicts(conflictsExist);
-        
-        if (conflictsExist) {
+        if (status.hasConflicts) {
           setConflictError('You have sync conflicts. Some operations may be disabled until resolved.');
         }
         
@@ -198,21 +197,19 @@ export default function StudiesBook() {
     
     initializeAndLoadData();
 
-    // Listen for conflict changes
-    const handleConflictChange = (conflicts) => {
-      setHasConflicts(!!conflicts);
-      if (conflicts) {
+    // Listen for sync state changes
+    const unsubscribe = cloudSyncManager.onStateChange((stateData) => {
+      const status = cloudSyncManager.getStatus();
+      setHasConflicts(status.hasConflicts);
+      
+      if (status.hasConflicts) {
         setConflictError('Sync conflicts detected. Some operations may be disabled until resolved.');
       } else {
         setConflictError(null);
       }
-    };
+    });
 
-    autoDriveSync.addConflictListener(handleConflictChange);
-
-    return () => {
-      autoDriveSync.removeConflictListener(handleConflictChange);
-    };
+    return unsubscribe;
   }, []);
 
   // Update selectedFolder when URL changes
@@ -387,7 +384,7 @@ export default function StudiesBook() {
     if (!deleteStudy) return;
     
     // Check if user can edit (no conflicts)
-    if (!autoDriveSync.canEditStudies()) {
+    if (!cloudSyncManager.getStatus().canEdit) {
       console.warn('Delete blocked due to sync conflicts');
       setConflictError('Cannot delete studies due to sync conflicts. Please resolve them first.');
       setDeleteStudy(null);
@@ -399,7 +396,7 @@ export default function StudiesBook() {
       await loadStudies(false); // Don't show loader for deletion
       
       // Trigger automatic sync after successful deletion
-      await autoDriveSync.autoSync('study_delete', {
+      cloudSyncManager.queueChange('study_delete', {
         studyId: deleteStudy.id,
         name: deleteStudy.name
       });
@@ -410,7 +407,7 @@ export default function StudiesBook() {
       
       // Check if error is due to conflicts
       if (error.message.includes('conflict')) {
-        await autoDriveSync.checkForConflicts();
+        // Conflicts will be detected automatically by sync manager
       }
     }
   };
@@ -418,7 +415,7 @@ export default function StudiesBook() {
   // Folder management functions
   const handleCreateFolder = async (folderData) => {
     // Check if user can edit (no conflicts)
-    if (!autoDriveSync.canEditStudies()) {
+    if (!cloudSyncManager.getStatus().canEdit) {
       console.warn('Folder creation blocked due to sync conflicts');
       setConflictError('Cannot create folders due to sync conflicts. Please resolve them first.');
       return;
@@ -437,7 +434,7 @@ export default function StudiesBook() {
       await loadFolders();
       
       // Trigger automatic sync after successful folder creation
-      await autoDriveSync.autoSync('folder_create', {
+      cloudSyncManager.queueChange('folder_create', {
         folderId: newFolder.id,
         name: folderData.name
       });
@@ -447,14 +444,14 @@ export default function StudiesBook() {
       
       // Check if error is due to conflicts
       if (error.message.includes('conflict')) {
-        await autoDriveSync.checkForConflicts();
+        // Conflicts will be detected automatically by sync manager
       }
     }
   };
 
   const handleEditFolder = async (updatedFolder) => {
     // Check if user can edit (no conflicts)
-    if (!autoDriveSync.canEditStudies()) {
+    if (!cloudSyncManager.getStatus().canEdit) {
       console.warn('Folder edit blocked due to sync conflicts');
       setConflictError('Cannot edit folders due to sync conflicts. Please resolve them first.');
       return;
@@ -465,7 +462,7 @@ export default function StudiesBook() {
       await loadFolders();
       
       // Trigger automatic sync after successful folder update
-      await autoDriveSync.autoSync('folder_update', {
+      cloudSyncManager.queueChange('folder_update', {
         folderId: updatedFolder.id,
         name: updatedFolder.name
       });
@@ -479,14 +476,14 @@ export default function StudiesBook() {
       
       // Check if error is due to conflicts
       if (error.message.includes('conflict')) {
-        await autoDriveSync.checkForConflicts();
+        // Conflicts will be detected automatically by sync manager
       }
     }
   };
 
   const handleDeleteFolder = async (folder) => {
     // Check if user can edit (no conflicts)
-    if (!autoDriveSync.canEditStudies()) {
+    if (!cloudSyncManager.getStatus().canEdit) {
       console.warn('Folder deletion blocked due to sync conflicts');
       setConflictError('Cannot delete folders due to sync conflicts. Please resolve them first.');
       return;
@@ -504,7 +501,7 @@ export default function StudiesBook() {
       await loadStudies(false); // Don't show loader for folder deletion
       
       // Trigger automatic sync after successful folder deletion
-      await autoDriveSync.autoSync('folder_delete', {
+      cloudSyncManager.queueChange('folder_delete', {
         folderId: folder.id,
         name: folder.name,
         movedStudies: folderStudies.length
@@ -515,7 +512,7 @@ export default function StudiesBook() {
       
       // Check if error is due to conflicts
       if (error.message.includes('conflict')) {
-        await autoDriveSync.checkForConflicts();
+        // Conflicts will be detected automatically by sync manager
       }
     }
   };
@@ -538,7 +535,7 @@ export default function StudiesBook() {
 
   const handleMoveStudyToFolder = async (study, targetFolder) => {
     // Check if user can edit (no conflicts)
-    if (!autoDriveSync.canEditStudies()) {
+    if (!cloudSyncManager.getStatus().canEdit) {
       console.warn('Study move blocked due to sync conflicts');
       setConflictError('Cannot move studies due to sync conflicts. Please resolve them first.');
       return;
@@ -550,7 +547,7 @@ export default function StudiesBook() {
       await loadStudies(false); // Don't show loader for quick updates
       
       // Trigger automatic sync after successful study move
-      await autoDriveSync.autoSync('study_move', {
+      cloudSyncManager.queueChange('study_move', {
         studyId: study.id,
         studyName: study.name,
         targetFolderId: folderId,
@@ -566,7 +563,7 @@ export default function StudiesBook() {
       
       // Check if error is due to conflicts
       if (error.message.includes('conflict')) {
-        await autoDriveSync.checkForConflicts();
+        // Conflicts will be detected automatically by sync manager
       }
     }
   };

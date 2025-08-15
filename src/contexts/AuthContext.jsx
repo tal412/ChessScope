@@ -11,7 +11,7 @@ import {
 import { OpeningGraph } from '@/api/studyGraph';
 import { backgroundProcessor } from '../utils/BackgroundProcessor';
 import { googleAuth } from '../services/GoogleAuth.js';
-import { suppressBackups, enableBackups } from '../api/database.js';
+import { suppressBackups, enableBackups, resetDatabaseInstance } from '../api/database.js';
 import { googleDriveBackup } from '../services/GoogleDriveBackup.js';
 
 const AuthContext = createContext();
@@ -263,9 +263,15 @@ export const AuthProvider = ({ children }) => {
       localStorage.removeItem('chesscope_username');
       console.log('✅ Cleared username data');
       
-      // 3. Clear any legacy database data
-      localStorage.removeItem('chesscope_db');
-      console.log('✅ Cleared legacy database data');
+      // 3. Clear database data and reset instance
+      const dbReset = resetDatabaseInstance();
+      if (dbReset) {
+        console.log('✅ Cleared database data and reset instance');
+      } else {
+        // Fallback: just clear localStorage if reset failed
+        localStorage.removeItem('chesscope_db');
+        console.log('✅ Cleared database localStorage (reset failed)');
+      }
       
       // 4. Clear other potential localStorage keys including canvas preferences
       const keysToCheck = [

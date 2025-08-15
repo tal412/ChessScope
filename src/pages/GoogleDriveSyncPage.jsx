@@ -472,7 +472,11 @@ const GoogleDriveSyncPage = () => {
                     ) : (
                       <RefreshCw className="h-4 w-4 mr-2" />
                     )}
-                    Sync Now
+                    {syncStats?.conflicts && (
+                      syncStats.conflicts.localOnly.length > 0 || 
+                      syncStats.conflicts.remoteOnly.length > 0 || 
+                      syncStats.conflicts.modified.length > 0
+                    ) ? 'Resolve and Sync' : 'Sync Now'}
                   </Button>
                   
                   <Button 
@@ -575,14 +579,9 @@ const GoogleDriveSyncPage = () => {
                                 🔄 {syncStats.conflicts.modified.length} studies modified in both locations
                               </p>
                             )}
-                            {syncStats.conflicts.toDelete.length > 0 && (
-                              <p className="text-red-300">
-                                ⚠️ {syncStats.conflicts.toDelete.length} studies would be deleted from cloud
-                              </p>
-                            )}
                           </div>
                           <p className="text-amber-200 text-sm mt-3">
-                            Click "Sync Now" to resolve these conflicts safely.
+                            Click "Resolve and Sync" to resolve these conflicts safely.
                           </p>
                         </div>
                       ) : (

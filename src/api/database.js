@@ -489,8 +489,14 @@ export const enableBackups = () => {
 };
 
 // Save database to localStorage with compression and error handling
-const saveDatabase = async () => {
+export const saveDatabase = async () => {
   try {
+    // Check if database is initialized
+    if (!db) {
+      console.warn('Database not initialized yet, skipping save');
+      return;
+    }
+    
     const data = db.export();
     const dataString = JSON.stringify(Array.from(data));
     
@@ -502,19 +508,16 @@ const saveDatabase = async () => {
     
     localStorage.setItem('chesscope_db', dataString);
     
-    // Only notify backup service if backups are not suppressed
+    // Notify cloud sync manager of data changes
     if (!backupSuppressed) {
       try {
-        const backupService = await getBackupService();
-        if (backupService) {
-          backupService.markDataChanged();
-        }
+        const { cloudSyncManager } = await import('../services/CloudSyncManager.js');
+        cloudSyncManager.queueChange('database_save');
       } catch (error) {
-        // Backup service not available or failed, continue normally
-        console.log('Backup service not available:', error.message);
+        console.log('Cloud sync not available:', error.message);
       }
     } else {
-      console.log('🚫 Backup skipped - suppressed during sync operation');
+      console.log('🚫 Sync skipped - suppressed during sync operation');
     }
   } catch (error) {
     if (error.name === 'QuotaExceededError') {
@@ -794,6 +797,36 @@ export const clearDatabase = () => {
     window.location.reload(); // Reload to reinitialize empty database
   } catch (error) {
     console.error('Error clearing database:', error);
+  }
+};
+
+export const resetDatabaseInstance = () => {
+  try {
+    console.log('🗑️ Resetting database instance...');
+    
+    // Close existing database connection if it exists
+    if (db) {
+      try {
+        db.close();
+        console.log('✅ Closed existing database connection');
+      } catch (closeError) {
+        console.warn('⚠️ Error closing database:', closeError);
+      }
+    }
+    
+    // Reset all state
+    db = null;
+    isInitialized = false;
+    isInitializing = false;
+    
+    // Clear localStorage
+    localStorage.removeItem('chesscope_db');
+    
+    console.log('✅ Database instance reset completed');
+    return true;
+  } catch (error) {
+    console.error('Error resetting database instance:', error);
+    return false;
   }
 };
 

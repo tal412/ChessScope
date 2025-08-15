@@ -15,6 +15,7 @@ class AutoDriveSyncService {
     this.lastSyncTime = null;
     this.syncQueue = new Set();
     this.isProcessingSyncQueue = false;
+    this.syncPendingTimeout = null; // Track pending sync timeout
     this.syncListeners = new Set();
   }
 
@@ -39,10 +40,8 @@ class AutoDriveSyncService {
       this.isInitialized = true;
       console.log('🔄 AutoDriveSync: Service initialized');
       
-      // Check for conflicts on startup if signed in
-      if (googleAuth.isSignedIn) {
-        await this.checkForConflicts();
-      }
+      // Don't automatically check for conflicts on init - let StudiesBook handle it
+      // This avoids duplicate sync operations on page load
       
     } catch (error) {
       console.error('🔄 AutoDriveSync: Failed to initialize:', error);
@@ -50,7 +49,55 @@ class AutoDriveSyncService {
   }
 
   /**
+   * Check for existing conflicts WITHOUT syncing
+   * Used for quick status checks without modifying data
+   */
+  async checkForExistingConflicts() {
+    if (!this.isInitialized || !googleAuth.isSignedIn) {
+      this.conflictsExist = false;
+      return false;
+    }
+
+    // Don't check for conflicts if a sync is pending/in progress
+    if (this.syncPendingTimeout || this.isProcessingSyncQueue || this.syncQueue.size > 0) {
+      console.log('🔄 AutoDriveSync: Sync pending/in progress, skipping conflict check');
+      return false;
+    }
+
+    try {
+      await googleDriveSync.enableSync();
+      
+      // Get local and remote data for comparison
+      const localData = await googleDriveSync.getLocalStudies();
+      const remoteData = await googleDriveSync.getRemoteStudies();
+      
+      // Use advanced conflict detection
+      const conflictAnalysis = await conflictDetectionService.detectConflicts(
+        this.prepareDataForComparison(localData),
+        this.prepareDataForComparison(remoteData),
+        this.lastSyncTime
+      );
+      
+      this.conflictsExist = conflictAnalysis.hasConflicts;
+      
+      if (this.conflictsExist) {
+        console.warn(`🔄 AutoDriveSync: ${conflictAnalysis.level} level conflicts detected`);
+        this.lastConflictAnalysis = conflictAnalysis;
+        this.notifyConflictListeners(conflictAnalysis);
+      } else {
+        this.lastConflictAnalysis = null;
+      }
+      
+      return this.conflictsExist;
+    } catch (error) {
+      console.error('🔄 AutoDriveSync: Error checking conflicts:', error);
+      return false;
+    }
+  }
+
+  /**
    * Check if user has conflicts that prevent editing - with advanced detection
+   * This method syncs local changes first, then checks for conflicts
    */
   async checkForConflicts() {
     if (!this.isInitialized || !googleAuth.isSignedIn) {
@@ -61,7 +108,31 @@ class AutoDriveSyncService {
     try {
       await googleDriveSync.enableSync();
       
-      // Get local and remote data
+      // SYNC FIRST: Push any local changes to remote before conflict detection
+      // This ensures we only detect real conflicts (simultaneous changes)
+      // not "local changes haven't synced yet" false positives
+      let syncSucceeded = false;
+      try {
+        console.log('🔄 AutoDriveSync: Syncing local changes before conflict check...');
+        await googleDriveSync.syncToRemote('merge');
+        this.lastSyncTime = new Date();
+        syncSucceeded = true;
+        console.log('🔄 AutoDriveSync: Pre-conflict-check sync completed successfully');
+      } catch (syncError) {
+        // If sync fails due to conflicts, that's what we want to detect
+        console.log('🔄 AutoDriveSync: Sync failed, proceeding with conflict detection:', syncError.message);
+      }
+      
+      // If sync succeeded, there are no conflicts by definition
+      if (syncSucceeded) {
+        this.conflictsExist = false;
+        this.lastConflictAnalysis = null;
+        console.log('🔄 AutoDriveSync: Sync successful, no conflicts');
+        return false;
+      }
+      
+      // Only check for conflicts if sync failed
+      // Get local and remote data for conflict analysis
       const localData = await googleDriveSync.getLocalStudies();
       const remoteData = await googleDriveSync.getRemoteStudies();
       
@@ -131,13 +202,39 @@ class AutoDriveSyncService {
         timestamp: Date.now()
       });
 
+      // Clear existing timeout if any
+      if (this.syncPendingTimeout) {
+        clearTimeout(this.syncPendingTimeout);
+      }
+
       // Process queue after a short delay to batch multiple rapid operations
-      setTimeout(() => this.processSyncQueue(), 1000);
+      this.syncPendingTimeout = setTimeout(() => {
+        this.syncPendingTimeout = null;
+        this.processSyncQueue();
+      }, 1000);
       
       return true;
     } catch (error) {
       console.error(`🔄 AutoDriveSync: Auto-sync failed for ${operation}:`, error);
       return false;
+    }
+  }
+
+  /**
+   * Wait for any pending sync operations to complete
+   */
+  async waitForPendingSync() {
+    const maxWaitTime = 5000; // 5 second timeout
+    const startTime = Date.now();
+    
+    // Wait for timeout to clear and queue processing to complete
+    while ((this.syncPendingTimeout || this.isProcessingSyncQueue || this.syncQueue.size > 0) && 
+           (Date.now() - startTime < maxWaitTime)) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    if (Date.now() - startTime >= maxWaitTime) {
+      console.warn('🔄 AutoDriveSync: waitForPendingSync timed out after 5 seconds');
     }
   }
 

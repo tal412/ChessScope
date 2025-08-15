@@ -19,7 +19,7 @@ import ChessAnalysisView from '../components/analysis/ChessAnalysisView';
 import MoveDetailsSection from '../components/analysis/MoveDetailsSection';
 import { createOpeningEditorConfig } from '../components/analysis/ChessAnalysisViewConfig.jsx';
 import { createOpeningClusters } from '../utils/clusteringAnalysis';
-import { autoDriveSync } from '../services/AutoDriveSync.js';
+import { cloudSyncManager } from '../services/CloudSyncManager.js';
 
 // Move tree node structure
 class MoveNode {
@@ -153,10 +153,9 @@ export default function OpeningEditor() {
   useEffect(() => {
     const initializeAutoSync = async () => {
       try {
-        await autoDriveSync.initialize();
-        
-        // Check for conflicts that would prevent editing
-        const conflictsExist = await autoDriveSync.checkForConflicts();
+        // Check for conflicts that would prevent editing (App already initialized cloudSyncManager)
+        const status = cloudSyncManager.getStatus();
+        const conflictsExist = status.hasConflicts;
         setHasConflicts(conflictsExist);
         
         if (conflictsExist && !isViewMode) {
@@ -169,20 +168,21 @@ export default function OpeningEditor() {
 
     initializeAutoSync();
 
-    // Listen for conflict changes
-    const handleConflictChange = (conflicts) => {
-      setHasConflicts(!!conflicts);
-      if (conflicts && !isViewMode) {
+    // Listen for sync state changes
+    const handleConflictChange = () => {
+      const status = cloudSyncManager.getStatus();
+      setHasConflicts(status.hasConflicts);
+      if (status.hasConflicts && !isViewMode) {
         setConflictError('Sync conflicts detected. Please resolve them in Google Drive Sync before making changes.');
       } else {
         setConflictError(null);
       }
     };
 
-    autoDriveSync.addConflictListener(handleConflictChange);
+    const unsubscribe = cloudSyncManager.onStateChange(handleConflictChange);
 
     return () => {
-      autoDriveSync.removeConflictListener(handleConflictChange);
+      unsubscribe();
     };
   }, [isViewMode]);
   
@@ -215,6 +215,8 @@ export default function OpeningEditor() {
         // Don't trigger backup here as it's initial load
       }
       
+      // Mark new study as loaded after initial setup
+      setHasLoaded(true);
     }
   }, [isNewStudy]);
   
@@ -237,6 +239,44 @@ export default function OpeningEditor() {
   // Conflict state
   const [hasConflicts, setHasConflicts] = useState(false);
   const [conflictError, setConflictError] = useState(null);
+  
+  // Track initial load to prevent unnecessary syncing
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  
+  // Track last saved state to detect real changes
+  const lastSavedStateRef = useRef(null);
+  
+  // Function to generate current state hash for change detection
+  const getCurrentStateHash = useCallback(() => {
+    const stateString = JSON.stringify({
+      name: name.trim(),
+      color,
+      selectedTagIds: [...selectedTagIds].sort(),
+      treeVersion,
+      treeChangeVersion
+    });
+    
+    return stateString;
+  }, [name, color, selectedTagIds, treeVersion, treeChangeVersion]);
+
+  // Check if there are actual changes since last save
+  const hasRealChanges = useCallback(() => {
+    const currentHash = getCurrentStateHash();
+    const lastHash = lastSavedStateRef.current;
+    
+    if (!lastHash) {
+      // First time, consider it a change only if we have meaningful data
+      return name.trim() !== '';
+    }
+    
+    const changed = currentHash !== lastHash;
+    if (changed) {
+      console.log('💾 StudyEditor: Real changes detected');
+    }
+    
+    return changed;
+  }, [getCurrentStateHash, name]);
   
   // Trigger backup on every move update
   const triggerMoveBackup = useCallback(() => {
@@ -371,7 +411,7 @@ export default function OpeningEditor() {
     if (isViewMode || !name.trim()) return;
     
     // Check if user can edit (no conflicts)
-    if (!autoDriveSync.canEditStudies()) {
+    if (!cloudSyncManager.getStatus().canEdit) {
       console.warn('💾 StudyEditor: Auto-save blocked due to sync conflicts');
       setConflictError('Cannot save changes due to sync conflicts. Please resolve them in Google Drive Sync.');
       return;
@@ -492,9 +532,12 @@ export default function OpeningEditor() {
       
       console.log('💾 StudyEditor: Auto-save completed successfully');
       
+      // Update the saved state hash to prevent unnecessary future saves
+      lastSavedStateRef.current = getCurrentStateHash();
+      
       // Trigger automatic sync after successful save
       const syncOperation = savedStudyId ? 'study_update' : 'study_create';
-      await autoDriveSync.autoSync(syncOperation, {
+      cloudSyncManager.queueChange(syncOperation, {
         studyId: savedStudy.id,
         name: name.trim(),
         type: syncOperation
@@ -510,19 +553,45 @@ export default function OpeningEditor() {
       
       // Check if error is due to conflicts
       if (error.message.includes('conflict')) {
-        await autoDriveSync.checkForConflicts();
+        // Conflicts will be detected automatically by sync manager
       }
     }
   }, [isViewMode, name, color, moveTree, savedStudyId, selectedTagIds]);
 
-  // Immediate auto-save on changes
+  // Track initial load completion
+  useEffect(() => {
+    if (!initialLoadComplete && (hasLoaded || (!isNewStudy && name))) {
+      // Initial load is complete once we have data
+      const timer = setTimeout(() => {
+        setInitialLoadComplete(true);
+      }, 1000); // Give it 1 second to settle after loading
+      
+      return () => clearTimeout(timer);
+    }
+  }, [hasLoaded, isNewStudy, name, initialLoadComplete]);
+
+  // Immediate auto-save on changes (but only after initial load and only for real changes)
   useEffect(() => {
     if (isViewMode) return;
+    
+    // Don't auto-save during initial load
+    if (!initialLoadComplete) {
+      console.log('💾 StudyEditor: Skipping auto-save during initial load');
+      return;
+    }
+    
+    // Don't auto-save if there are no real changes
+    if (!hasRealChanges()) {
+      console.log('💾 StudyEditor: Skipping auto-save - no real changes detected');
+      return;
+    }
     
     // Clear existing timeout
     if (autoSaveTimeoutRef.current) {
       clearTimeout(autoSaveTimeoutRef.current);
     }
+    
+    console.log('💾 StudyEditor: Scheduling auto-save after real change detected');
     
     // Set new timeout for auto-save (500ms after last change for immediate feel)
     autoSaveTimeoutRef.current = setTimeout(() => {
@@ -534,7 +603,7 @@ export default function OpeningEditor() {
         clearTimeout(autoSaveTimeoutRef.current);
       }
     };
-  }, [name, color, moveTree, treeChangeVersion, autoSave, isViewMode, selectedTagIds]);
+  }, [name, color, moveTree, treeChangeVersion, autoSave, isViewMode, selectedTagIds, initialLoadComplete, hasRealChanges]);
 
   // Load performance graph data
   useEffect(() => {
@@ -1040,6 +1109,19 @@ export default function OpeningEditor() {
       }
       
       loadedOpeningIdRef.current = parseInt(studyId);
+      setHasLoaded(true); // Mark as loaded to prevent auto-save triggers
+      
+      // Set initial saved state hash after loading
+      setTimeout(() => {
+        const initialHash = JSON.stringify({
+          name: opening.name.trim(),
+          color: opening.color,
+          selectedTagIds: [],
+          treeVersion: 0,
+          treeChangeVersion: 0
+        });
+        lastSavedStateRef.current = initialHash;
+      }, 100);
       
     } catch (error) {
       console.error('Error loading opening:', error);

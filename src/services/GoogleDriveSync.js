@@ -296,8 +296,9 @@ class GoogleDriveSyncService {
     try {
       const comparison = await this.compareData();
       
-      if (comparison.conflicts.toDelete.length > 0 && mergeStrategy !== 'force_overwrite') {
-        throw new Error(`DELETION_WARNING: The following studies would be deleted from cloud: ${comparison.conflicts.toDelete.map(s => s.name).join(', ')}. Use force_overwrite if you're sure.`);
+      // Only throw deletion warning for strategies that would actually delete data
+      if (comparison.conflicts.toDelete.length > 0 && mergeStrategy !== 'force_overwrite' && mergeStrategy !== 'merge') {
+        throw new Error(`DELETION_WARNING: The following studies exist in cloud only: ${comparison.conflicts.toDelete.map(s => s.name).join(', ')}. Use force_overwrite if you're sure.`);
       }
 
       // Create merged data based on strategy
@@ -333,8 +334,11 @@ class GoogleDriveSyncService {
           throw new Error('Invalid merge strategy');
       }
 
-      // Create database with merged data
+      // Create database with merged data and upload to remote
       await this.uploadMergedData({ studies: mergedStudies, folders: mergedFolders, tags: mergedTags });
+      
+      // Update local database with merged data to prevent conflicts
+      await this.updateLocalWithMergedData({ studies: mergedStudies, folders: mergedFolders, tags: mergedTags });
       
       return { success: true, studyCount: mergedStudies.length };
     } catch (error) {
@@ -490,6 +494,94 @@ class GoogleDriveSyncService {
       return result;
     } catch (error) {
       console.error('Error uploading to Google Drive:', error);
+      throw error;
+    }
+  }
+
+  // Update local database with merged data
+  async updateLocalWithMergedData(mergedData) {
+    try {
+      console.log('🔄 Updating local database with merged data...');
+      
+      // Ensure database is initialized before proceeding
+      const dbModule = await import('../api/database.js');
+      await dbModule.waitForDatabase();
+      
+      // Import necessary modules
+      const { userStudy, studyFolder, studyTag } = await import('../api/studyEntities.js');
+      
+      // Add any new studies from remote to local database
+      for (const study of mergedData.studies) {
+        try {
+          // Check if study already exists locally using filter
+          const existingStudies = await userStudy.filter({ id: study.id });
+          if (!existingStudies || existingStudies.length === 0) {
+            // Study doesn't exist locally, add it
+            await userStudy.create({
+              id: study.id,
+              username: study.username,
+              name: study.name,
+              color: study.color,
+              initial_fen: study.initial_fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+              initial_moves: study.initial_moves || '[]',
+              initial_view_fen: study.initial_view_fen || study.initial_fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+              starting_pgn: study.starting_pgn || '',
+              folder_id: study.folder_id || null,
+              position: study.position || 0,
+              created_at: study.created_at,
+              updated_at: study.updated_at
+            });
+            console.log(`✅ Added remote study to local: ${study.name}`);
+          }
+        } catch (error) {
+          console.warn(`⚠️ Could not add study ${study.name} to local:`, error);
+        }
+      }
+      
+      // Add any new folders
+      for (const folder of mergedData.folders || []) {
+        try {
+          const existingFolders = await studyFolder.filter({ id: folder.id });
+          if (!existingFolders || existingFolders.length === 0) {
+            await studyFolder.create({
+              id: folder.id,
+              username: folder.username,
+              name: folder.name,
+              icon: folder.icon,
+              color: folder.color,
+              position: folder.position || 0
+            });
+            console.log(`✅ Added remote folder to local: ${folder.name}`);
+          }
+        } catch (error) {
+          console.warn(`⚠️ Could not add folder ${folder.name} to local:`, error);
+        }
+      }
+      
+      // Add any new tags
+      for (const tag of mergedData.tags || []) {
+        try {
+          const existingTags = await studyTag.filter({ id: tag.id });
+          if (!existingTags || existingTags.length === 0) {
+            await studyTag.create({
+              id: tag.id,
+              name: tag.name,
+              color: tag.color
+            });
+            console.log(`✅ Added remote tag to local: ${tag.name}`);
+          }
+        } catch (error) {
+          console.warn(`⚠️ Could not add tag ${tag.name} to local:`, error);
+        }
+      }
+      
+      console.log('✅ Local database updated with merged data');
+      
+      // Save the database after all updates
+      await dbModule.saveDatabase();
+      
+    } catch (error) {
+      console.error('Error updating local database with merged data:', error);
       throw error;
     }
   }
