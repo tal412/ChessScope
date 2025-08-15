@@ -71,8 +71,9 @@ export const migrateRemoveDescriptionAndTagsColumns = async () => {
   console.log('Running migration: Remove description and tags columns from user_openings table');
   
   try {
-    // Get the database instance
-    const { db } = await import('../api/database');
+    // Get the database instance using the proper getter
+    const { getDb } = await import('../api/database');
+    const db = getDb();
     
     if (!db) {
       console.error('Database not initialized');
@@ -80,15 +81,17 @@ export const migrateRemoveDescriptionAndTagsColumns = async () => {
     }
     
     // Check if the description or tags columns exist
-    const tableInfo = await new Promise((resolve, reject) => {
-      db.all("PRAGMA table_info(user_openings)", (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-      });
-    });
+    const tableInfoResult = db.exec("PRAGMA table_info(user_openings)");
     
-    const hasDescriptionColumn = tableInfo.some(column => column.name === 'description');
-    const hasTagsColumn = tableInfo.some(column => column.name === 'tags');
+    if (!tableInfoResult || tableInfoResult.length === 0) {
+      console.log('user_openings table does not exist, migration not needed');
+      return true;
+    }
+    
+    const columns = tableInfoResult[0].values.map(row => row[1]); // column name is at index 1
+    
+    const hasDescriptionColumn = columns.includes('description');
+    const hasTagsColumn = columns.includes('tags');
     
     if (!hasDescriptionColumn && !hasTagsColumn) {
       console.log('Description and tags columns do not exist, migration not needed');
@@ -104,63 +107,38 @@ export const migrateRemoveDescriptionAndTagsColumns = async () => {
     // 4. Rename the new table
     
     // Step 1: Create new table without description and tags columns
-    await new Promise((resolve, reject) => {
-      db.run(`
-        CREATE TABLE user_openings_new (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          username TEXT NOT NULL,
-          name TEXT NOT NULL,
-          color TEXT NOT NULL,
-          initial_fen TEXT DEFAULT 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-          initial_moves TEXT DEFAULT '[]',
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE(username, name)
-        )
-      `, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    db.exec(`
+      CREATE TABLE user_openings_new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        username TEXT NOT NULL,
+        name TEXT NOT NULL,
+        color TEXT NOT NULL,
+        initial_fen TEXT DEFAULT 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        initial_moves TEXT DEFAULT '[]',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(username, name)
+      )
+    `);
     
     // Step 2: Copy data from old table to new table (excluding description and tags)
-    await new Promise((resolve, reject) => {
-      db.run(`
-        INSERT INTO user_openings_new (
-          id, username, name, color, initial_fen, initial_moves, created_at, updated_at
-        )
-        SELECT 
-          id, username, name, color, initial_fen, initial_moves, created_at, updated_at
-        FROM user_openings
-      `, (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    db.exec(`
+      INSERT INTO user_openings_new (
+        id, username, name, color, initial_fen, initial_moves, created_at, updated_at
+      )
+      SELECT 
+        id, username, name, color, initial_fen, initial_moves, created_at, updated_at
+      FROM user_openings
+    `);
     
     // Step 3: Drop the old table
-    await new Promise((resolve, reject) => {
-      db.run('DROP TABLE user_openings', (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    db.exec('DROP TABLE user_openings');
     
     // Step 4: Rename the new table
-    await new Promise((resolve, reject) => {
-      db.run('ALTER TABLE user_openings_new RENAME TO user_openings', (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    db.exec('ALTER TABLE user_openings_new RENAME TO user_openings');
     
     // Recreate the index
-    await new Promise((resolve, reject) => {
-      db.run('CREATE INDEX IF NOT EXISTS idx_user_openings_username ON user_openings(username)', (err) => {
-        if (err) reject(err);
-        else resolve();
-      });
-    });
+    db.exec('CREATE INDEX IF NOT EXISTS idx_user_openings_username ON user_openings(username)');
     
     console.log('Successfully removed description and tags columns from user_openings table');
     return true;
@@ -175,34 +153,28 @@ export const migrateRemoveDescriptionAndTagsColumns = async () => {
 if (typeof window !== 'undefined') {
   // Only run in browser environment
   // Wait for database to be initialized before running migration
-  const waitForDatabase = async () => {
-    let attempts = 0;
-    const maxAttempts = 10;
-    
-    while (attempts < maxAttempts) {
-      try {
-        const { db } = await import('../api/database');
-        if (db) {
-          // Database is ready, run migration
-          const success = await migrateRemoveDescriptionAndTagsColumns();
-          if (success) {
-            console.log('Migration completed successfully');
-          } else {
-            console.error('Migration failed');
-          }
-          return;
-        }
-      } catch (error) {
-        console.log(`Waiting for database initialization... (attempt ${attempts + 1}/${maxAttempts})`);
-      }
+  const runMigration = async () => {
+    try {
+      // Use the proper waitForDatabase function from the database module
+      const { waitForDatabase } = await import('../api/database');
+      await waitForDatabase(15000); // Wait up to 15 seconds
       
-      attempts++;
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Database is ready, run migration
+      const success = await migrateRemoveDescriptionAndTagsColumns();
+      if (success) {
+        console.log('Migration completed successfully');
+      } else {
+        console.error('Migration failed');
+      }
+    } catch (error) {
+      if (error.message === 'Database initialization timeout') {
+        console.error('Database not ready after maximum wait time, skipping migration');
+      } else {
+        console.error('Migration error:', error);
+      }
     }
-    
-    console.error('Database not ready after maximum attempts, skipping migration');
   };
   
-  // Start waiting for database
-  waitForDatabase();
+  // Start migration
+  runMigration();
 } 

@@ -45,6 +45,7 @@ import {
   FolderPlus
 } from 'lucide-react';
 import { userStudy, studyTag, studyTagsMapping, studyFolder } from '@/api/studyEntities';
+import { waitForDatabase } from '@/api/database';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -162,9 +163,24 @@ export default function StudiesBook() {
 
   // Load user's studies, folders, and tags
   useEffect(() => {
-    loadStudies();
-    loadFolders();
-    loadTags();
+    const loadData = async () => {
+      try {
+        // Wait for database to be ready before loading data
+        await waitForDatabase();
+        
+        // Load all data once database is ready
+        await Promise.all([
+          loadStudies(),
+          loadFolders(),
+          loadTags()
+        ]);
+      } catch (error) {
+        console.error('Error waiting for database or loading data:', error);
+        setLoading(false);
+      }
+    };
+    
+    loadData();
   }, []);
 
   // Update selectedFolder when URL changes
@@ -178,6 +194,10 @@ export default function StudiesBook() {
       if (showLoader) {
         setLoading(true);
       }
+      
+      // Wait for database to be ready
+      await waitForDatabase();
+      
       const username = localStorage.getItem('chesscope_username');
       
       if (!username) {
@@ -216,6 +236,9 @@ export default function StudiesBook() {
 
   const loadTags = async () => {
     try {
+      // Wait for database to be ready
+      await waitForDatabase();
+      
       console.log('📋 StudiesBook: Loading tags from server...');
       const tags = await studyTag.getAll();
       console.log('📋 StudiesBook: Loaded tags from server:', tags.length, 'tags:', tags.map(t => ({id: t.id, name: t.name})));
@@ -228,6 +251,9 @@ export default function StudiesBook() {
 
   const loadFolders = async () => {
     try {
+      // Wait for database to be ready
+      await waitForDatabase();
+      
       const username = localStorage.getItem('chesscope_username');
       
       if (!username) {
@@ -318,7 +344,9 @@ export default function StudiesBook() {
 
   // Handle edit study
   const handleEditStudy = (e, studyId) => {
-    e.stopPropagation();
+    if (e) {
+      e.stopPropagation();
+    }
     navigate(`/studies-book/editor/${studyId}`);
   };
 

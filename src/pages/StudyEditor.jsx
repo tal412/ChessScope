@@ -1306,7 +1306,7 @@ export default function OpeningEditor() {
       lastSaved: null, // Remove save status
       onSave: null, // Remove manual save option
       onEdit: isViewMode ? () => navigate(`/studies-book/editor/${studyId}`) : null,
-      onView: isEditMode ? () => navigate(`/studies-book/study/${studyId}`) : null,
+      onView: isEditMode ? () => navigate(`/studies-book/study/${savedStudyId || studyId}`) : null,
       onNavigateBack: handleNavigateBack,
       studyId,
       selectedPlayer: color,
