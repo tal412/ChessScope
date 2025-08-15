@@ -617,7 +617,7 @@ export default function Layout() {
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
-                      <Settings className="w-5 h-5 text-white" />
+                      <Settings className="w-5 h-5 text-white flex-shrink-0" />
                     </div>
                     <div>
                       <CardTitle className="text-lg text-white">Time Controls</CardTitle>
@@ -662,7 +662,7 @@ export default function Layout() {
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
-                      <CalendarIcon className="w-5 h-5 text-white" />
+                      <CalendarIcon className="w-5 h-5 text-white flex-shrink-0" />
                     </div>
                     <div>
                       <CardTitle className="text-lg text-white">Date Range</CardTitle>
@@ -775,7 +775,7 @@ export default function Layout() {
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                      <Globe className="w-5 h-5 text-white" />
+                      <Globe className="w-5 h-5 text-white flex-shrink-0" />
                     </div>
                     <div>
                       <CardTitle className="text-lg text-white">Sync Settings</CardTitle>

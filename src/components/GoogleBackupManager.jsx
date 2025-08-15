@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Cloud, CloudOff, User, LogOut, RefreshCw, Download, Upload, AlertTriangle, CheckCircle } from 'lucide-react';
+import { User, LogOut, RefreshCw, Download, Upload, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -230,8 +230,12 @@ const GoogleBackupManager = () => {
       <Card className="bg-slate-700/30 border-slate-600/50">
         <CardHeader className="pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
-              <CloudOff className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center">
+              <img 
+                src="/Google_Drive_icon_(2020).svg" 
+                alt="Google Drive" 
+                className="w-6 h-6 flex-shrink-0"
+              />
             </div>
             <div>
               <CardTitle className="text-lg text-white">Google Drive Backup</CardTitle>
@@ -261,7 +265,7 @@ const GoogleBackupManager = () => {
       <Card className="bg-slate-700/30 border-slate-600/50">
         <CardHeader className="pb-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center">
               <RefreshCw className="w-5 h-5 animate-spin text-white" />
             </div>
             <div>
@@ -278,16 +282,16 @@ const GoogleBackupManager = () => {
     <Card className="bg-slate-700/30 border-slate-600/50">
       <CardHeader className="pb-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
-            {backupStatus?.isEnabled ? (
-              <Cloud className="w-5 h-5 text-white" />
-            ) : (
-              <CloudOff className="w-5 h-5 text-white" />
-            )}
+          <div className="w-10 h-10 rounded-lg flex items-center justify-center">
+            <img 
+              src="/Google_Drive_icon_(2020).svg" 
+              alt="Google Drive" 
+              className="w-6 h-6 flex-shrink-0"
+            />
           </div>
           <div>
-            <CardTitle className="text-lg text-white">Google Drive Backup</CardTitle>
-            <p className="text-slate-400 text-sm">Automatically sync your study data to Google Drive for safe keeping</p>
+            <CardTitle className="text-lg text-white">Cloud Backup</CardTitle>
+            <p className="text-slate-400 text-sm">Secure cloud storage</p>
           </div>
         </div>
       </CardHeader>
