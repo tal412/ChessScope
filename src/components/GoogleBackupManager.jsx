@@ -53,6 +53,18 @@ const GoogleBackupManager = () => {
         setIsSignedIn(googleAuth.isSignedIn);
         if (googleAuth.isSignedIn) {
           setUserInfo(googleAuth.getUserInfo());
+          
+          // Auto-enable backup if user is already signed in but backup is not enabled
+          const currentStatus = googleDriveBackup.status;
+          if (!currentStatus.isEnabled) {
+            try {
+              await googleDriveBackup.enableBackup();
+              console.log('Auto-enabled backup for already signed-in user');
+            } catch (error) {
+              console.error('Failed to auto-enable backup for signed-in user:', error);
+            }
+          }
+          
           await refreshBackupStatus();
         }
       } catch (error) {
@@ -64,18 +76,36 @@ const GoogleBackupManager = () => {
     };
 
     // Listen for auth state changes
-    const handleSignIn = (user) => {
+    const handleSignIn = async (user) => {
       setIsSignedIn(true);
       setUserInfo(user);
       setError(null);
-      refreshBackupStatus();
+      
+      // Automatically enable backup when user signs in
+      try {
+        await googleDriveBackup.enableBackup();
+        setSuccessMessage('Google Drive backup enabled automatically!');
+        setTimeout(() => setSuccessMessage(null), 3000);
+      } catch (error) {
+        console.error('Failed to auto-enable backup:', error);
+        setError('Failed to enable automatic backup. You can try manually.');
+      }
+      
+      await refreshBackupStatus();
     };
 
-    const handleSignOut = () => {
+    const handleSignOut = async () => {
       setIsSignedIn(false);
       setUserInfo(null);
       setBackupStatus(null);
       setBackupInfo(null);
+      
+      // Automatically disable backup when user signs out
+      try {
+        await googleDriveBackup.disableBackup();
+      } catch (error) {
+        console.error('Failed to auto-disable backup on sign out:', error);
+      }
     };
 
     googleAuth.addEventListener('signIn', handleSignIn);
@@ -150,11 +180,11 @@ const GoogleBackupManager = () => {
     }
   };
 
-  const handleSignOut = async () => {
+  const handleSignOutClick = async () => {
     try {
       setLoading(true);
       await googleAuth.signOut();
-      await googleDriveBackup.disableBackup();
+      // Backup will be automatically disabled by the handleSignOut event handler
     } catch (error) {
       console.error('Sign out failed:', error);
       setError('Failed to sign out. Please try again.');
@@ -163,36 +193,6 @@ const GoogleBackupManager = () => {
     }
   };
 
-  const handleEnableBackup = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      await googleDriveBackup.enableBackup();
-      setSuccessMessage('Google Drive backup enabled successfully!');
-      setTimeout(() => setSuccessMessage(null), 3000);
-      await refreshBackupStatus();
-    } catch (error) {
-      console.error('Failed to enable backup:', error);
-      setError('Failed to enable backup. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDisableBackup = async () => {
-    try {
-      setLoading(true);
-      await googleDriveBackup.disableBackup();
-      setSuccessMessage('Google Drive backup disabled');
-      setTimeout(() => setSuccessMessage(null), 3000);
-      await refreshBackupStatus();
-    } catch (error) {
-      console.error('Failed to disable backup:', error);
-      setError('Failed to disable backup. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleManualBackup = async () => {
     try {
@@ -314,7 +314,7 @@ const GoogleBackupManager = () => {
         {!isSignedIn ? (
           <div className="text-center space-y-4">
             <p className="text-slate-400">
-              Sign in to Google to enable automatic backup of your study data
+              Sign in to Google to automatically backup your study data
             </p>
             <Button 
               onClick={handleSignIn} 
@@ -326,7 +326,7 @@ const GoogleBackupManager = () => {
               ) : (
                 <User className="h-4 w-4 mr-2" />
               )}
-              Sign in to Google
+              Sign in & Enable Backup
             </Button>
           </div>
         ) : (
@@ -346,7 +346,7 @@ const GoogleBackupManager = () => {
                   <p className="text-sm text-slate-400">{userInfo?.email}</p>
                 </div>
                 <button
-                  onClick={handleSignOut}
+                  onClick={handleSignOutClick}
                   disabled={loading}
                   className="p-1.5 rounded-md hover:bg-slate-500/50 text-slate-400 hover:text-white transition-colors disabled:opacity-50"
                   title="Sign Out"
@@ -356,33 +356,13 @@ const GoogleBackupManager = () => {
               </div>
             </div>
 
-            {/* Backup controls */}
+            {/* Backup status */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium text-white">Automatic Backup</p>
-                  <p className="text-sm text-slate-400">
-                    Sync changes to Google Drive every 30 seconds
-                  </p>
-                </div>
-                {backupStatus?.isEnabled ? (
-                  <Button 
-                    variant="outline" 
-                    onClick={handleDisableBackup} 
-                    disabled={loading}
-                    className="border-slate-500 text-slate-300 hover:bg-slate-600 hover:text-white"
-                  >
-                    Disable
-                  </Button>
-                ) : (
-                  <Button 
-                    onClick={handleEnableBackup} 
-                    disabled={loading}
-                    className="bg-green-600 hover:bg-green-700 text-white"
-                  >
-                    Enable
-                  </Button>
-                )}
+              <div>
+                <p className="font-medium text-white">Automatic Backup</p>
+                <p className="text-sm text-slate-400">
+                  Your studies are automatically synced to Google Drive on every save
+                </p>
               </div>
 
               {backupStatus?.isEnabled && (

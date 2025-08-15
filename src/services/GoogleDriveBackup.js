@@ -8,10 +8,6 @@ class GoogleDriveBackupService {
     this.isBackupEnabled = false;
     this.lastBackupTime = null;
     this.backupInProgress = false;
-    
-    // Auto-backup settings
-    this.autoBackupInterval = null;
-    this.autoBackupFrequency = 30000; // 30 seconds
     this.pendingChanges = false;
   }
 
@@ -25,10 +21,12 @@ class GoogleDriveBackupService {
       await this.ensureBackupFolder();
       
       this.isBackupEnabled = true;
-      this.startAutoBackup();
       
       // Perform initial backup
       await this.performBackup();
+      
+      // Check for updates from Google Drive on startup
+      await this.checkForUpdates();
       
       console.log('Google Drive backup enabled successfully');
       return true;
@@ -40,7 +38,6 @@ class GoogleDriveBackupService {
 
   async disableBackup() {
     this.isBackupEnabled = false;
-    this.stopAutoBackup();
     console.log('Google Drive backup disabled');
   }
 
@@ -306,28 +303,65 @@ class GoogleDriveBackupService {
 
   markDataChanged() {
     this.pendingChanges = true;
+    // Trigger immediate backup if enabled
+    if (this.isBackupEnabled && !this.backupInProgress) {
+      this.performBackup().catch(error => {
+        console.error('Immediate backup failed:', error);
+      });
+    }
   }
 
-  startAutoBackup() {
-    if (this.autoBackupInterval) {
-      clearInterval(this.autoBackupInterval);
+
+  async checkForUpdates() {
+    if (!this.isBackupEnabled || !googleAuth.isSignedIn || !this.backupFolderId) {
+      return false;
     }
 
-    this.autoBackupInterval = setInterval(() => {
-      if (this.pendingChanges && !this.backupInProgress) {
-        this.performBackup().catch(error => {
-          console.error('Auto-backup failed:', error);
-        });
+    try {
+      console.log('Checking for Google Drive backup updates...');
+      
+      // Get remote backup info
+      const remoteBackupInfo = await this.getBackupInfo();
+      if (!remoteBackupInfo) {
+        console.log('No remote backup found');
+        return false;
       }
-    }, this.autoBackupFrequency);
 
-    console.log('Auto-backup started with frequency:', this.autoBackupFrequency / 1000, 'seconds');
-  }
+      // Get local database last modified time from localStorage metadata
+      const localDbString = localStorage.getItem('chesscope_db');
+      if (!localDbString) {
+        console.log('No local database found, remote backup is newer');
+        return true;
+      }
 
-  stopAutoBackup() {
-    if (this.autoBackupInterval) {
-      clearInterval(this.autoBackupInterval);
-      this.autoBackupInterval = null;
+      // For now, we'll use a simple heuristic: compare sizes
+      // A more sophisticated approach would store metadata about last sync time
+      const localSize = new Blob([localDbString]).size;
+      const sizeDifferencePercent = Math.abs(remoteBackupInfo.size - localSize) / Math.max(remoteBackupInfo.size, localSize) * 100;
+      
+      // If there's a significant size difference (>5%), prompt user
+      if (sizeDifferencePercent > 5) {
+        console.log(`Remote backup size differs significantly from local: remote=${remoteBackupInfo.sizeFormatted}, local=${this.formatFileSize(localSize)}`);
+        
+        const shouldRestore = confirm(
+          `A different version of your studies was found in Google Drive backup.\n\n` +
+          `Remote backup: ${remoteBackupInfo.sizeFormatted} (modified ${remoteBackupInfo.lastModified.toLocaleString()})\n` +
+          `Local database: ${this.formatFileSize(localSize)}\n\n` +
+          `Would you like to restore from the remote backup? This will replace your current local data.`
+        );
+        
+        if (shouldRestore) {
+          await this.restoreFromBackup();
+          return true;
+        }
+      } else {
+        console.log('Local and remote backups appear to be similar in size');
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error checking for backup updates:', error);
+      return false;
     }
   }
 

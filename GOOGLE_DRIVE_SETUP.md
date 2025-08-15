@@ -5,7 +5,7 @@ This guide will help you set up Google Drive integration for automatic backup of
 ## Overview
 
 The Google Drive backup feature provides:
-- **Automatic backup**: Your study database is automatically synced to Google Drive every 30 seconds when changes are detected
+- **Automatic backup**: Your study database is automatically synced to Google Drive on every save operation
 - **Data safety**: Never lose your study progress, even if you clear browser data or switch devices
 - **Easy restore**: Restore your data from Google Drive with one click
 - **Cross-device sync**: Access your studies from any device where you're signed in
@@ -94,7 +94,7 @@ The Google Drive backup feature provides:
 
 ### Features
 
-- **Automatic sync**: Changes are backed up every 30 seconds
+- **Automatic sync**: Changes are backed up immediately on every save
 - **Manual backup**: Click "Backup Now" to force an immediate backup
 - **Restore**: Click "Restore" to replace your current data with the cloud backup
 - **Status indicators**: See backup status, last backup time, and file size
