@@ -603,7 +603,7 @@ export default function Layout() {
             setSettingsError(''); // Clear errors when dialog closes
           }
         }}>
-          <DialogContent className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50 text-white max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50 text-white max-w-7xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="text-2xl">Import Settings</DialogTitle>
               <DialogDescription className="text-slate-400">
@@ -847,9 +847,7 @@ export default function Layout() {
               </Card>
 
               {/* Google Drive Backup */}
-              <div className="xl:col-span-1">
-                <GoogleBackupManager />
-              </div>
+              <GoogleBackupManager />
             </div>
 
             {/* Validation */}

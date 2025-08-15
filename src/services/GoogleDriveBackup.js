@@ -46,25 +46,44 @@ class GoogleDriveBackupService {
 
   async ensureBackupFolder() {
     try {
-      // Search for existing ChessScope folder
-      const response = await window.gapi.client.drive.files.list({
-        q: "name='ChessScope' and mimeType='application/vnd.google-apps.folder' and trashed=false",
-        spaces: 'drive'
+      // Search for existing ChessScope folder using REST API
+      const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent("name='ChessScope' and mimeType='application/vnd.google-apps.folder' and trashed=false")}&spaces=drive`;
+      
+      const searchResponse = await fetch(searchUrl, {
+        headers: {
+          'Authorization': `Bearer ${googleAuth.getAccessToken()}`
+        }
       });
 
-      if (response.result.files.length > 0) {
-        this.backupFolderId = response.result.files[0].id;
+      if (!searchResponse.ok) {
+        throw new Error(`Failed to search for folder: ${searchResponse.statusText}`);
+      }
+
+      const searchData = await searchResponse.json();
+      
+      if (searchData.files && searchData.files.length > 0) {
+        this.backupFolderId = searchData.files[0].id;
         console.log('Found existing ChessScope folder:', this.backupFolderId);
       } else {
-        // Create new folder
-        const folderResponse = await window.gapi.client.drive.files.create({
-          resource: {
+        // Create new folder using REST API
+        const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${googleAuth.getAccessToken()}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
             name: 'ChessScope',
             mimeType: 'application/vnd.google-apps.folder'
-          }
+          })
         });
         
-        this.backupFolderId = folderResponse.result.id;
+        if (!createResponse.ok) {
+          throw new Error(`Failed to create folder: ${createResponse.statusText}`);
+        }
+        
+        const createData = await createResponse.json();
+        this.backupFolderId = createData.id;
         console.log('Created ChessScope folder:', this.backupFolderId);
       }
     } catch (error) {
@@ -96,15 +115,23 @@ class GoogleDriveBackupService {
       const dbData = db.export();
       const blob = new Blob([dbData], { type: 'application/x-sqlite3' });
 
-      // Check if backup file already exists
-      const existingFiles = await window.gapi.client.drive.files.list({
-        q: `name='${this.backupFileName}' and parents in '${this.backupFolderId}' and trashed=false`,
-        spaces: 'drive'
+      // Check if backup file already exists using REST API
+      const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`name='${this.backupFileName}' and parents in '${this.backupFolderId}' and trashed=false`)}&spaces=drive`;
+      
+      const searchResponse = await fetch(searchUrl, {
+        headers: {
+          'Authorization': `Bearer ${googleAuth.getAccessToken()}`
+        }
       });
 
+      if (!searchResponse.ok) {
+        throw new Error(`Failed to search for existing backup: ${searchResponse.statusText}`);
+      }
+
+      const searchData = await searchResponse.json();
       let fileId = null;
-      if (existingFiles.result.files.length > 0) {
-        fileId = existingFiles.result.files[0].id;
+      if (searchData.files && searchData.files.length > 0) {
+        fileId = searchData.files[0].id;
       }
 
       // Upload or update file
@@ -173,18 +200,26 @@ class GoogleDriveBackupService {
     try {
       console.log('Starting database restore...');
 
-      // Find backup file
-      const filesResponse = await window.gapi.client.drive.files.list({
-        q: `name='${this.backupFileName}' and parents in '${this.backupFolderId}' and trashed=false`,
-        spaces: 'drive',
-        orderBy: 'modifiedTime desc'
+      // Find backup file using REST API
+      const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`name='${this.backupFileName}' and parents in '${this.backupFolderId}' and trashed=false`)}&spaces=drive&orderBy=modifiedTime%20desc`;
+      
+      const searchResponse = await fetch(searchUrl, {
+        headers: {
+          'Authorization': `Bearer ${googleAuth.getAccessToken()}`
+        }
       });
 
-      if (filesResponse.result.files.length === 0) {
+      if (!searchResponse.ok) {
+        throw new Error(`Failed to search for backup file: ${searchResponse.statusText}`);
+      }
+
+      const searchData = await searchResponse.json();
+      
+      if (!searchData.files || searchData.files.length === 0) {
         throw new Error('No backup file found');
       }
 
-      const backupFile = filesResponse.result.files[0];
+      const backupFile = searchData.files[0];
       console.log('Found backup file:', backupFile.name, 'modified:', backupFile.modifiedTime);
 
       // Download backup file
@@ -237,18 +272,26 @@ class GoogleDriveBackupService {
     }
 
     try {
-      const filesResponse = await window.gapi.client.drive.files.list({
-        q: `name='${this.backupFileName}' and parents in '${this.backupFolderId}' and trashed=false`,
-        spaces: 'drive',
-        fields: 'files(id,name,modifiedTime,size)',
-        orderBy: 'modifiedTime desc'
+      // Get backup file info using REST API
+      const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(`name='${this.backupFileName}' and parents in '${this.backupFolderId}' and trashed=false`)}&spaces=drive&fields=files(id,name,modifiedTime,size)&orderBy=modifiedTime%20desc`;
+      
+      const searchResponse = await fetch(searchUrl, {
+        headers: {
+          'Authorization': `Bearer ${googleAuth.getAccessToken()}`
+        }
       });
 
-      if (filesResponse.result.files.length === 0) {
+      if (!searchResponse.ok) {
+        throw new Error(`Failed to get backup info: ${searchResponse.statusText}`);
+      }
+
+      const searchData = await searchResponse.json();
+      
+      if (!searchData.files || searchData.files.length === 0) {
         return null;
       }
 
-      const backupFile = filesResponse.result.files[0];
+      const backupFile = searchData.files[0];
       return {
         fileId: backupFile.id,
         lastModified: new Date(backupFile.modifiedTime),

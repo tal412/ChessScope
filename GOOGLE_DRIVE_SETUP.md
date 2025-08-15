@@ -56,22 +56,24 @@ The Google Drive backup feature provides:
 
 ### 5. Configure ChessScope
 
-1. Open `src/config/google.js` in your ChessScope project
-2. Replace the placeholder values:
+1. Copy `.env.example` to `.env` in your ChessScope root directory:
+   ```bash
+   cp .env.example .env
+   ```
 
-```javascript
-export const GOOGLE_API_CONFIG = {
-  // Replace with your API key from step 4
-  apiKey: 'AIzaSyYourApiKeyHere...',
-  
-  // Replace with your OAuth 2.0 Client ID from step 3
-  clientId: '123456789012-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com',
-  
-  // These values are correct, don't change them
-  discoveryDoc: 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest',
-  scopes: 'https://www.googleapis.com/auth/drive.file'
-};
-```
+2. Open `.env` and replace the placeholder values with your actual credentials:
+   ```bash
+   # Google API Key from step 4
+   VITE_GOOGLE_API_KEY=AIzaSyYourApiKeyHere...
+   
+   # OAuth 2.0 Client ID from step 3
+   VITE_GOOGLE_CLIENT_ID=123456789012-abcdefghijklmnopqrstuvwxyz.apps.googleusercontent.com
+   ```
+
+3. Restart your development server for the changes to take effect:
+   ```bash
+   npm run dev
+   ```
 
 ### 6. Test the Setup
 
@@ -114,12 +116,16 @@ Google Drive > ChessScope > chesscope-backup.db
 ## Troubleshooting
 
 ### "Google API key not configured"
-- Make sure you've replaced the placeholder API key in `src/config/google.js`
+- Make sure you've created a `.env` file from `.env.example`
+- Verify you've set `VITE_GOOGLE_API_KEY` in your `.env` file
 - Ensure your API key is unrestricted or restricted to the Google Drive API
+- Restart your development server after adding environment variables
 
 ### "Google Client ID not configured" 
-- Make sure you've replaced the placeholder Client ID in `src/config/google.js`
+- Make sure you've created a `.env` file from `.env.example`
+- Verify you've set `VITE_GOOGLE_CLIENT_ID` in your `.env` file
 - Verify the Client ID format ends with `.apps.googleusercontent.com`
+- Restart your development server after adding environment variables
 
 ### "Sign in failed"
 - Check that your domain is added to authorized origins in Google Cloud Console
@@ -139,6 +145,8 @@ Google Drive > ChessScope > chesscope-backup.db
 
 ### File Structure
 ```
+.env.example                       # Template for environment variables
+.env                              # Your actual credentials (gitignored)
 src/
 ├── components/
 │   └── GoogleBackupManager.jsx    # UI component for backup management
@@ -146,7 +154,7 @@ src/
 │   ├── GoogleAuth.js              # Google authentication service
 │   └── GoogleDriveBackup.js       # Backup/restore functionality
 ├── config/
-│   └── google.js                  # API configuration
+│   └── google.js                  # Loads config from environment variables
 └── api/
     └── database.js                # Modified to integrate with backup
 ```

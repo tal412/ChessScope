@@ -4,8 +4,13 @@ import initSqlJs from 'sql.js';
 let googleDriveBackup = null;
 const getBackupService = async () => {
   if (!googleDriveBackup) {
-    const { googleDriveBackup: service } = await import('../services/GoogleDriveBackup.js');
-    googleDriveBackup = service;
+    try {
+      const { googleDriveBackup: service } = await import('../services/GoogleDriveBackup.js');
+      googleDriveBackup = service;
+    } catch (error) {
+      console.log('Google Drive backup service not available:', error);
+      return null;
+    }
   }
   return googleDriveBackup;
 };
@@ -61,9 +66,11 @@ export const initDatabase = async () => {
       console.log('Attempting to restore from Google Drive...');
       try {
         const backupService = await getBackupService();
-        await backupService.restoreFromBackup();
-        // If successful, the page will reload and we'll end up here again
-        return;
+        if (backupService) {
+          await backupService.restoreFromBackup();
+          // If successful, the page will reload and we'll end up here again
+          return;
+        }
       } catch (error) {
         console.log('Google Drive restore failed or unavailable, continuing with local database:', error.message);
       }
@@ -482,7 +489,9 @@ const saveDatabase = async () => {
     // Notify backup service of data change
     try {
       const backupService = await getBackupService();
-      backupService.markDataChanged();
+      if (backupService) {
+        backupService.markDataChanged();
+      }
     } catch (error) {
       // Backup service not available or failed, continue normally
       console.log('Backup service not available:', error.message);

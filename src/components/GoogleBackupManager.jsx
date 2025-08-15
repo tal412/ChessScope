@@ -32,11 +32,22 @@ const GoogleBackupManager = () => {
   useEffect(() => {
     // Initialize Google Auth
     const initializeAuth = async () => {
-      if (configError) return; // Don't initialize if config is invalid
+      if (configError) {
+        console.log('Skipping Google Auth initialization due to config error:', configError);
+        return; // Don't initialize if config is invalid
+      }
       
       try {
         setLoading(true);
+        console.log('Initializing Google Auth with config:', {
+          hasApiKey: !!GOOGLE_API_CONFIG.apiKey,
+          hasClientId: !!GOOGLE_API_CONFIG.clientId,
+          apiKeyPrefix: GOOGLE_API_CONFIG.apiKey?.substring(0, 10) + '...',
+          clientIdSuffix: '...' + GOOGLE_API_CONFIG.clientId?.substring(GOOGLE_API_CONFIG.clientId.length - 30)
+        });
+        
         await googleAuth.initialize(GOOGLE_API_CONFIG);
+        console.log('Google Auth initialized successfully');
         
         // Set initial state
         setIsSignedIn(googleAuth.isSignedIn);
@@ -46,7 +57,7 @@ const GoogleBackupManager = () => {
         }
       } catch (error) {
         console.error('Failed to initialize Google Auth:', error);
-        setError('Failed to initialize Google authentication. Please check your configuration.');
+        setError(`Failed to initialize Google authentication: ${error.message}`);
       } finally {
         setLoading(false);
       }
@@ -216,15 +227,17 @@ const GoogleBackupManager = () => {
   // Show configuration error
   if (configError) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <CloudOff className="h-5 w-5 text-red-500" />
-            Google Drive Backup
-          </CardTitle>
-          <CardDescription>
-            Secure cloud backup for your study data
-          </CardDescription>
+      <Card className="bg-slate-700/30 border-slate-600/50">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
+              <CloudOff className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-lg text-white">Google Drive Backup</CardTitle>
+              <p className="text-slate-400 text-sm">Secure cloud backup for your study data</p>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           <Alert variant="destructive">
@@ -233,7 +246,7 @@ const GoogleBackupManager = () => {
               <div className="space-y-2">
                 <p>{configError}</p>
                 <p className="text-xs">
-                  Set up instructions can be found in src/config/google.js
+                  Copy .env.example to .env and add your Google API credentials
                 </p>
               </div>
             </AlertDescription>
@@ -245,37 +258,41 @@ const GoogleBackupManager = () => {
 
   if (loading && !isSignedIn) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <RefreshCw className="h-5 w-5 animate-spin" />
-            Google Drive Backup
-          </CardTitle>
-          <CardDescription>
-            Initializing Google authentication...
-          </CardDescription>
+      <Card className="bg-slate-700/30 border-slate-600/50">
+        <CardHeader className="pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+              <RefreshCw className="w-5 h-5 animate-spin text-white" />
+            </div>
+            <div>
+              <CardTitle className="text-lg text-white">Google Drive Backup</CardTitle>
+              <p className="text-slate-400 text-sm">Initializing Google authentication...</p>
+            </div>
+          </div>
         </CardHeader>
       </Card>
     );
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {backupStatus?.isEnabled ? (
-            <Cloud className="h-5 w-5 text-green-500" />
-          ) : (
-            <CloudOff className="h-5 w-5 text-gray-400" />
-          )}
-          Google Drive Backup
-        </CardTitle>
-        <CardDescription>
-          Automatically sync your study data to Google Drive for safe keeping
-        </CardDescription>
+    <Card className="bg-slate-700/30 border-slate-600/50">
+      <CardHeader className="pb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+            {backupStatus?.isEnabled ? (
+              <Cloud className="w-5 h-5 text-white" />
+            ) : (
+              <CloudOff className="w-5 h-5 text-white" />
+            )}
+          </div>
+          <div>
+            <CardTitle className="text-lg text-white">Google Drive Backup</CardTitle>
+            <p className="text-slate-400 text-sm">Automatically sync your study data to Google Drive for safe keeping</p>
+          </div>
+        </div>
       </CardHeader>
       
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-6">
         {error && (
           <Alert variant="destructive">
             <AlertTriangle className="h-4 w-4" />
@@ -292,10 +309,14 @@ const GoogleBackupManager = () => {
 
         {!isSignedIn ? (
           <div className="text-center space-y-4">
-            <p className="text-muted-foreground">
+            <p className="text-slate-400">
               Sign in to Google to enable automatic backup of your study data
             </p>
-            <Button onClick={handleSignIn} disabled={loading}>
+            <Button 
+              onClick={handleSignIn} 
+              disabled={loading}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
               {loading ? (
                 <RefreshCw className="h-4 w-4 animate-spin mr-2" />
               ) : (
@@ -307,8 +328,8 @@ const GoogleBackupManager = () => {
         ) : (
           <div className="space-y-4">
             {/* User info */}
-            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-              <div className="flex items-center gap-3">
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 bg-slate-600/30 rounded-lg border border-slate-600/50">
                 {userInfo?.imageUrl && (
                   <img 
                     src={userInfo.imageUrl} 
@@ -316,12 +337,18 @@ const GoogleBackupManager = () => {
                     className="h-8 w-8 rounded-full"
                   />
                 )}
-                <div>
-                  <p className="font-medium">{userInfo?.name}</p>
-                  <p className="text-sm text-muted-foreground">{userInfo?.email}</p>
+                <div className="flex-1">
+                  <p className="font-medium text-white">{userInfo?.name}</p>
+                  <p className="text-sm text-slate-400">{userInfo?.email}</p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" onClick={handleSignOut} disabled={loading}>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleSignOut} 
+                disabled={loading}
+                className="w-full border-slate-500 text-slate-300 hover:bg-slate-600 hover:text-white"
+              >
                 <LogOut className="h-4 w-4 mr-2" />
                 Sign Out
               </Button>
@@ -331,17 +358,26 @@ const GoogleBackupManager = () => {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="font-medium">Automatic Backup</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="font-medium text-white">Automatic Backup</p>
+                  <p className="text-sm text-slate-400">
                     Sync changes to Google Drive every 30 seconds
                   </p>
                 </div>
                 {backupStatus?.isEnabled ? (
-                  <Button variant="outline" onClick={handleDisableBackup} disabled={loading}>
+                  <Button 
+                    variant="outline" 
+                    onClick={handleDisableBackup} 
+                    disabled={loading}
+                    className="border-slate-500 text-slate-300 hover:bg-slate-600 hover:text-white"
+                  >
                     Disable
                   </Button>
                 ) : (
-                  <Button onClick={handleEnableBackup} disabled={loading}>
+                  <Button 
+                    onClick={handleEnableBackup} 
+                    disabled={loading}
+                    className="bg-green-600 hover:bg-green-700 text-white"
+                  >
                     Enable
                   </Button>
                 )}
@@ -359,7 +395,7 @@ const GoogleBackupManager = () => {
                   </div>
 
                   {backupInfo && (
-                    <div className="text-sm text-muted-foreground">
+                    <div className="text-sm text-slate-400">
                       <p>Last backup: {backupInfo.lastModified.toLocaleString()}</p>
                       <p>Size: {backupInfo.sizeFormatted}</p>
                     </div>
@@ -371,6 +407,7 @@ const GoogleBackupManager = () => {
                       size="sm" 
                       onClick={handleManualBackup}
                       disabled={loading || backupStatus.backupInProgress}
+                      className="border-slate-500 text-slate-300 hover:bg-slate-600 hover:text-white"
                     >
                       {backupStatus.backupInProgress ? (
                         <RefreshCw className="h-4 w-4 animate-spin mr-2" />
@@ -385,6 +422,7 @@ const GoogleBackupManager = () => {
                       size="sm" 
                       onClick={handleRestore}
                       disabled={loading || !backupInfo}
+                      className="border-slate-500 text-slate-300 hover:bg-slate-600 hover:text-white"
                     >
                       <Download className="h-4 w-4 mr-2" />
                       Restore
