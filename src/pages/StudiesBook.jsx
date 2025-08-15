@@ -385,6 +385,11 @@ export default function StudiesBook() {
     try {
       await studyFolder.update(updatedFolder.id, updatedFolder);
       await loadFolders();
+      
+      // Trigger backup after folder update
+      window.dispatchEvent(new CustomEvent('databaseChange', { 
+        detail: { type: 'folder_update', folderId: updatedFolder.id } 
+      }));
     } catch (error) {
       console.error('Error editing folder:', error);
     }
@@ -427,6 +432,11 @@ export default function StudiesBook() {
       const folderId = targetFolder ? targetFolder.id : null;
       await userStudy.update(study.id, { folder_id: folderId });
       await loadStudies(false); // Don't show loader for quick updates
+      
+      // Trigger backup after study move
+      window.dispatchEvent(new CustomEvent('databaseChange', { 
+        detail: { type: 'study_move', studyId: study.id, folderId } 
+      }));
     } catch (error) {
       console.error('Error moving study to folder:', error);
     }

@@ -2,7 +2,6 @@ import React from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import GoogleBackupManager from "@/components/GoogleBackupManager";
 import { User } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -50,11 +49,11 @@ const ProfilePopup = ({ isOpen, onOpenChange }) => {
         <DialogHeader>
           <DialogTitle className="text-2xl">Profile</DialogTitle>
           <DialogDescription className="text-slate-400">
-            Manage your chess account connection and cloud backup settings.
+            Manage your chess account connection.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-6">
+        <div className="max-w-2xl mx-auto py-6">
           {/* Chess Account Info */}
           <Card className="bg-slate-700/30 border-slate-600/50">
             <CardHeader className="pb-4">
@@ -123,9 +122,6 @@ const ProfilePopup = ({ isOpen, onOpenChange }) => {
               )}
             </CardContent>
           </Card>
-
-          {/* Google Drive Backup */}
-          <GoogleBackupManager />
         </div>
       </DialogContent>
     </Dialog>

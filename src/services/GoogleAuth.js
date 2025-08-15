@@ -121,7 +121,15 @@ class GoogleAuthService {
       if (storedToken) {
         this.accessToken = storedToken;
         this.isSignedIn = true;
-        await this.getUserProfile();
+        const profile = await this.getUserProfile();
+        
+        // If profile fetch failed (token expired), clear auth state
+        if (!profile) {
+          this.isSignedIn = false;
+          this.accessToken = null;
+          this.currentUser = null;
+          sessionStorage.removeItem('google_access_token');
+        }
       }
 
       this.initialized = true;

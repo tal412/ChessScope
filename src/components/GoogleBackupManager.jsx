@@ -62,6 +62,9 @@ const GoogleBackupManager = () => {
               console.log('Auto-enabled backup for already signed-in user');
             } catch (error) {
               console.error('Failed to auto-enable backup for signed-in user:', error);
+              if (error.message.includes('Authentication failed')) {
+                setError('Google Drive authentication expired. Please sign out and sign in again.');
+              }
             }
           }
           
@@ -88,7 +91,11 @@ const GoogleBackupManager = () => {
         setTimeout(() => setSuccessMessage(null), 3000);
       } catch (error) {
         console.error('Failed to auto-enable backup:', error);
-        setError('Failed to enable automatic backup. You can try manually.');
+        if (error.message.includes('Authentication failed')) {
+          setError('Authentication expired. Please sign out and sign in again to refresh your Google Drive access.');
+        } else {
+          setError('Failed to enable automatic backup. Try signing out and signing in again.');
+        }
       }
       
       await refreshBackupStatus();

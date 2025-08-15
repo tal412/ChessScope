@@ -174,6 +174,7 @@ export default function OpeningEditor() {
         setCurrentNode(newTree);
         setTreeVersion(v => v + 1);
         setTreeChangeVersion(v => v + 1);
+        // Don't trigger backup here as it's initial load
       }
       
     }
@@ -194,6 +195,22 @@ export default function OpeningEditor() {
   // Auto-save state
   const autoSaveTimeoutRef = useRef(null);
   const [savedStudyId, setSavedOpeningId] = useState(null);
+  
+  // Trigger backup on every move update
+  const triggerMoveBackup = useCallback(() => {
+    // Trigger backup even for unsaved studies (they get saved automatically)
+    if (!isViewMode && name.trim()) {
+      console.log('🔄 Triggering move backup for study:', savedStudyId || 'new study', name);
+      window.dispatchEvent(new CustomEvent('studySaved', { 
+        detail: { 
+          studyId: savedStudyId || 'pending', 
+          name: name.trim(), 
+          type: 'move_update',
+          timestamp: Date.now()
+        } 
+      }));
+    }
+  }, [isViewMode, savedStudyId, name]);
   
   // Hover state for chessboard arrows
   const [hoveredMove, setHoveredMove] = useState(null);
@@ -263,8 +280,9 @@ export default function OpeningEditor() {
       currentNode.arrows = [...(currentNode.arrows || []), newArrow];
       setTreeVersion(v => v + 1);
       setTreeChangeVersion(v => v + 1);
+      triggerMoveBackup();
     }
-  }, [currentNode]);
+  }, [currentNode, triggerMoveBackup]);
 
   // Handle drawing mode toggle
   const handleDrawingModeToggle = useCallback(() => {
@@ -422,6 +440,13 @@ export default function OpeningEditor() {
       for (const child of moveTree.children) {
         await saveMoveNode(child, moveTree.fen);
       }
+      
+      console.log('💾 StudyEditor: Auto-save completed successfully');
+      
+      // Trigger backup after study save
+      window.dispatchEvent(new CustomEvent('studySaved', { 
+        detail: { studyId: savedStudy.id, name: name.trim(), type: savedStudyId ? 'update' : 'create' } 
+      }));
         
     } catch (error) {
       console.error('Auto-save error:', error);
@@ -1082,6 +1107,7 @@ export default function OpeningEditor() {
       MoveNode.calculateMainLine(moveTree);
       setTreeVersion(v => v + 1);
       setTreeChangeVersion(v => v + 1);
+      triggerMoveBackup();
     }
   };
   
@@ -1137,6 +1163,7 @@ export default function OpeningEditor() {
       MoveNode.calculateMainLine(moveTree);
       setTreeVersion(v => v + 1);
       setTreeChangeVersion(v => v + 1);
+      triggerMoveBackup();
     }
   };
 
@@ -1236,11 +1263,12 @@ export default function OpeningEditor() {
       setMoveTree(updatedTree);
       setTreeVersion(v => v + 1);
       setTreeChangeVersion(v => v + 1);
+      triggerMoveBackup();
     }
     
     setShowDeleteConfirmDialog(false);
     setNodeToDelete(null);
-  }, [nodeToDelete, currentNode, moveTree]);
+  }, [nodeToDelete, currentNode, moveTree, triggerMoveBackup]);
 
   const handleCancelDelete = useCallback(() => {
     setShowDeleteConfirmDialog(false);
@@ -1267,18 +1295,21 @@ export default function OpeningEditor() {
         onUpdateNode={isViewMode ? null : () => {
           setTreeVersion(v => v + 1);
           setTreeChangeVersion(v => v + 1);
+          triggerMoveBackup();
         }}
         onSetMainLine={isViewMode ? null : (node) => {
           MoveNode.setMainLineToNode(moveTree, node);
           // Force currentNode to update by incrementing treeChangeVersion
           setTreeChangeVersion(v => v + 1);
           setTreeVersion(v => v + 1);
+          triggerMoveBackup();
         }}
         onSetInitialMove={isViewMode ? null : (node) => {
           MoveNode.setInitialMoveToNode(moveTree, node);
           // Force currentNode to update by incrementing treeChangeVersion
           setTreeChangeVersion(v => v + 1);
           setTreeVersion(v => v + 1);
+          triggerMoveBackup();
         }}
         moveTree={moveTree}
         drawingMode={drawingMode}
@@ -1286,7 +1317,7 @@ export default function OpeningEditor() {
         readOnly={isViewMode}
       />
     );
-  }, [currentNode, isViewMode, moveTree, drawingMode, handleDrawingModeToggle, treeChangeVersion]);
+  }, [currentNode, isViewMode, moveTree, drawingMode, handleDrawingModeToggle, treeChangeVersion, triggerMoveBackup]);
 
   // Create configuration for ChessAnalysisView
   const analysisConfig = useMemo(() => {

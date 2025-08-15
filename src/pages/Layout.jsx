@@ -13,8 +13,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import GoogleBackupManager from "@/components/GoogleBackupManager";
 import ProfilePopup from "@/components/ProfilePopup";
+import BackupStatusIcon from "@/components/BackupStatusIcon";
 import { Network, User, Settings, Shield, RefreshCw, Loader2, Calendar as CalendarIcon, Globe, CheckCircle, AlertCircle, LogOut, ChevronLeft, ChevronRight, Github, Linkedin, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -461,6 +461,8 @@ export default function Layout() {
                     </TooltipContent>
                   )}
                 </Tooltip>
+
+                <BackupStatusIcon isSidebarCollapsed={isSidebarCollapsed} />
 
                 <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>

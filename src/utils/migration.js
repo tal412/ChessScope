@@ -66,9 +66,9 @@ export const migrationUtils = {
 
 export default migrationUtils;
 
-// Migration: Remove description and tags columns from user_openings table
+// Migration: Check for legacy user_openings table and remove if exists
 export const migrateRemoveDescriptionAndTagsColumns = async () => {
-  console.log('Running migration: Remove description and tags columns from user_openings table');
+  console.log('Running migration: Check for legacy user_openings table');
   
   try {
     // Get the database instance using the proper getter
@@ -80,67 +80,20 @@ export const migrateRemoveDescriptionAndTagsColumns = async () => {
       return false;
     }
     
-    // Check if the description or tags columns exist
-    const tableInfoResult = db.exec("PRAGMA table_info(user_openings)");
+    // Check if the legacy user_openings table exists
+    const tablesResult = db.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='user_openings'");
     
-    if (!tableInfoResult || tableInfoResult.length === 0) {
-      console.log('user_openings table does not exist, migration not needed');
+    if (!tablesResult || tablesResult.length === 0 || tablesResult[0].values.length === 0) {
+      console.log('Legacy user_openings table does not exist, migration not needed');
       return true;
     }
     
-    const columns = tableInfoResult[0].values.map(row => row[1]); // column name is at index 1
+    console.log('Legacy user_openings table found, removing it...');
     
-    const hasDescriptionColumn = columns.includes('description');
-    const hasTagsColumn = columns.includes('tags');
-    
-    if (!hasDescriptionColumn && !hasTagsColumn) {
-      console.log('Description and tags columns do not exist, migration not needed');
-      return true;
-    }
-    
-    console.log('Description/tags columns exist, removing them...');
-    
-    // SQLite doesn't support DROP COLUMN directly, so we need to:
-    // 1. Create a new table without the description column
-    // 2. Copy data from old table to new table
-    // 3. Drop the old table
-    // 4. Rename the new table
-    
-    // Step 1: Create new table without description and tags columns
-    db.exec(`
-      CREATE TABLE user_openings_new (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT NOT NULL,
-        name TEXT NOT NULL,
-        color TEXT NOT NULL,
-        initial_fen TEXT DEFAULT 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-        initial_moves TEXT DEFAULT '[]',
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE(username, name)
-      )
-    `);
-    
-    // Step 2: Copy data from old table to new table (excluding description and tags)
-    db.exec(`
-      INSERT INTO user_openings_new (
-        id, username, name, color, initial_fen, initial_moves, created_at, updated_at
-      )
-      SELECT 
-        id, username, name, color, initial_fen, initial_moves, created_at, updated_at
-      FROM user_openings
-    `);
-    
-    // Step 3: Drop the old table
+    // Drop the legacy table - the current schema uses user_studies
     db.exec('DROP TABLE user_openings');
     
-    // Step 4: Rename the new table
-    db.exec('ALTER TABLE user_openings_new RENAME TO user_openings');
-    
-    // Recreate the index
-    db.exec('CREATE INDEX IF NOT EXISTS idx_user_openings_username ON user_openings(username)');
-    
-    console.log('Successfully removed description and tags columns from user_openings table');
+    console.log('Successfully removed legacy user_openings table');
     return true;
     
   } catch (error) {

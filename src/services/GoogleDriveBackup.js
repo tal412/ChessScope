@@ -9,11 +9,52 @@ class GoogleDriveBackupService {
     this.lastBackupTime = null;
     this.backupInProgress = false;
     this.pendingChanges = false;
+    // Track if we've already asked about restore this session
+    // Use localStorage to persist across page reloads
+    const sessionData = this.getSessionData();
+    this.hasAskedAboutRestore = sessionData.hasAskedAboutRestore || false;
+    this.lastRestoreCheckTime = sessionData.lastRestoreCheckTime || null;
+  }
+
+  getSessionData() {
+    try {
+      const data = localStorage.getItem('chesscope_backup_session');
+      if (data) {
+        const parsed = JSON.parse(data);
+        // Check if session is still valid (within 30 minutes)
+        if (parsed.timestamp && Date.now() - parsed.timestamp < 30 * 60 * 1000) {
+          return parsed;
+        }
+      }
+    } catch (e) {
+      console.log('Error reading session data:', e);
+    }
+    return {};
+  }
+
+  updateSessionData(updates) {
+    try {
+      const currentData = this.getSessionData();
+      const newData = {
+        ...currentData,
+        ...updates,
+        timestamp: Date.now()
+      };
+      localStorage.setItem('chesscope_backup_session', JSON.stringify(newData));
+    } catch (e) {
+      console.log('Error saving session data:', e);
+    }
   }
 
   async enableBackup() {
     if (!googleAuth.isSignedIn) {
       throw new Error('User must be signed in to Google');
+    }
+
+    // If already enabled, don't re-initialize
+    if (this.isBackupEnabled) {
+      console.log('Google Drive backup already enabled, skipping re-initialization');
+      return true;
     }
 
     try {
@@ -25,13 +66,14 @@ class GoogleDriveBackupService {
       // Perform initial backup
       await this.performBackup();
       
-      // Check for updates from Google Drive on startup
+      // Check for updates from Google Drive on startup (only once)
       await this.checkForUpdates();
       
       console.log('Google Drive backup enabled successfully');
       return true;
     } catch (error) {
       console.error('Failed to enable backup:', error);
+      this.isBackupEnabled = false; // Reset on error
       throw error;
     }
   }
@@ -43,17 +85,41 @@ class GoogleDriveBackupService {
 
   async ensureBackupFolder() {
     try {
+      // Check if we have a valid access token
+      const accessToken = googleAuth.getAccessToken();
+      if (!accessToken) {
+        throw new Error('No access token available. Please sign in again.');
+      }
+
+      console.log('Searching for ChessScope folder with token:', accessToken.substring(0, 20) + '...');
+      
       // Search for existing ChessScope folder using REST API
       const searchUrl = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent("name='ChessScope' and mimeType='application/vnd.google-apps.folder' and trashed=false")}&spaces=drive`;
       
       const searchResponse = await fetch(searchUrl, {
         headers: {
-          'Authorization': `Bearer ${googleAuth.getAccessToken()}`
+          'Authorization': `Bearer ${accessToken}`,
+          'Accept': 'application/json'
         }
       });
 
       if (!searchResponse.ok) {
-        throw new Error(`Failed to search for folder: ${searchResponse.statusText}`);
+        if (searchResponse.status === 401) {
+          throw new Error('Authentication failed. Please sign out and sign in again to refresh your credentials.');
+        }
+        if (searchResponse.status === 403) {
+          const errorText = await searchResponse.text();
+          console.error('Google Drive API error:', searchResponse.status, searchResponse.statusText, errorText);
+          
+          // Check if it's the API not enabled error
+          if (errorText.includes('Google Drive API has not been used') || errorText.includes('SERVICE_DISABLED')) {
+            throw new Error('Google Drive API is not enabled. Please enable it in Google Cloud Console and try again.');
+          }
+          throw new Error('Google Drive access denied. Please check your API permissions.');
+        }
+        const errorText = await searchResponse.text();
+        console.error('Google Drive API error:', searchResponse.status, searchResponse.statusText, errorText);
+        throw new Error(`Failed to search for folder: ${searchResponse.status} ${searchResponse.statusText}`);
       }
 
       const searchData = await searchResponse.json();
@@ -134,9 +200,13 @@ class GoogleDriveBackupService {
       // Upload or update file
       const metadata = {
         name: this.backupFileName,
-        parents: [this.backupFolderId],
         description: `ChessScope database backup - ${new Date().toISOString()}`
       };
+
+      // Only include parents for new files (POST), not updates (PATCH)
+      if (!fileId) {
+        metadata.parents = [this.backupFolderId];
+      }
 
       const form = new FormData();
       form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
@@ -148,16 +218,31 @@ class GoogleDriveBackupService {
 
       const method = fileId ? 'PATCH' : 'POST';
 
+      console.log(`Uploading backup using ${method} to:`, url);
+      console.log('File size:', blob.size, 'bytes');
+      console.log('Metadata:', metadata);
+      
       const response = await fetch(url, {
         method: method,
         headers: {
-          'Authorization': `Bearer ${googleAuth.getAccessToken()}`
+          'Authorization': `Bearer ${googleAuth.getAccessToken()}`,
+          // Don't set Content-Type - let browser set it for multipart/form-data
         },
         body: form
       });
 
       if (!response.ok) {
-        throw new Error(`Upload failed: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Upload error:', response.status, response.statusText, errorText);
+        
+        if (response.status === 403) {
+          if (errorText.includes('insufficient permissions') || errorText.includes('drive.file')) {
+            throw new Error('Insufficient permissions to upload to Google Drive. Please sign out and sign in again to refresh permissions.');
+          }
+          throw new Error('Google Drive upload access denied. Please check your permissions.');
+        }
+        
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
       }
 
       const result = await response.json();
@@ -317,6 +402,16 @@ class GoogleDriveBackupService {
       return false;
     }
 
+    // Only check once per session, or if more than 5 minutes have passed
+    const now = Date.now();
+    if (this.hasAskedAboutRestore && this.lastRestoreCheckTime) {
+      const timeSinceLastCheck = now - this.lastRestoreCheckTime;
+      if (timeSinceLastCheck < 5 * 60 * 1000) { // 5 minutes
+        console.log('Skipping restore check - already asked this session');
+        return false;
+      }
+    }
+
     try {
       console.log('Checking for Google Drive backup updates...');
       
@@ -331,6 +426,9 @@ class GoogleDriveBackupService {
       const localDbString = localStorage.getItem('chesscope_db');
       if (!localDbString) {
         console.log('No local database found, remote backup is newer');
+        // Mark that we've checked
+        this.hasAskedAboutRestore = true;
+        this.lastRestoreCheckTime = now;
         return true;
       }
 
@@ -339,9 +437,18 @@ class GoogleDriveBackupService {
       const localSize = new Blob([localDbString]).size;
       const sizeDifferencePercent = Math.abs(remoteBackupInfo.size - localSize) / Math.max(remoteBackupInfo.size, localSize) * 100;
       
-      // If there's a significant size difference (>5%), prompt user
-      if (sizeDifferencePercent > 5) {
+      // If there's a significant size difference (>5%), prompt user ONCE
+      if (sizeDifferencePercent > 5 && !this.hasAskedAboutRestore) {
         console.log(`Remote backup size differs significantly from local: remote=${remoteBackupInfo.sizeFormatted}, local=${this.formatFileSize(localSize)}`);
+        
+        // Mark that we've asked to prevent repeated prompts
+        this.hasAskedAboutRestore = true;
+        this.lastRestoreCheckTime = now;
+        // Persist to localStorage to survive page reloads
+        this.updateSessionData({
+          hasAskedAboutRestore: true,
+          lastRestoreCheckTime: now
+        });
         
         const shouldRestore = confirm(
           `A different version of your studies was found in Google Drive backup.\n\n` +
@@ -354,6 +461,8 @@ class GoogleDriveBackupService {
           await this.restoreFromBackup();
           return true;
         }
+      } else if (sizeDifferencePercent > 5) {
+        console.log('Remote backup differs but already asked user this session');
       } else {
         console.log('Local and remote backups appear to be similar in size');
       }
