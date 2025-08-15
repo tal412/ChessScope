@@ -5,7 +5,8 @@
       "Bash(git add:*)",
       "Bash(grep:*)",
       "Bash(mv:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Bash(npm install:*)"
     ],
     "deny": []
   }

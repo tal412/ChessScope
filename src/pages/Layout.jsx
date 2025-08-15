@@ -13,6 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import GoogleBackupManager from "@/components/GoogleBackupManager";
 import { Network, User, Settings, Shield, RefreshCw, Loader2, Calendar as CalendarIcon, Globe, CheckCircle, AlertCircle, LogOut, ChevronLeft, ChevronRight, Github, Linkedin, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
@@ -610,7 +611,7 @@ export default function Layout() {
               </DialogDescription>
             </DialogHeader>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 py-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-6 py-6">
               {/* Time Controls */}
               <Card className="bg-slate-700/30 border-slate-600/50">
                 <CardHeader className="pb-4">
@@ -844,6 +845,11 @@ export default function Layout() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Google Drive Backup */}
+              <div className="xl:col-span-1">
+                <GoogleBackupManager />
+              </div>
             </div>
 
             {/* Validation */}

@@ -1,5 +1,15 @@
 import initSqlJs from 'sql.js';
 
+// Import backup service (but avoid circular imports by lazy loading)
+let googleDriveBackup = null;
+const getBackupService = async () => {
+  if (!googleDriveBackup) {
+    const { googleDriveBackup: service } = await import('../services/GoogleDriveBackup.js');
+    googleDriveBackup = service;
+  }
+  return googleDriveBackup;
+};
+
 // Global database instance
 let db = null;
 let SQL = null;
@@ -44,6 +54,21 @@ export const initDatabase = async () => {
       locateFile: file => `https://sql.js.org/dist/${file}`
     });
 
+    // Check if we should attempt Google Drive restore first
+    const shouldAttemptRestore = await checkForGoogleDriveRestore();
+    
+    if (shouldAttemptRestore) {
+      console.log('Attempting to restore from Google Drive...');
+      try {
+        const backupService = await getBackupService();
+        await backupService.restoreFromBackup();
+        // If successful, the page will reload and we'll end up here again
+        return;
+      } catch (error) {
+        console.log('Google Drive restore failed or unavailable, continuing with local database:', error.message);
+      }
+    }
+
     // Try to load existing database from localStorage
     const existingDb = localStorage.getItem('chesscope_db');
     if (existingDb) {
@@ -72,6 +97,25 @@ export const initDatabase = async () => {
     isInitializing = false;
     throw error;
   }
+};
+
+// Check if we should attempt Google Drive restore
+const checkForGoogleDriveRestore = async () => {
+  // Only attempt restore if:
+  // 1. No local database exists
+  // 2. User was previously signed in to Google
+  // 3. This isn't a restore attempt already (prevent infinite loops)
+  
+  const existingDb = localStorage.getItem('chesscope_db');
+  const wasSignedIn = localStorage.getItem('google_was_signed_in');
+  const restoreAttempted = sessionStorage.getItem('restore_attempted');
+  
+  if (!existingDb && wasSignedIn && !restoreAttempted) {
+    sessionStorage.setItem('restore_attempted', 'true');
+    return true;
+  }
+  
+  return false;
 };
 
 // Run database migrations
@@ -422,7 +466,7 @@ const createTables = async () => {
 };
 
 // Save database to localStorage with compression and error handling
-const saveDatabase = () => {
+const saveDatabase = async () => {
   try {
     const data = db.export();
     const dataString = JSON.stringify(Array.from(data));
@@ -434,6 +478,15 @@ const saveDatabase = () => {
     }
     
     localStorage.setItem('chesscope_db', dataString);
+    
+    // Notify backup service of data change
+    try {
+      const backupService = await getBackupService();
+      backupService.markDataChanged();
+    } catch (error) {
+      // Backup service not available or failed, continue normally
+      console.log('Backup service not available:', error.message);
+    }
   } catch (error) {
     if (error.name === 'QuotaExceededError') {
       console.error('LocalStorage quota exceeded. Database is too large to save.');
