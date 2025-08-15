@@ -345,17 +345,15 @@ const GoogleBackupManager = () => {
                   <p className="font-medium text-white">{userInfo?.name}</p>
                   <p className="text-sm text-slate-400">{userInfo?.email}</p>
                 </div>
+                <button
+                  onClick={handleSignOut}
+                  disabled={loading}
+                  className="p-1.5 rounded-md hover:bg-slate-500/50 text-slate-400 hover:text-white transition-colors disabled:opacity-50"
+                  title="Sign Out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleSignOut} 
-                disabled={loading}
-                className="w-full border-slate-500 text-slate-300 hover:bg-slate-600 hover:text-white"
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                Sign Out
-              </Button>
             </div>
 
             {/* Backup controls */}
