@@ -25,3 +25,11 @@ dist-ssr
 
 .env
 /.claude/agents/react-concept-teacher.md
+
+# Google API configuration with secrets
+src/config/google.js
+
+# Environment files
+.env.local
+.env.development
+.env.production
