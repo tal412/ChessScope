@@ -19,6 +19,7 @@ import ChessAnalysisView from '../components/analysis/ChessAnalysisView';
 import MoveDetailsSection from '../components/analysis/MoveDetailsSection';
 import { createOpeningEditorConfig } from '../components/analysis/ChessAnalysisViewConfig.jsx';
 import { createOpeningClusters } from '../utils/clusteringAnalysis';
+import { autoDriveSync } from '../services/AutoDriveSync.js';
 
 // Move tree node structure
 class MoveNode {
@@ -147,6 +148,43 @@ export default function OpeningEditor() {
     }
     return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   };
+
+  // Initialize auto sync service and check for conflicts
+  useEffect(() => {
+    const initializeAutoSync = async () => {
+      try {
+        await autoDriveSync.initialize();
+        
+        // Check for conflicts that would prevent editing
+        const conflictsExist = await autoDriveSync.checkForConflicts();
+        setHasConflicts(conflictsExist);
+        
+        if (conflictsExist && !isViewMode) {
+          setConflictError('You have sync conflicts that must be resolved before editing studies. Please go to Google Drive Sync to resolve them.');
+        }
+      } catch (error) {
+        console.error('Failed to initialize auto sync:', error);
+      }
+    };
+
+    initializeAutoSync();
+
+    // Listen for conflict changes
+    const handleConflictChange = (conflicts) => {
+      setHasConflicts(!!conflicts);
+      if (conflicts && !isViewMode) {
+        setConflictError('Sync conflicts detected. Please resolve them in Google Drive Sync before making changes.');
+      } else {
+        setConflictError(null);
+      }
+    };
+
+    autoDriveSync.addConflictListener(handleConflictChange);
+
+    return () => {
+      autoDriveSync.removeConflictListener(handleConflictChange);
+    };
+  }, [isViewMode]);
   
   // Initialize form state from URL parameters for new openings
   useEffect(() => {
@@ -195,6 +233,10 @@ export default function OpeningEditor() {
   // Auto-save state
   const autoSaveTimeoutRef = useRef(null);
   const [savedStudyId, setSavedOpeningId] = useState(null);
+  
+  // Conflict state
+  const [hasConflicts, setHasConflicts] = useState(false);
+  const [conflictError, setConflictError] = useState(null);
   
   // Trigger backup on every move update
   const triggerMoveBackup = useCallback(() => {
@@ -328,6 +370,13 @@ export default function OpeningEditor() {
     console.log('💾 StudyEditor: Auto-save triggered. selectedTagIds:', selectedTagIds);
     if (isViewMode || !name.trim()) return;
     
+    // Check if user can edit (no conflicts)
+    if (!autoDriveSync.canEditStudies()) {
+      console.warn('💾 StudyEditor: Auto-save blocked due to sync conflicts');
+      setConflictError('Cannot save changes due to sync conflicts. Please resolve them in Google Drive Sync.');
+      return;
+    }
+    
     try {
       const username = localStorage.getItem('chesscope_username');
       
@@ -443,13 +492,26 @@ export default function OpeningEditor() {
       
       console.log('💾 StudyEditor: Auto-save completed successfully');
       
-      // Trigger backup after study save
+      // Trigger automatic sync after successful save
+      const syncOperation = savedStudyId ? 'study_update' : 'study_create';
+      await autoDriveSync.autoSync(syncOperation, {
+        studyId: savedStudy.id,
+        name: name.trim(),
+        type: syncOperation
+      });
+      
+      // Keep legacy event for compatibility
       window.dispatchEvent(new CustomEvent('studySaved', { 
         detail: { studyId: savedStudy.id, name: name.trim(), type: savedStudyId ? 'update' : 'create' } 
       }));
         
     } catch (error) {
       console.error('Auto-save error:', error);
+      
+      // Check if error is due to conflicts
+      if (error.message.includes('conflict')) {
+        await autoDriveSync.checkForConflicts();
+      }
     }
   }, [isViewMode, name, color, moveTree, savedStudyId, selectedTagIds]);
 
@@ -1402,11 +1464,24 @@ export default function OpeningEditor() {
   return (
     <div className="h-full w-full bg-slate-900">
       {/* Error Alert */}
-      {error && (
+      {(error || conflictError) && (
         <div className="absolute top-0 left-0 right-0 z-50 p-4 bg-slate-800 border-b border-slate-700">
           <Alert className="bg-red-900/20 border-red-700">
+            <AlertTriangle className="h-4 w-4" />
             <AlertDescription className="text-red-400">
-              {error}
+              {conflictError || error}
+              {conflictError && (
+                <div className="mt-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => navigate('/google-drive-sync')}
+                    className="text-xs bg-red-800/30 border-red-600 text-red-300 hover:bg-red-700/40"
+                  >
+                    Resolve Conflicts
+                  </Button>
+                </div>
+              )}
             </AlertDescription>
           </Alert>
         </div>

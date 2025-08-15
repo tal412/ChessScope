@@ -3,24 +3,31 @@ import { normalizeFen } from '../utils/chessUtils';
 
 // Get database reference for complex queries
 let db = null;
-try {
-  // Use dynamic import to get database instance
-  const { default: initSqlJs } = await import('sql.js');
-  // We'll access the global database instance
-  setTimeout(() => {
-    const dbData = localStorage.getItem('chesscope_db');
-    if (dbData) {
-      const uint8Array = new Uint8Array(JSON.parse(dbData));
-      initSqlJs({
-        locateFile: file => `https://sql.js.org/dist/${file}`
-      }).then(SQL => {
-        db = new SQL.Database(uint8Array);
-      });
-    }
-  }, 100);
-} catch (error) {
-  console.warn('Could not setup database reference:', error);
-}
+
+// Initialize database reference asynchronously
+const initializeDatabase = async () => {
+  try {
+    // Use dynamic import to get database instance
+    const { default: initSqlJs } = await import('sql.js');
+    // We'll access the global database instance
+    setTimeout(() => {
+      const dbData = localStorage.getItem('chesscope_db');
+      if (dbData) {
+        const uint8Array = new Uint8Array(JSON.parse(dbData));
+        initSqlJs({
+          locateFile: file => `https://sql.js.org/dist/${file}`
+        }).then(SQL => {
+          db = new SQL.Database(uint8Array);
+        });
+      }
+    }, 100);
+  } catch (error) {
+    console.warn('Could not setup database reference:', error);
+  }
+};
+
+// Initialize on module load
+initializeDatabase();
 
 // UserStudy model for managing user's repertoire
 export class UserStudy extends BaseModel {

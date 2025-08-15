@@ -63,6 +63,7 @@ import FolderCard from '@/components/studies/FolderCard';
 import FolderCreateDialog from '@/components/studies/FolderCreateDialog';
 import StudyCard from '@/components/studies/StudyCard';
 import { cn } from '@/lib/utils';
+import { autoDriveSync } from '../services/AutoDriveSync.js';
 
 
 // Sortable wrapper components
@@ -146,6 +147,10 @@ export default function StudiesBook() {
   const [deleteStudy, setDeleteStudy] = useState(null);
   const [activeId, setActiveId] = useState(null);
   
+  // Conflict state
+  const [hasConflicts, setHasConflicts] = useState(false);
+  const [conflictError, setConflictError] = useState(null);
+  
   // Get folder from URL params
   const folderIdFromUrl = searchParams.get('folder');
   const [selectedFolder, setSelectedFolder] = useState(folderIdFromUrl ? parseInt(folderIdFromUrl) : null);
@@ -161,13 +166,23 @@ export default function StudiesBook() {
     })
   );
 
-  // Load user's studies, folders, and tags
+  // Initialize auto sync and load data
   useEffect(() => {
-    const loadData = async () => {
+    const initializeAndLoadData = async () => {
       try {
+        // Initialize auto sync service
+        await autoDriveSync.initialize();
+        
+        // Check for conflicts
+        const conflictsExist = await autoDriveSync.checkForConflicts();
+        setHasConflicts(conflictsExist);
+        
+        if (conflictsExist) {
+          setConflictError('You have sync conflicts. Some operations may be disabled until resolved.');
+        }
+        
         // Wait for database to be ready before loading data
         await waitForDatabase();
-        
         
         // Load all data once database is ready
         await Promise.all([
@@ -181,7 +196,23 @@ export default function StudiesBook() {
       }
     };
     
-    loadData();
+    initializeAndLoadData();
+
+    // Listen for conflict changes
+    const handleConflictChange = (conflicts) => {
+      setHasConflicts(!!conflicts);
+      if (conflicts) {
+        setConflictError('Sync conflicts detected. Some operations may be disabled until resolved.');
+      } else {
+        setConflictError(null);
+      }
+    };
+
+    autoDriveSync.addConflictListener(handleConflictChange);
+
+    return () => {
+      autoDriveSync.removeConflictListener(handleConflictChange);
+    };
   }, []);
 
   // Update selectedFolder when URL changes
@@ -355,48 +386,112 @@ export default function StudiesBook() {
   const handleDeleteStudy = async () => {
     if (!deleteStudy) return;
     
+    // Check if user can edit (no conflicts)
+    if (!autoDriveSync.canEditStudies()) {
+      console.warn('Delete blocked due to sync conflicts');
+      setConflictError('Cannot delete studies due to sync conflicts. Please resolve them first.');
+      setDeleteStudy(null);
+      return;
+    }
+    
     try {
       await userStudy.delete(deleteStudy.id);
       await loadStudies(false); // Don't show loader for deletion
+      
+      // Trigger automatic sync after successful deletion
+      await autoDriveSync.autoSync('study_delete', {
+        studyId: deleteStudy.id,
+        name: deleteStudy.name
+      });
+      
       setDeleteStudy(null);
     } catch (error) {
       console.error('Error deleting study:', error);
+      
+      // Check if error is due to conflicts
+      if (error.message.includes('conflict')) {
+        await autoDriveSync.checkForConflicts();
+      }
     }
   };
 
   // Folder management functions
   const handleCreateFolder = async (folderData) => {
+    // Check if user can edit (no conflicts)
+    if (!autoDriveSync.canEditStudies()) {
+      console.warn('Folder creation blocked due to sync conflicts');
+      setConflictError('Cannot create folders due to sync conflicts. Please resolve them first.');
+      return;
+    }
+
     try {
       const username = localStorage.getItem('chesscope_username');
       if (!username) return;
 
-      await studyFolder.create({
+      const newFolder = await studyFolder.create({
         ...folderData,
         username,
         position: folders.length
       });
       
       await loadFolders();
+      
+      // Trigger automatic sync after successful folder creation
+      await autoDriveSync.autoSync('folder_create', {
+        folderId: newFolder.id,
+        name: folderData.name
+      });
+      
     } catch (error) {
       console.error('Error creating folder:', error);
+      
+      // Check if error is due to conflicts
+      if (error.message.includes('conflict')) {
+        await autoDriveSync.checkForConflicts();
+      }
     }
   };
 
   const handleEditFolder = async (updatedFolder) => {
+    // Check if user can edit (no conflicts)
+    if (!autoDriveSync.canEditStudies()) {
+      console.warn('Folder edit blocked due to sync conflicts');
+      setConflictError('Cannot edit folders due to sync conflicts. Please resolve them first.');
+      return;
+    }
+
     try {
       await studyFolder.update(updatedFolder.id, updatedFolder);
       await loadFolders();
       
-      // Trigger backup after folder update
+      // Trigger automatic sync after successful folder update
+      await autoDriveSync.autoSync('folder_update', {
+        folderId: updatedFolder.id,
+        name: updatedFolder.name
+      });
+      
+      // Keep legacy event for compatibility
       window.dispatchEvent(new CustomEvent('databaseChange', { 
         detail: { type: 'folder_update', folderId: updatedFolder.id } 
       }));
     } catch (error) {
       console.error('Error editing folder:', error);
+      
+      // Check if error is due to conflicts
+      if (error.message.includes('conflict')) {
+        await autoDriveSync.checkForConflicts();
+      }
     }
   };
 
   const handleDeleteFolder = async (folder) => {
+    // Check if user can edit (no conflicts)
+    if (!autoDriveSync.canEditStudies()) {
+      console.warn('Folder deletion blocked due to sync conflicts');
+      setConflictError('Cannot delete folders due to sync conflicts. Please resolve them first.');
+      return;
+    }
+
     try {
       // Move studies out of folder first
       const folderStudies = studies.filter(study => study.folder_id === folder.id);
@@ -407,8 +502,21 @@ export default function StudiesBook() {
       await studyFolder.delete(folder.id);
       await loadFolders();
       await loadStudies(false); // Don't show loader for folder deletion
+      
+      // Trigger automatic sync after successful folder deletion
+      await autoDriveSync.autoSync('folder_delete', {
+        folderId: folder.id,
+        name: folder.name,
+        movedStudies: folderStudies.length
+      });
+      
     } catch (error) {
       console.error('Error deleting folder:', error);
+      
+      // Check if error is due to conflicts
+      if (error.message.includes('conflict')) {
+        await autoDriveSync.checkForConflicts();
+      }
     }
   };
 
@@ -429,17 +537,37 @@ export default function StudiesBook() {
   };
 
   const handleMoveStudyToFolder = async (study, targetFolder) => {
+    // Check if user can edit (no conflicts)
+    if (!autoDriveSync.canEditStudies()) {
+      console.warn('Study move blocked due to sync conflicts');
+      setConflictError('Cannot move studies due to sync conflicts. Please resolve them first.');
+      return;
+    }
+
     try {
       const folderId = targetFolder ? targetFolder.id : null;
       await userStudy.update(study.id, { folder_id: folderId });
       await loadStudies(false); // Don't show loader for quick updates
       
-      // Trigger backup after study move
+      // Trigger automatic sync after successful study move
+      await autoDriveSync.autoSync('study_move', {
+        studyId: study.id,
+        studyName: study.name,
+        targetFolderId: folderId,
+        targetFolderName: targetFolder?.name || 'Root'
+      });
+      
+      // Keep legacy event for compatibility
       window.dispatchEvent(new CustomEvent('databaseChange', { 
         detail: { type: 'study_move', studyId: study.id, folderId } 
       }));
     } catch (error) {
       console.error('Error moving study to folder:', error);
+      
+      // Check if error is due to conflicts
+      if (error.message.includes('conflict')) {
+        await autoDriveSync.checkForConflicts();
+      }
     }
   };
 
@@ -598,6 +726,28 @@ export default function StudiesBook() {
 
   return (
     <div className="min-h-screen bg-slate-900 flex flex-col">
+      {/* Conflict Error Alert */}
+      {conflictError && (
+        <div className="bg-slate-800 border-b border-slate-700 p-4">
+          <Alert className="bg-red-900/20 border-red-700">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription className="text-red-400">
+              {conflictError}
+              <div className="mt-2">
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => navigate('/google-drive-sync')}
+                  className="text-xs bg-red-800/30 border-red-600 text-red-300 hover:bg-red-700/40"
+                >
+                  Resolve Conflicts
+                </Button>
+              </div>
+            </AlertDescription>
+          </Alert>
+        </div>
+      )}
+
       {/* Header using AppBar */}
       <AppBar
         title={

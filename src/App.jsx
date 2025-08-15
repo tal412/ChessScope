@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from "@/contexts/AuthContext"
 import { useEffect } from 'react'
 import { autoBackupService } from '@/services/AutoBackupService.js'
+import SyncStatusIndicator from '@/components/SyncStatusIndicator.jsx'
 
 function App() {
   useEffect(() => {
@@ -25,6 +26,7 @@ function App() {
     <AuthProvider>
       <Pages />
       <Toaster />
+      <SyncStatusIndicator />
     </AuthProvider>
   )
 }
