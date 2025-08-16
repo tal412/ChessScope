@@ -1216,10 +1216,8 @@ export default function OpeningEditor() {
     
     // If this is a graph node (from canvas), convert it to tree node
     if (node && node.data && !node.san) {
-      console.log('🔍 Converting graph node to tree node, ID:', node.id);
       const treeNode = findNodeById(moveTree, node.id);
       if (treeNode) {
-        console.log('✅ Found tree node:', treeNode.san);
         setCurrentNode(treeNode);
         
         const path = [];
