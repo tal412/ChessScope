@@ -411,7 +411,6 @@ function PerformanceGraphContent() {
           // Show sample openings for the first FEN
           const firstFen = sampleFens[0];
           if (firstFen) {
-            console.log(`🗂️ Studies for first FEN:`, fenToOpeningsMap.get(firstFen));
           }
         }
         setNodeOpeningsMap(fenToOpeningsMap);

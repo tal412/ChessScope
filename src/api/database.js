@@ -479,13 +479,11 @@ let backupSuppressed = false;
 // Suppress automatic backups during critical operations
 export const suppressBackups = () => {
   backupSuppressed = true;
-  console.log('🚫 Automatic backups suppressed');
 };
 
 // Re-enable automatic backups
 export const enableBackups = () => {
   backupSuppressed = false;
-  console.log('✅ Automatic backups re-enabled');
 };
 
 // Save database to localStorage with compression and error handling
@@ -517,7 +515,6 @@ export const saveDatabase = async () => {
         console.log('Cloud sync not available:', error.message);
       }
     } else {
-      console.log('🚫 Sync skipped - suppressed during sync operation');
     }
   } catch (error) {
     if (error.name === 'QuotaExceededError') {
@@ -718,15 +715,11 @@ export class BaseModel {
     const query = `DELETE FROM ${this.tableName} WHERE id = ?`;
     
     try {
-      console.log(`🗑️ BaseModel.delete: Executing query on table ${this.tableName} for id ${id}`);
       const stmt = db.prepare(query);
       const result = stmt.run([id]);
-      console.log(`🗑️ BaseModel.delete: Query result:`, result);
       stmt.free();
       
-      console.log(`💾 BaseModel.delete: Saving database...`);
       saveDatabase();
-      console.log(`✅ BaseModel.delete: Delete completed successfully for ${this.tableName} id ${id}`);
       return { success: true };
     } catch (error) {
       console.error(`Error deleting record from ${this.tableName}:`, error);

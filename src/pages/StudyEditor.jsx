@@ -125,12 +125,6 @@ export default function OpeningEditor() {
   const isViewMode = location.pathname.includes('/studies-book/study/');
   const isEditMode = location.pathname.includes('/studies-book/editor/') || isNewStudy;
   
-  console.log('🔧 Mode detection:', {
-    pathname: location.pathname,
-    isViewMode,
-    isEditMode,
-    isNewStudy
-  });
   
   // Form state
   const [name, setName] = useState('');
@@ -199,10 +193,8 @@ export default function OpeningEditor() {
       if (colorParam && ['white', 'black'].includes(colorParam)) setColor(colorParam);
       if (tagsParam) {
         const tagIds = tagsParam.split(',').filter(id => id.trim()).map(id => parseInt(id.trim()));
-        console.log('🏷️ StudyEditor: Parsed tags from URL:', tagsParam, '-> tag IDs:', tagIds);
         setSelectedTagIds(tagIds);
       } else {
-        console.log('🏷️ StudyEditor: No tags parameter in URL');
       }
       
       // If we have a custom FEN, update the move tree
@@ -272,7 +264,6 @@ export default function OpeningEditor() {
     
     const changed = currentHash !== lastHash;
     if (changed) {
-      console.log('💾 StudyEditor: Real changes detected');
     }
     
     return changed;
@@ -282,7 +273,6 @@ export default function OpeningEditor() {
   const triggerMoveBackup = useCallback(() => {
     // Trigger backup even for unsaved studies (they get saved automatically)
     if (!isViewMode && name.trim()) {
-      console.log('🔄 Triggering move backup for study:', savedStudyId || 'new study', name);
       window.dispatchEvent(new CustomEvent('studySaved', { 
         detail: { 
           studyId: savedStudyId || 'pending', 
@@ -407,7 +397,6 @@ export default function OpeningEditor() {
 
   // Auto-save function
   const autoSave = useCallback(async () => {
-    console.log('💾 StudyEditor: Auto-save triggered. selectedTagIds:', selectedTagIds);
     if (isViewMode || !name.trim()) return;
     
     // Check if user can edit (no conflicts)
@@ -460,18 +449,14 @@ export default function OpeningEditor() {
         
         // Save tag associations for new study
         if (selectedTagIds.length > 0) {
-          console.log('💾 StudyEditor: Saving tag associations for new study:', savedStudy.id, 'tags:', selectedTagIds);
           for (const tagId of selectedTagIds) {
             try {
-              console.log('💾 StudyEditor: Adding tag', tagId, 'to study', savedStudy.id);
               await studyTagsMapping.addTagToStudy(savedStudy.id, tagId);
-              console.log('✅ StudyEditor: Successfully added tag', tagId, 'to study', savedStudy.id);
             } catch (error) {
               console.error('❌ StudyEditor: Error adding tag', tagId, 'to study:', error);
             }
           }
         } else {
-          console.log('💾 StudyEditor: No tags to save for new study');
         }
         
         // Update URL to edit mode for existing opening
@@ -530,7 +515,6 @@ export default function OpeningEditor() {
         await saveMoveNode(child, moveTree.fen);
       }
       
-      console.log('💾 StudyEditor: Auto-save completed successfully');
       
       // Update the saved state hash to prevent unnecessary future saves
       lastSavedStateRef.current = getCurrentStateHash();
@@ -576,13 +560,11 @@ export default function OpeningEditor() {
     
     // Don't auto-save during initial load
     if (!initialLoadComplete) {
-      console.log('💾 StudyEditor: Skipping auto-save during initial load');
       return;
     }
     
     // Don't auto-save if there are no real changes
     if (!hasRealChanges()) {
-      console.log('💾 StudyEditor: Skipping auto-save - no real changes detected');
       return;
     }
     
@@ -591,7 +573,6 @@ export default function OpeningEditor() {
       clearTimeout(autoSaveTimeoutRef.current);
     }
     
-    console.log('💾 StudyEditor: Scheduling auto-save after real change detected');
     
     // Set new timeout for auto-save (500ms after last change for immediate feel)
     autoSaveTimeoutRef.current = setTimeout(() => {
@@ -632,7 +613,6 @@ export default function OpeningEditor() {
   const navigateToPerformancePosition = useCallback(() => {
     if (!openingGraph || graphData.nodes.length === 0) return;
     
-    console.log('🎯 navigateToPerformancePosition called with color:', color, 'nodes:', graphData.nodes.length);
     
     const overlayPerformanceData = () => {
       const enhancedNodes = [];
@@ -645,7 +625,6 @@ export default function OpeningEditor() {
       try {
         const rootMoves = openingGraph.getRootMoves(color === 'white');
         rootTotalGames = rootMoves ? rootMoves.reduce((sum, move) => sum + (move.gameCount || 0), 0) : 0;
-        console.log('📊 Root total games:', rootTotalGames, 'for color:', color, 'isWhite:', color === 'white');
       } catch (error) {
         console.error('Error calculating root total games:', error);
         rootTotalGames = 0;
@@ -764,33 +743,18 @@ export default function OpeningEditor() {
     enhancedGraph.openingClusters = openingClusters;
     
     setPerformanceGraphData(enhancedGraph);
-    console.log('🎯 Performance graph data updated:', enhancedGraph.nodes.length, 'nodes, maxGameCount:', enhancedGraph.maxGameCount);
   }, [openingGraph, graphData, color]);
 
   // Update performance graph data when canvas mode changes
   useEffect(() => {
-    console.log('🔄 Canvas mode effect triggered:', {
-      canvasMode, 
-      hasOpeningGraph: !!openingGraph, 
-      nodesLength: graphData.nodes.length,
-      shouldUpdate: canvasMode === 'performance' && openingGraph && graphData.nodes.length > 0
-    });
     
     if (canvasMode === 'performance' && openingGraph && graphData.nodes.length > 0) {
-      console.log('🔄 Updating performance graph data - canvasMode:', canvasMode, 'color:', color, 'nodes:', graphData.nodes.length);
       navigateToPerformancePosition();
     }
   }, [graphData.nodes.length, canvasMode, openingGraph, navigateToPerformancePosition]);
   
   // Also update performance graph data when player color changes
   useEffect(() => {
-    console.log('🎨 Color change effect triggered:', {
-      color, 
-      canvasMode, 
-      hasOpeningGraph: !!openingGraph,
-      nodesLength: graphData.nodes.length,
-      shouldUpdate: canvasMode === 'performance' && openingGraph && graphData.nodes.length > 0
-    });
     
     if (canvasMode === 'performance' && openingGraph && graphData.nodes.length > 0) {
       console.log('🎨 Updating performance graph data due to color change - color:', color);
@@ -801,7 +765,6 @@ export default function OpeningEditor() {
   const updateGraphData = useCallback(() => {
     if (!moveTree) return;
     
-    console.log('🎯 updateGraphData called with color:', color, 'moveTree children:', moveTree.children.length);
     
     const nodes = [];
     const edges = [];
@@ -817,7 +780,6 @@ export default function OpeningEditor() {
       try {
         const rootMoves = openingGraph.getRootMoves(color === 'white');
         rootTotalGames = rootMoves ? rootMoves.reduce((sum, move) => sum + (move.gameCount || 0), 0) : 0;
-        console.log('📊 updateGraphData - Root total games:', rootTotalGames, 'for color:', color);
       } catch (error) {
         console.error('Error calculating root total games:', error);
         rootTotalGames = 0;
@@ -1199,7 +1161,6 @@ export default function OpeningEditor() {
       
       while (i < newMoves.length) {
         const moveToAdd = newMoves[i];
-        console.log(`🔄 Trying to add move: ${moveToAdd} to position:`, chess.fen());
         
         const move = chess.move(moveToAdd);
         if (move) {
@@ -1213,7 +1174,6 @@ export default function OpeningEditor() {
         i++;
       }
     } else if (i < newMoves.length && isViewMode) {
-      console.log('❌ Trying to add moves in view mode - not allowed');
     } else {
       console.log('✅ All moves already exist in tree');
     }
@@ -1236,18 +1196,15 @@ export default function OpeningEditor() {
     }
     setCurrentPath(fullPath);
     
-    console.log('🔄 Set current path:', fullPath);
     
     // Also notify the analysis view about the path change so ChunkVisualization stays in sync
     if (fullPath.length !== currentPath.length || 
         !fullPath.every((move, index) => move === currentPath[index])) {
-      console.log('🔄 Triggering onCurrentMovesChange to sync ChunkVisualization');
       // This will be handled by the ChessAnalysisView's handleMovesCurrentMovesChange
     }
     
     // Always trigger save after any move operation (whether new moves were added or just navigation)
     if (!isViewMode) {
-      console.log('🔄 Updating tree version and recalculating main line');
       MoveNode.calculateMainLine(moveTree);
       setTreeVersion(v => v + 1);
       setTreeChangeVersion(v => v + 1);
@@ -1256,7 +1213,6 @@ export default function OpeningEditor() {
   };
   
   const handleNodeSelect = (node) => {
-    console.log('🎯 handleNodeSelect called with node:', node?.san || node?.data?.san || 'null');
     
     // If this is a graph node (from canvas), convert it to tree node
     if (node && node.data && !node.san) {
@@ -1430,7 +1386,6 @@ export default function OpeningEditor() {
 
   // Create move details section (memoized to update when currentNode changes)
   const moveDetailsSection = useMemo(() => {
-    console.log('🔧 Creating move details section for node:', currentNode?.san || 'null');
     
     return (
       <MoveDetailsSection
@@ -1465,15 +1420,6 @@ export default function OpeningEditor() {
 
   // Create configuration for ChessAnalysisView
   const analysisConfig = useMemo(() => {
-    console.log('🔧 Creating analysis config:', {
-      isViewMode,
-      canvasMode,
-      color,
-      graphDataNodes: graphData.nodes.length,
-      performanceGraphDataNodes: performanceGraphData.nodes.length,
-      hasOpeningGraph: !!openingGraph,
-      currentNodeSan: currentNode?.san || 'null'
-    });
     
     return createOpeningEditorConfig({
       mode: isViewMode ? 'opening-viewer' : 'opening-editor',
@@ -1496,7 +1442,6 @@ export default function OpeningEditor() {
       currentNode,
       canvasMode,
       onCanvasModeChange: (newMode) => {
-        console.log('📊 Canvas mode changed from', canvasMode, 'to', newMode);
         setCanvasMode(newMode);
       },
       loading,
@@ -1583,13 +1528,11 @@ export default function OpeningEditor() {
         // Move handling
         currentMoves={currentPath}
         onCurrentMovesChange={(newPath) => {
-          console.log('🔄 onCurrentMovesChange called with:', newPath);
           setCurrentPath(newPath);
         }}
         onNewMove={handleNewMove}
         // Node selection
         onCurrentNodeChange={(node) => {
-          console.log('🔧 onCurrentNodeChange called with node:', node?.san || 'null');
           setCurrentNode(node);
         }}
         onNodeSelect={handleNodeSelect}

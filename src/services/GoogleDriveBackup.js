@@ -122,7 +122,6 @@ class GoogleDriveBackupService {
       
       if (searchData.files && searchData.files.length > 0) {
         this.backupFolderId = searchData.files[0].id;
-        console.log('Found existing ChessScope folder:', this.backupFolderId);
       } else {
         // Create new folder using REST API
         const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {

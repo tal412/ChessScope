@@ -7,6 +7,7 @@ import { Alert, AlertDescription } from '../components/ui/alert';
 import { AppBar } from '../components/ui/flexible-layout';
 import { googleAuth } from '../services/GoogleAuth.js';
 import { googleDriveSync } from '../services/GoogleDriveSync.js';
+import { cloudSyncManager } from '../services/CloudSyncManager.js';
 import { GOOGLE_API_CONFIG, validateGoogleConfig } from '../config/google.js';
 import SyncConflictDialog from '../components/SyncConflictDialog.jsx';
 
@@ -66,7 +67,13 @@ const GoogleDriveSyncPage = () => {
           
           // Auto-enable sync if user is already signed in
           try {
-            await googleDriveSync.enableSync();
+            // Initialize and enable sync through CloudSyncManager
+            if (!cloudSyncManager.isInitialized) {
+              await cloudSyncManager.initialize();
+            }
+            if (!cloudSyncManager.isEnabled) {
+              await cloudSyncManager.enableSync();
+            }
             console.log('Auto-enabled sync for already signed-in user');
           } catch (error) {
             console.error('Failed to auto-enable sync for signed-in user:', error);
@@ -92,9 +99,15 @@ const GoogleDriveSyncPage = () => {
       setUserInfo(user);
       setError(null);
       
-      // Enable sync capability
+      // Enable sync capability through CloudSyncManager
       try {
-        await googleDriveSync.enableSync();
+        // Initialize and enable sync through CloudSyncManager
+        if (!cloudSyncManager.isInitialized) {
+          await cloudSyncManager.initialize();
+        }
+        if (!cloudSyncManager.isEnabled) {
+          await cloudSyncManager.enableSync();
+        }
         setSuccessMessage('Google Drive connected! You can now sync your data.');
         setTimeout(() => setSuccessMessage(null), 3000);
       } catch (error) {
@@ -199,6 +212,14 @@ const GoogleDriveSyncPage = () => {
       setLoading(true);
       setError(null);
       
+      // Ensure CloudSyncManager is initialized and enabled
+      if (!cloudSyncManager.isInitialized) {
+        await cloudSyncManager.initialize();
+      }
+      if (!cloudSyncManager.isEnabled) {
+        await cloudSyncManager.enableSync();
+      }
+      
       // First check for conflicts
       const comparison = await googleDriveSync.compareData();
       
@@ -240,6 +261,18 @@ const GoogleDriveSyncPage = () => {
       }
       
       await googleDriveSync.syncToRemote(strategy);
+      
+      // Clear conflict state in CloudSyncManager and ensure sync is enabled
+      cloudSyncManager.conflictData = null;
+      if (cloudSyncManager.state === 'conflicts') {
+        cloudSyncManager.setState('idle');
+      }
+      
+      // Ensure CloudSyncManager knows sync is enabled after successful conflict resolution
+      if (!cloudSyncManager.isEnabled) {
+        await cloudSyncManager.enableSync();
+      }
+      
       setSuccessMessage('Sync conflicts resolved successfully!');
       setTimeout(() => setSuccessMessage(null), 3000);
       setLastSyncTime(new Date());

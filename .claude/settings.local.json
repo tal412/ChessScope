@@ -11,5 +11,6 @@
       "Bash(sed:*)"
     ],
     "deny": []
-  }
+  },
+  "outputStyle": "Explanatory"
 }

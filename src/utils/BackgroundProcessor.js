@@ -36,7 +36,6 @@ class BackgroundProcessor {
         // Tab became hidden
         this.wasBackground = true;
         this.backgroundStartTime = Date.now();
-        console.log('📱 Tab moved to background - processing continues with enhanced strategies');
         
         if (this.isRunning) {
           // Activate aggressive keep-alive when in background

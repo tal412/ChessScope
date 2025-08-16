@@ -22,7 +22,6 @@ class GoogleDriveSyncService {
       // Create or find sync folder
       await this.ensureSyncFolder();
       this.isSyncEnabled = true;
-      console.log('Google Drive sync enabled successfully');
       return true;
     } catch (error) {
       console.error('Failed to enable sync:', error);
@@ -56,7 +55,6 @@ class GoogleDriveSyncService {
       
       if (searchData.files && searchData.files.length > 0) {
         this.syncFolderId = searchData.files[0].id;
-        console.log('Found existing ChessScope folder:', this.syncFolderId);
       } else {
         // Create new folder
         const createResponse = await fetch('https://www.googleapis.com/drive/v3/files', {
@@ -426,7 +424,6 @@ class GoogleDriveSyncService {
       // Upload to Google Drive
       await this.uploadToGoogleDrive(blob);
       
-      console.log('Successfully uploaded merged data to Google Drive');
     } catch (error) {
       console.error('Error uploading merged data:', error);
       throw error;
@@ -490,7 +487,6 @@ class GoogleDriveSyncService {
       }
 
       const result = await response.json();
-      console.log('Sync file uploaded successfully:', result.id);
       return result;
     } catch (error) {
       console.error('Error uploading to Google Drive:', error);
@@ -501,7 +497,6 @@ class GoogleDriveSyncService {
   // Update local database with merged data
   async updateLocalWithMergedData(mergedData) {
     try {
-      console.log('🔄 Updating local database with merged data...');
       
       // Ensure database is initialized before proceeding
       const dbModule = await import('../api/database.js');
@@ -575,7 +570,6 @@ class GoogleDriveSyncService {
         }
       }
       
-      console.log('✅ Local database updated with merged data');
       
       // Save the database after all updates
       await dbModule.saveDatabase();

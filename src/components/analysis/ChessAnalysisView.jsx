@@ -398,10 +398,8 @@ const ChessAnalysisView = ({
           }
           
           if (bestMatch && bestMatchLength > 0 && canvasRef.current) {
-            console.log(`🎯 Found partial match for ${bestMatchLength}/${moves.length} moves:`, bestMatch.data.san);
             canvasRef.current.setCurrentNode(bestMatch.id, bestMatch.data.fen, 'click');
           } else {
-            console.log('🎯 No graph node found for any part of sequence');
           }
         }
       }
@@ -414,7 +412,6 @@ const ChessAnalysisView = ({
     
     // For opening editor/viewer modes, also update the currentNode
     if ((mode === 'opening-editor' || mode === 'opening-viewer') && onCurrentNodeChange && moveTree) {
-      console.log('🔍 Finding tree node for move sequence:', moves);
       
       // Find the tree node that corresponds to this move sequence
       const findNodeByMoveSequence = (node, targetMoves, currentMoves = []) => {
@@ -440,7 +437,6 @@ const ChessAnalysisView = ({
       
       const targetNode = findNodeByMoveSequence(moveTree, moves);
       if (targetNode) {
-        console.log('✅ Found target node for moves:', targetNode.san);
         onCurrentNodeChange(targetNode);
       } else {
         console.log('❌ Could not find node for move sequence:', moves);
@@ -541,10 +537,8 @@ const ChessAnalysisView = ({
       });
       
       if (targetNode && targetNode.data.fen && canvasRef.current) {
-        console.log('🎯 Found graph node for board selection:', targetNode.data.san, 'FEN:', targetNode.data.fen);
         canvasRef.current.setCurrentNode(targetNode.id, targetNode.data.fen, 'click');
       } else {
-        console.log('🎯 No graph node found for moves, but navigation still works');
       }
     }
   }, [chessboardSync, onCurrentMovesChange, graphData.nodes, mode]);
@@ -630,10 +624,8 @@ const ChessAnalysisView = ({
       // Find the corresponding graph node
       const graphNode = graphData.nodes.find(node => node.id === currentNode.id);
       if (graphNode) {
-        console.log('✅ Found graph node for currentNode:', graphNode.data.san);
         canvasRef.current.setCurrentNode(graphNode.id, graphNode.data.fen, 'external-sync');
       } else {
-        console.log('❌ No graph node found for currentNode:', currentNode?.san || currentNode?.id);
       }
     }
   }, [currentNode, mode, graphData.nodes]);

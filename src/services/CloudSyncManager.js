@@ -43,7 +43,6 @@ class CloudSyncManager {
 
   async initialize() {
     if (this.isInitialized) {
-      console.log('☁️ CloudSyncManager: Already initialized, skipping');
       return;
     }
     
@@ -73,14 +72,12 @@ class CloudSyncManager {
 
   async enableSync() {
     if (!googleAuth.isSignedIn) {
-      console.log('☁️ CloudSyncManager: Cannot enable sync - user not signed in');
       return false;
     }
 
     try {
       await googleDriveSync.enableSync();
       this.isEnabled = true;
-      console.log('☁️ CloudSyncManager: Sync enabled');
       
       // Perform initial sync to get in sync with remote
       await this.performInitialSync();
@@ -97,7 +94,6 @@ class CloudSyncManager {
    * Perform initial sync when enabling sync
    */
   async performInitialSync() {
-    console.log('☁️ CloudSyncManager: Performing initial sync...');
     
     try {
       this.setState(SYNC_STATES.SYNCING);
@@ -109,7 +105,6 @@ class CloudSyncManager {
       await googleDriveSync.syncToRemote('merge');
       this.lastSyncTime = new Date();
       
-      console.log('☁️ CloudSyncManager: Initial sync completed');
       this.setState(SYNC_STATES.IDLE);
       
       // Now check for any remaining conflicts
@@ -139,7 +134,6 @@ class CloudSyncManager {
       return;
     }
 
-    console.log(`☁️ CloudSyncManager: Queuing ${operation}`);
     
     // Add to queue
     this.syncQueue.add({
@@ -165,7 +159,6 @@ class CloudSyncManager {
    */
   async processSyncQueue() {
     if (this.state === SYNC_STATES.CONFLICTS) {
-      console.log('☁️ CloudSyncManager: Skipping sync - conflicts exist');
       return;
     }
 
@@ -176,7 +169,6 @@ class CloudSyncManager {
     const operations = Array.from(this.syncQueue);
     this.syncQueue.clear();
 
-    console.log(`☁️ CloudSyncManager: Processing ${operations.length} queued operations`);
     
     try {
       this.setState(SYNC_STATES.SYNCING);
@@ -188,7 +180,6 @@ class CloudSyncManager {
       await googleDriveSync.syncToRemote('merge');
       this.lastSyncTime = new Date();
       
-      console.log('☁️ CloudSyncManager: Sync completed successfully');
       
       // Notify sync listeners
       this.notifySyncListeners({
@@ -224,7 +215,6 @@ class CloudSyncManager {
    */
   async checkForConflicts() {
     if (this.state !== SYNC_STATES.IDLE) {
-      console.log('☁️ CloudSyncManager: Cannot check conflicts - not idle');
       return false;
     }
 
@@ -233,7 +223,6 @@ class CloudSyncManager {
     }
 
     try {
-      console.log('☁️ CloudSyncManager: Checking for conflicts...');
       
       const localData = await googleDriveSync.getLocalStudies();
       const remoteData = await googleDriveSync.getRemoteStudies();
@@ -284,12 +273,10 @@ class CloudSyncManager {
    */
   async resolveConflicts() {
     if (this.state !== SYNC_STATES.CONFLICTS) {
-      console.log('☁️ CloudSyncManager: No conflicts to resolve');
       return true;
     }
 
     try {
-      console.log('☁️ CloudSyncManager: Resolving conflicts...');
       
       this.setState(SYNC_STATES.SYNCING);
       
@@ -297,7 +284,6 @@ class CloudSyncManager {
       await googleDriveSync.syncToRemote('merge');
       this.lastSyncTime = new Date();
       
-      console.log('☁️ CloudSyncManager: Conflicts resolved successfully');
       
       this.conflictData = null;
       this.setState(SYNC_STATES.IDLE);
@@ -367,7 +353,6 @@ class CloudSyncManager {
     const oldState = this.state;
     this.state = newState;
     
-    console.log(`☁️ CloudSyncManager: State changed ${oldState} → ${newState}`);
     
     this.notifyStateListeners({
       oldState,

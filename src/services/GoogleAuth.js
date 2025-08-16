@@ -178,7 +178,6 @@ class GoogleAuthService {
 
     try {
       // Request access token
-      console.log('Google Auth: Requesting access token...');
       this.tokenClient.requestAccessToken({ prompt: '' });
       
       // The callback will handle the rest
@@ -240,7 +239,6 @@ class GoogleAuthService {
     }
 
     try {
-      console.log('Fetching user profile with token:', this.accessToken.substring(0, 10) + '...');
       
       const response = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
         headers: {
@@ -263,7 +261,6 @@ class GoogleAuthService {
       }
 
       const profile = await response.json();
-      console.log('User profile received:', profile.email);
       this.currentUser = profile;
       
       // Store token for session persistence
