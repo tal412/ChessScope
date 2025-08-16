@@ -79,8 +79,13 @@ class CloudSyncManager {
       await googleDriveSync.enableSync();
       this.isEnabled = true;
       
-      // Perform initial sync to get in sync with remote
-      await this.performInitialSync();
+      // Schedule initial sync with a delay to avoid blocking UI
+      // This prevents the sync from blocking the Studies Book loading
+      setTimeout(() => {
+        this.performInitialSync().catch(error => {
+          console.error('☁️ CloudSyncManager: Delayed initial sync failed:', error);
+        });
+      }, 1000); // 1 second delay
       
       return true;
     } catch (error) {
@@ -211,7 +216,7 @@ class CloudSyncManager {
   }
 
   /**
-   * Check for conflicts - only when truly idle
+   * Check for conflicts - only when truly idle and not during initial load
    */
   async checkForConflicts() {
     if (this.state !== SYNC_STATES.IDLE) {
@@ -223,7 +228,6 @@ class CloudSyncManager {
     }
 
     try {
-      
       const localData = await googleDriveSync.getLocalStudies();
       const remoteData = await googleDriveSync.getRemoteStudies();
       
@@ -364,7 +368,7 @@ class CloudSyncManager {
   // Public API
 
   /**
-   * Get current sync status
+   * Get current sync status (lightweight, no side effects)
    */
   getStatus() {
     return {
@@ -378,6 +382,21 @@ class CloudSyncManager {
       queueSize: this.syncQueue.size,
       conflictData: this.conflictData
     };
+  }
+
+  /**
+   * Get sync status and check for conflicts (heavy operation)
+   * Only use when you actually need conflict detection
+   */
+  async getStatusWithConflictCheck() {
+    const status = this.getStatus();
+    
+    if (this.isEnabled && this.state === SYNC_STATES.IDLE) {
+      const hasConflicts = await this.checkForConflicts();
+      return { ...status, hasConflicts };
+    }
+    
+    return status;
   }
 
   /**

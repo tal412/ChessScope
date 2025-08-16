@@ -168,27 +168,28 @@ export default function StudiesBook() {
     })
   );
 
-  // Initialize auto sync and load data
+  // Initialize data loading and sync status monitoring
   useEffect(() => {
     const initializeAndLoadData = async () => {
       try {
-        // Get initial sync status (App already initialized cloudSyncManager)
+        // Wait for database to be ready before doing anything
+        await waitForDatabase();
+        
+        // Load all data in parallel once database is ready
+        await Promise.all([
+          loadStudies(),
+          loadFolders(),
+          loadTags()
+        ]);
+        
+        // Only check sync status after data is loaded to avoid blocking UI
+        // CloudSyncManager is already initialized by App.jsx
         const status = cloudSyncManager.getStatus();
         setHasConflicts(status.hasConflicts);
         
         if (status.hasConflicts) {
           setConflictError('You have sync conflicts. Some operations may be disabled until resolved.');
         }
-        
-        // Wait for database to be ready before loading data
-        await waitForDatabase();
-        
-        // Load all data once database is ready
-        await Promise.all([
-          loadStudies(),
-          loadFolders(),
-          loadTags()
-        ]);
       } catch (error) {
         console.error('Error waiting for database or loading data:', error);
         setLoading(false);
@@ -197,7 +198,7 @@ export default function StudiesBook() {
     
     initializeAndLoadData();
 
-    // Listen for sync state changes
+    // Listen for sync state changes (but don't trigger initial sync)
     const unsubscribe = cloudSyncManager.onStateChange((stateData) => {
       const status = cloudSyncManager.getStatus();
       setHasConflicts(status.hasConflicts);
@@ -224,9 +225,6 @@ export default function StudiesBook() {
         setLoading(true);
       }
       
-      // Wait for database to be ready
-      await waitForDatabase();
-      
       const username = localStorage.getItem('chesscope_username');
       
       if (!username) {
@@ -239,7 +237,7 @@ export default function StudiesBook() {
 
       const userStudies = await userStudy.getByUsername(username);
       
-      // Load tags for each study
+      // Load tags for each study - optimized to reduce database calls
       const studiesWithTags = await Promise.all(
         userStudies.map(async (study) => {
           try {
@@ -264,9 +262,6 @@ export default function StudiesBook() {
 
   const loadTags = async () => {
     try {
-      // Wait for database to be ready
-      await waitForDatabase();
-      
       const tags = await studyTag.getAll();
       setAvailableTags(tags);
     } catch (error) {
@@ -277,9 +272,6 @@ export default function StudiesBook() {
 
   const loadFolders = async () => {
     try {
-      // Wait for database to be ready
-      await waitForDatabase();
-      
       const username = localStorage.getItem('chesscope_username');
       
       if (!username) {

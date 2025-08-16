@@ -40,8 +40,9 @@ class AutoDriveSyncService {
       this.isInitialized = true;
       console.log('🔄 AutoDriveSync: Service initialized');
       
-      // Don't automatically check for conflicts on init - let StudiesBook handle it
-      // This avoids duplicate sync operations on page load
+      // IMPORTANT: Don't perform any sync operations during initialization
+      // This service is now only used for manual operations and background sync
+      // Initial sync is handled by CloudSyncManager with proper delays
       
     } catch (error) {
       console.error('🔄 AutoDriveSync: Failed to initialize:', error);
