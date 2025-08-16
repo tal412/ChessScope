@@ -54,10 +54,10 @@ const GoogleDriveSyncPage = () => {
       }
       
       try {
-        console.log('Initializing Google Auth...');
+        // Initializing Google Auth
         
         await googleAuth.initialize(GOOGLE_API_CONFIG);
-        console.log('Google Auth initialized successfully');
+        // Google Auth initialized
         
         // Set initial state
         setIsSignedIn(googleAuth.isSignedIn);

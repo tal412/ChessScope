@@ -405,11 +405,9 @@ function PerformanceGraphContent() {
       
       try {
         const fenToOpeningsMap = await getAllStudyPositionsMap(username);
-        console.log(`🗂️ Loaded study positions map:`, fenToOpeningsMap.size, 'FEN positions');
         // Debug: Show some sample FENs from the map
         if (fenToOpeningsMap.size > 0) {
           const sampleFens = Array.from(fenToOpeningsMap.keys()).slice(0, 3);
-          console.log(`🗂️ Sample normalized FENs in map:`, sampleFens);
           // Show sample openings for the first FEN
           const firstFen = sampleFens[0];
           if (firstFen) {

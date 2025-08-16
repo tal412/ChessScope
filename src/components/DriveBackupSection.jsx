@@ -31,7 +31,7 @@ const DriveBackupSection = ({ isSidebarCollapsed }) => {
       const status = cloudSyncManager.getStatus();
       
       setSyncStatus({
-        isInitialized: status.isEnabled,
+        isInitialized: googleAuth.initialized,
         isSignedIn: googleAuth.isSignedIn,
         syncEnabled: status.isEnabled,
         lastSyncTime: status.lastSyncTime?.getTime(),

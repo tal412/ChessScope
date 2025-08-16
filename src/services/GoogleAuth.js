@@ -36,7 +36,7 @@ class GoogleAuthService {
       this.apiKey = apiKey;
       this.clientId = clientId;
       
-      console.log('Google Auth: Starting initialization with new GIS library');
+      // Starting initialization with new GIS library
 
       // Load the Google API client library
       if (!window.gapi) {
@@ -57,7 +57,7 @@ class GoogleAuthService {
             await window.gapi.client.init({
               apiKey: this.apiKey
             });
-            console.log('Google Auth: API client initialized (REST mode)');
+            // API client initialized
             
             // Set the API key for any potential REST calls through gapi
             window.gapi.client.setApiKey(this.apiKey);
@@ -133,7 +133,7 @@ class GoogleAuthService {
       }
 
       this.initialized = true;
-      console.log('Google Auth: Initialization complete');
+      // Initialization complete
       return true;
     } catch (error) {
       console.error('Failed to initialize Google Auth:', error);

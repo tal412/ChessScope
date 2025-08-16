@@ -244,7 +244,6 @@ export default function StudiesBook() {
         userStudies.map(async (study) => {
           try {
             const tags = await studyTagsMapping.getTagsByStudyId(study.id);
-            console.log('📋 StudiesBook: Loaded tags for study', study.name, '(id:', study.id, '):', tags);
             return { ...study, tags: tags || [] };
           } catch (error) {
             console.warn('Error loading tags for study:', study.id, error);
@@ -268,9 +267,7 @@ export default function StudiesBook() {
       // Wait for database to be ready
       await waitForDatabase();
       
-      console.log('📋 StudiesBook: Loading tags from server...');
       const tags = await studyTag.getAll();
-      console.log('📋 StudiesBook: Loaded tags from server:', tags.length, 'tags:', tags.map(t => ({id: t.id, name: t.name})));
       setAvailableTags(tags);
     } catch (error) {
       console.error('Error loading tags:', error);

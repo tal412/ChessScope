@@ -410,19 +410,11 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
     position.updateCurrentPosition(nodeId, fen);
     
     // Generate position clusters if we have a FEN
-    console.log('🔍 Position cluster generation check:', {
-      fen: fen,
-      enablePositionClusters: enablePositionClusters,
-      nodeCount: graphData.nodes.length,
-      shouldGenerate: fen && enablePositionClusters && graphData.nodes.length > 0
-    });
     
     // Generate position clusters and use them for auto-zoom
     let newPositionClusters = [];
     if (fen && enablePositionClusters && graphData.nodes.length > 0) {
-      console.log('🔍 Generating position clusters for FEN:', fen);
       newPositionClusters = createPositionClusters(graphData.nodes, fen);
-      console.log('🔍 Generated position clusters:', newPositionClusters.length, newPositionClusters);
       setInternalPositionClusters(newPositionClusters);
       clusters.updatePositionClusters(newPositionClusters);
     }
@@ -441,15 +433,6 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
             const currentPositionClusters = newPositionClusters.length > 0 ? newPositionClusters : internalPositionClusters;
             
             // Check if the clicked node is in any position cluster
-            console.log('🔍 Auto-zoom: Checking position clusters for node:', nodeId);
-            console.log('🔍 Auto-zoom: Available position clusters:', currentPositionClusters.length);
-            currentPositionClusters.forEach((cluster, i) => {
-              console.log(`🔍 Auto-zoom: Cluster ${i}:`, cluster.name, 'has', cluster.allNodes?.length || 0, 'nodes');
-              if (cluster.allNodes) {
-                const hasNode = cluster.allNodes.some(clusterNode => clusterNode.id === nodeId);
-                console.log(`🔍 Auto-zoom: Cluster ${i} contains clicked node:`, hasNode);
-              }
-            });
             
             const nodeCluster = currentPositionClusters.find(cluster => 
               cluster.allNodes && cluster.allNodes.some(clusterNode => clusterNode.id === nodeId)
@@ -457,7 +440,6 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
             
             if (nodeCluster && nodeCluster.allNodes.length > 0) {
               // Pre-calculate optimal zoom area for ALL position clusters (like v1)
-              console.log('🔍 Auto-zoom: Pre-calculating ALL position cluster bounds for optimal zoom');
               
               // Collect all positioned nodes from ALL position clusters (matching v1 behavior)
               const allClusterNodes = [];
@@ -473,12 +455,10 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
                 }
               });
               
-              console.log(`🔍 Auto-zoom: All position clusters contain ${allClusterNodes.length} nodes total`);
               
               // Calculate optimal transform with generous padding for all clusters visibility
               const clusterPadding = Math.min(dimensions.width, dimensions.height) * 0.15; // 15% of viewport as padding
               const optimalTransform = calculateOptimalTransform(allClusterNodes, dimensions, clusterPadding);
-              console.log('🔍 Auto-zoom: Calculated optimal transform for all clusters:', optimalTransform);
               
               // Zoom to ALL position clusters with pre-calculated bounds (like v1)
               zoom.fitToNodes(allClusterNodes, { 
@@ -511,12 +491,10 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
               nodeNeighborhood.push(...connectedNodes);
               
               // Pre-calculate optimal zoom area for node neighborhood
-              console.log(`🔍 Auto-zoom: Pre-calculating bounds for node ${clickedNode.data?.san || 'root'} and ${connectedNodes.length} neighbors`);
               
               // Calculate optimal transform with reasonable padding for node neighborhood
               const neighborhoodPadding = Math.min(dimensions.width, dimensions.height) * 0.1; // 10% padding for smaller groups
               const optimalTransform = calculateOptimalTransform(nodeNeighborhood, dimensions, neighborhoodPadding);
-              console.log('🔍 Auto-zoom: Calculated optimal transform for neighborhood:', optimalTransform);
               
               zoom.fitToNodes(nodeNeighborhood, { 
                 animate: true,

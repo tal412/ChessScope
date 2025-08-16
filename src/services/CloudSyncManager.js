@@ -48,7 +48,7 @@ class CloudSyncManager {
     }
     
     try {
-      console.log('☁️ CloudSyncManager: Initializing...');
+      // Starting initialization
       
       // Initialize Google Auth if needed
       if (!googleAuth.isInitialized) {
@@ -57,7 +57,7 @@ class CloudSyncManager {
       }
       
       this.isInitialized = true;
-      console.log('☁️ CloudSyncManager: Initialized');
+      // Initialization complete
       
       // Enable sync if user is signed in
       if (googleAuth.isSignedIn) {
@@ -135,7 +135,7 @@ class CloudSyncManager {
    */
   queueChange(operation, data = {}) {
     if (!this.isEnabled) {
-      console.log(`☁️ CloudSyncManager: Sync disabled, skipping ${operation}`);
+      // Sync disabled, skipping operation
       return;
     }
 

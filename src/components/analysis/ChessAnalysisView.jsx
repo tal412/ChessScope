@@ -360,7 +360,6 @@ const ChessAnalysisView = ({
   
   // Moves integration handlers
   const handleMovesCurrentMovesChange = useCallback((moves) => {
-    console.log('🎯 handleMovesCurrentMovesChange called with moves:', moves, 'mode:', mode);
     setMovesCurrentPath(moves);
     
     // Check if moves are different from current chessboard state
@@ -369,7 +368,6 @@ const ChessAnalysisView = ({
                         moves.some((move, index) => move !== currentMoves[index]);
     
     if (movesChanged) {
-      console.log('🎯 Syncing moves to chessboard:', moves, 'from current:', currentMoves);
       chessboardSync.syncMovesToChessboard(moves);
       
       // Handle performance state updates
@@ -494,7 +492,6 @@ const ChessAnalysisView = ({
   
   // Canvas handlers
   const handleCanvasNodeClick = useCallback((e, node) => {
-    console.log('🎯 handleCanvasNodeClick called with node:', node?.data?.san || 'null', 'mode:', mode);
     
     if (onNodeClick) {
       onNodeClick(e, node);
@@ -506,7 +503,6 @@ const ChessAnalysisView = ({
     
     // Always notify about node selection for opening editor/viewer modes
     if ((mode === 'opening-editor' || mode === 'opening-viewer') && onNodeSelect) {
-      console.log('🔍 Calling onNodeSelect for opening mode with node ID:', node.id);
       onNodeSelect(node);
     }
   }, [onNodeClick, chessboardSync, mode, onNodeSelect]);
@@ -596,7 +592,6 @@ const ChessAnalysisView = ({
   useEffect(() => {
     if (chessboardSync.currentMoves.length !== movesCurrentPath.length ||
         !chessboardSync.currentMoves.every((move, index) => move === movesCurrentPath[index])) {
-      console.log('🔄 Syncing movesCurrentPath with chessboard:', chessboardSync.currentMoves);
       setMovesCurrentPath([...chessboardSync.currentMoves]);
     }
   }, [chessboardSync.currentMoves, movesCurrentPath]);
@@ -606,7 +601,6 @@ const ChessAnalysisView = ({
   useEffect(() => {
     if (currentMoves.length !== chessboardSync.currentMoves.length ||
         !currentMoves.every((move, index) => move === chessboardSync.currentMoves[index])) {
-      console.log('🔄 Syncing external currentMoves to chessboard:', currentMoves);
       
       // Check if this is a meaningful change or just noise
       const lastSynced = lastSyncedMovesRef.current;
@@ -632,7 +626,6 @@ const ChessAnalysisView = ({
   // Sync external currentNode prop with canvas (for opening modes)
   useEffect(() => {
     if ((mode === 'opening-editor' || mode === 'opening-viewer') && currentNode && canvasRef.current) {
-      console.log('🔄 Syncing external currentNode to canvas:', currentNode?.san || currentNode?.id);
       
       // Find the corresponding graph node
       const graphNode = graphData.nodes.find(node => node.id === currentNode.id);
