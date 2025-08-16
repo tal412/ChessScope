@@ -18,11 +18,6 @@ export default function StudySelector({ fen, trigger, children, openings = [] })
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   
-  // Debug logging
-  useEffect(() => {
-    console.log('🔍 StudySelector - openings prop:', openings);
-    console.log('🔍 StudySelector - fen prop:', fen);
-  }, [openings, fen]);
 
   const handleStudyClick = (studyId) => {
     setOpen(false);

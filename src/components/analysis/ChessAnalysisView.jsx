@@ -155,7 +155,6 @@ const ChessAnalysisView = ({
   // Reset view when color changes (clear selected node and position clusters)
   // Only depend on selectedPlayer to avoid infinite loops
   useEffect(() => {
-    console.log('🎨 Color changed, resetting view to root position');
     
     // Reset to root position
     const rootNode = graphDataNodesRef.current.find(node => node.data.isRoot);

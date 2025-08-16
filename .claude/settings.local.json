@@ -6,7 +6,8 @@
       "Bash(grep:*)",
       "Bash(mv:*)",
       "Bash(npx eslint:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(node:*)"
     ],
     "deny": []
   }

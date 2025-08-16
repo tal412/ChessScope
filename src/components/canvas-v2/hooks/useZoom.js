@@ -107,17 +107,9 @@ export function useZoom(dimensions = { width: 800, height: 600 }, initialTransfo
     
     const { animate = true, padding = ZOOM_CONFIG.AUTO_FIT_PADDING, onComplete } = options;
     
-    console.log('🔄 fitToNodes called:', {
-      nodeCount: nodes.length,
-      dimensions,
-      padding,
-      animate,
-      firstNode: nodes[0] ? { x: nodes[0].x, y: nodes[0].y, radius: nodes[0].radius } : null
-    });
     
     const optimalTransform = calculateOptimalTransform(nodes, dimensions, padding);
     
-    console.log('🔄 Calculated optimal transform:', optimalTransform);
     
     if (animate) {
       // Cancel any existing animation

@@ -160,12 +160,6 @@ export function calculateOptimalTransform(nodes, dimensions, padding = 50) {
     return { scale: 1, translateX: 0, translateY: 0 };
   }
 
-  console.log('🔧 calculateOptimalTransform input:', {
-    nodeCount: nodes.length,
-    dimensions,
-    padding,
-    firstNode: nodes[0] ? { id: nodes[0].id, x: nodes[0].x, y: nodes[0].y, radius: nodes[0].radius } : null
-  });
 
   // Calculate bounds with node sizes
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -187,7 +181,6 @@ export function calculateOptimalTransform(nodes, dimensions, padding = 50) {
     height: maxY - minY
   };
 
-  console.log('🔧 Calculated bounds:', bounds);
 
   // If bounds are too small, add minimum size
   const MIN_BOUNDS_SIZE = 100;
@@ -204,7 +197,6 @@ export function calculateOptimalTransform(nodes, dimensions, padding = 50) {
     bounds.height = MIN_BOUNDS_SIZE;
   }
 
-  console.log('🔧 Bounds after minimum size adjustment:', bounds);
 
   // Calculate scale to fit with padding
   const availableWidth = dimensions.width - 2 * padding;
@@ -215,13 +207,6 @@ export function calculateOptimalTransform(nodes, dimensions, padding = 50) {
     availableHeight / bounds.height
   );
   
-  console.log('🔧 Scale calculation:', {
-    availableWidth,
-    availableHeight,
-    boundsWidth: bounds.width,
-    boundsHeight: bounds.height,
-    rawScale
-  });
   
   // For auto-fit, allow unlimited zoom-out to ensure content always fits
   // Don't clamp to max - let it use whatever scale fits the content
@@ -236,7 +221,6 @@ export function calculateOptimalTransform(nodes, dimensions, padding = 50) {
     translateY: dimensions.height / 2 - centerY * scale,
   };
   
-  console.log('🔧 Initial transform:', optimalTransform);
   
   // Safety check: ensure ALL nodes are visible on screen
   const topNodeY = bounds.minY * scale + optimalTransform.translateY;
@@ -244,15 +228,6 @@ export function calculateOptimalTransform(nodes, dimensions, padding = 50) {
   const leftNodeX = bounds.minX * scale + optimalTransform.translateX;
   const rightNodeX = bounds.maxX * scale + optimalTransform.translateX;
   
-  console.log('🔧 Visibility check:', {
-    topNodeY,
-    bottomNodeY,
-    leftNodeX,
-    rightNodeX,
-    canvasHeight: dimensions.height,
-    canvasWidth: dimensions.width,
-    padding
-  });
   
   // Fix Y positioning
   if (topNodeY < padding) {
@@ -268,7 +243,6 @@ export function calculateOptimalTransform(nodes, dimensions, padding = 50) {
     optimalTransform.translateX = dimensions.width - padding - bounds.maxX * scale;
   }
 
-  console.log('🔧 Final transform:', optimalTransform);
 
   return optimalTransform;
 }

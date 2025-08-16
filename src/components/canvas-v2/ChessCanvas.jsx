@@ -98,7 +98,6 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
       };
       if (newDimensions.width > 0 && newDimensions.height > 0) {
         setDimensions(newDimensions);
-        console.log('🔄 Initial dimensions set:', newDimensions);
       }
     }
     
@@ -133,7 +132,6 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
         const heightChanged = Math.abs(newDimensions.height - lastDimensions.height) > 10;
         
         if (widthChanged || heightChanged) {
-          console.log('🔄 Dimensions changed:', { from: lastDimensions, to: newDimensions, reason });
           setDimensions(newDimensions);
           lastDimensions = newDimensions;
         }
@@ -259,10 +257,8 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
   });
   const stateCallbacks = useStateCallbacks({
     onResize: () => {
-      console.log('🔄 Canvas resize detected');
     },
     onInitializing: (isInitializing) => {
-      console.log('🔄 Canvas initializing state:', isInitializing);
     },
     onAutoFitComplete: () => {
       if (onAutoFitComplete) onAutoFitComplete();
@@ -351,13 +347,6 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
         // Don't animate on initial load (0 -> 1) but do animate when adding moves (1 -> 2+)
         const shouldAnimate = previousNodeCount >= 1 && processedGraphData.nodes.length > previousNodeCount;
 
-        console.log(`🔄 Auto-fitting due to graph change (animate: ${shouldAnimate})`, {
-          nodeCount: processedGraphData.nodes.length,
-          dimensions,
-          autoFitDelay,
-          oldSignature: lastFittedGraphRef.current,
-          newSignature: graphSignature,
-        });
 
         const timeoutId = setTimeout(() => {
           // We rely on the initialTransform to set the correct initial view.
@@ -378,11 +367,6 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
 
     const dimensionsSignature = `${dimensions.width}x${dimensions.height}`;
     if (lastFittedDimensionsRef.current && lastFittedDimensionsRef.current !== dimensionsSignature) {
-      console.log('🔄 Auto-fitting due to resize', {
-        dimensions,
-        oldDimensions: lastFittedDimensionsRef.current,
-        newDimensions: dimensionsSignature,
-      });
 
       if (resizeTimeoutRef.current) {
         clearTimeout(resizeTimeoutRef.current);

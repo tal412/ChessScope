@@ -95,13 +95,7 @@ export default function InteractiveChessboard({
   
   // Debug prop changes
   useEffect(() => {
-    console.log(`🔍 InteractiveChessboard props changed:`, {
-      currentMoves,
-      currentMovesLength: currentMoves.length,
-      showOpeningGraphMessage,
-      openingGraph: !!openingGraph,
-      graphNodes: graphNodes.length
-    });
+    // Debug logging removed
   }, [currentMoves, showOpeningGraphMessage, openingGraph, graphNodes.length]);
   
   // Sync orientation with isWhiteTree when using external flip control
@@ -441,12 +435,6 @@ export default function InteractiveChessboard({
     const updatePositionInfo = async () => {
       const currentFen = game.fen();
       
-      console.log(`🔍 updatePositionInfo called:`, {
-        currentFen,
-        currentMoves,
-        gameHistory: game.history(),
-        showOpeningGraphMessage
-      });
       
       // Create cache key that includes both normalized FEN and move sequence for opening modes
       const normalizedFenForCache = normalizeFen(currentFen);
@@ -464,7 +452,6 @@ export default function InteractiveChessboard({
     // Default to true if not cached to avoid false positives
     setPositionExistsInOpeningGraph(cached.existsInOpeningGraph ?? true);
     setPositionInOpenings(cached.inOpenings || []);
-    console.log(`🔍 Used cached result for key:`, cacheKey, cached);
     return;
   }
   
@@ -475,12 +462,10 @@ export default function InteractiveChessboard({
       eco: graphNode.data.openingEco,
       name: graphNode.data.openingName
     };
-    console.log(`🔍 Using opening info from graph node:`, openingInfo);
     
     // Check if position exists in user's saved openings using pre-loaded map
     const normalizedFen = normalizeFen(currentFen);
     const inOpenings = nodeOpeningsMap.has(normalizedFen) ? nodeOpeningsMap.get(normalizedFen) : [];
-    console.log(`🔍 Graph node path - checking nodeOpeningsMap for normalized FEN: ${normalizedFen}, found: ${inOpenings.length} openings`);
     
     setCurrentOpeningInfo(openingInfo);
     setPositionExistsInGraph(true);
@@ -500,10 +485,7 @@ export default function InteractiveChessboard({
   
      // FALLBACK: Get opening info from database using efficient FEN lookup
    try {
-     console.log(`🔍 Starting main try block for FEN:`, currentFen);
-     console.log(`🔍 About to call getOpeningFromFen with:`, { currentFen, hasOpeningGraph: !!openingGraph });
      const openingInfo = await getOpeningFromFen(currentFen);
-     console.log(`🔍 getOpeningFromFen returned:`, openingInfo);
          
                 // Check if current position exists in performance graph nodes
        const positionExists = graphNodes.some(node => 
@@ -518,7 +500,6 @@ export default function InteractiveChessboard({
            try {
              // Use the external currentMoves prop instead of game.history() for accurate sequence
              const moveSequenceToCheck = currentMoves.length > 0 ? currentMoves : game.history();
-             console.log(`🔍 Opening tree check (error path) - moveSequenceToCheck:`, moveSequenceToCheck, 'mode:', mode, 'from currentMoves:', currentMoves.length > 0);
              
              // Check if this position exists in the opening tree
              const findNodeByMoves = (node, targetMoves, currentMoves = []) => {
@@ -540,10 +521,8 @@ export default function InteractiveChessboard({
              
              const nodeInTree = findNodeByMoves(moveTree, moveSequenceToCheck);
              if (nodeInTree) {
-               console.log(`🔍 Position found in opening tree (error path):`, nodeInTree.san || 'root');
                positionExistsInOpening = true; // Position is in the opening tree
              } else {
-               console.log(`🔍 Position not found in opening tree (error path), checking performance graph`);
                // Fall back to performance graph check
                positionExistsInOpening = false;
              }
@@ -558,17 +537,14 @@ export default function InteractiveChessboard({
            try {
              // Use actual game history instead of currentMoves prop for position checking
              const actualMoves = game.history();
-             console.log(`🔍 Starting opening graph check (error path) - actualMoves:`, actualMoves, 'currentMoves prop:', currentMoves);
              
              // Get the move sequence to reach this position
              const moveSequence = actualMoves; // Use actual game history directly
              
-             console.log(`🔍 Built move sequence (error path):`, moveSequence);
              
              // Check if this position exists in the opening graph (from selected player's perspective)
              if (moveSequence.length > 0) {
                const parentSequence = moveSequence.slice(0, -1);
-               console.log(`🔍 Checking parent sequence (error path):`, parentSequence);
                
                // Only check moves from the selected player's perspective
                const moves = openingGraph.getMovesFromPosition(parentSequence, isWhiteTree);
@@ -578,29 +554,11 @@ export default function InteractiveChessboard({
                
                positionExistsInOpening = hasMove;
                
-               // Debug logging
-               console.log(`🔍 Opening graph check for move ${actualMoves.length} (error path):`, {
-                 moveSequence,
-                 parentSequence,
-                 lastMove,
-                 playerMoves: moves ? moves.map(m => m.san) : null,
-                 isWhiteTree,
-                 hasMove,
-                 positionExistsInOpening,
-                 showOpeningGraphMessage
-               });
              } else {
                // Root position - check if selected player has any games in opening graph
-               console.log(`🔍 Root position check (error path) - checking if opening graph has data for selected player`);
                const playerMoves = openingGraph.getMovesFromPosition([], isWhiteTree);
                positionExistsInOpening = playerMoves && playerMoves.length > 0;
                
-               console.log(`🔍 Root position check (error path):`, {
-                 playerMoves: playerMoves ? playerMoves.length : 0,
-                 isWhiteTree,
-                 positionExistsInOpening,
-                 showOpeningGraphMessage
-               });
              }
            } catch (error) {
              console.warn('🚨 Error checking position in opening graph (error path):', error);
@@ -611,11 +569,6 @@ export default function InteractiveChessboard({
        // Check if position exists in user's saved openings using pre-loaded map
        const normalizedFen = normalizeFen(currentFen);
        const inOpenings = nodeOpeningsMap.has(normalizedFen) ? nodeOpeningsMap.get(normalizedFen) : [];
-       console.log(`🔍 Position check - normalized FEN: ${normalizedFen}, Map size: ${nodeOpeningsMap.size}, Found: ${inOpenings.length} openings`);
-       console.log(`🔍 Map has this normalized FEN:`, nodeOpeningsMap.has(normalizedFen));
-       if (nodeOpeningsMap.size > 0 && nodeOpeningsMap.size < 10) {
-         console.log(`🔍 All FENs in map:`, Array.from(nodeOpeningsMap.keys()));
-       }
        
        // Only update opening info if we found a valid opening in the database
        if (openingInfo && openingInfo.name) {
@@ -668,7 +621,6 @@ export default function InteractiveChessboard({
          try {
            // Use the external currentMoves prop instead of game.history() for accurate sequence
            const moveSequenceToCheck = currentMoves.length > 0 ? currentMoves : game.history();
-           console.log(`🔍 Opening tree check - moveSequenceToCheck:`, moveSequenceToCheck, 'mode:', mode, 'from currentMoves:', currentMoves.length > 0);
            
            // Check if this position exists in the opening tree
            const findNodeByMoves = (node, targetMoves, currentMoves = []) => {
@@ -690,10 +642,8 @@ export default function InteractiveChessboard({
            
            const nodeInTree = findNodeByMoves(moveTree, moveSequenceToCheck);
            if (nodeInTree) {
-             console.log(`🔍 Position found in opening tree:`, nodeInTree.san || 'root');
              positionExistsInOpening = true; // Position is in the opening tree
            } else {
-             console.log(`🔍 Position not found in opening tree, checking performance graph`);
              // Fall back to performance graph check
              positionExistsInOpening = false;
            }
@@ -708,17 +658,14 @@ export default function InteractiveChessboard({
          try {
            // Use actual game history instead of currentMoves prop for position checking
            const actualMoves = game.history();
-           console.log(`🔍 Starting opening graph check - actualMoves:`, actualMoves, 'currentMoves prop:', currentMoves);
            
            // Get the move sequence to reach this position
            const moveSequence = actualMoves; // Use actual game history directly
            
-           console.log(`🔍 Built move sequence:`, moveSequence);
            
            // Check if this position exists in the opening graph (from selected player's perspective)
            if (moveSequence.length > 0) {
              const parentSequence = moveSequence.slice(0, -1);
-             console.log(`🔍 Checking parent sequence:`, parentSequence);
              
              // Only check moves from the selected player's perspective
              const moves = openingGraph.getMovesFromPosition(parentSequence, isWhiteTree);
@@ -728,29 +675,11 @@ export default function InteractiveChessboard({
              
              positionExistsInOpening = hasMove;
              
-             // Debug logging
-             console.log(`🔍 Opening graph check for move ${actualMoves.length}:`, {
-               moveSequence,
-               parentSequence,
-               lastMove,
-               playerMoves: moves ? moves.map(m => m.san) : null,
-               isWhiteTree,
-               hasMove,
-               positionExistsInOpening,
-               showOpeningGraphMessage
-             });
            } else {
              // Root position - check if selected player has any games in opening graph
-             console.log(`🔍 Root position check - checking if opening graph has data for selected player`);
              const playerMoves = openingGraph.getMovesFromPosition([], isWhiteTree);
              positionExistsInOpening = playerMoves && playerMoves.length > 0;
              
-             console.log(`🔍 Root position check:`, {
-               playerMoves: playerMoves ? playerMoves.length : 0,
-               isWhiteTree,
-               positionExistsInOpening,
-               showOpeningGraphMessage
-             });
            }
          } catch (error) {
            console.error('🚨 Error checking position in opening graph:', error);
@@ -786,7 +715,6 @@ export default function InteractiveChessboard({
           eco: graphNode.data.openingEco,
           name: graphNode.data.openingName
         };
-        console.log(`🔍 Synchronously updating opening info from graph node:`, openingInfo);
         setCurrentOpeningInfo(openingInfo);
         return true; // Successfully updated
       }
@@ -1580,7 +1508,6 @@ export default function InteractiveChessboard({
 
           {/* Right side - Position Info Button and Book Icon */}
           <div className="flex items-center gap-1">
-            {console.log(`🔍 Opening selector visibility - showStudySelector: ${showStudySelector}, positionInOpenings: ${positionInOpenings.length}, mode: ${mode}`)}
             {showStudySelector && (
               <StudySelector fen={game.fen()} openings={positionInOpenings}>
                 <Button
