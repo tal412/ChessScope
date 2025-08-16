@@ -14,7 +14,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Crown, Shield, Edit, Plus, Loader2, BookOpen, X, Tags } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { studyTag } from '@/api/studyEntities';
+import { studyTag } from '@/api/hybridEntities';
 
 export default function StudyDetailsDialog({ 
   trigger, 

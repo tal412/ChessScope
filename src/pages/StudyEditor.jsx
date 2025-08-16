@@ -12,14 +12,14 @@ import {
   AlertTriangle,
   Eye
 } from 'lucide-react';
-import { userStudy as UserStudy, userStudyMove as UserStudyMove, moveAnnotation as MoveAnnotation, studyTagsMapping } from '@/api/studyEntities';
+import { userStudy as UserStudy, userStudyMove as UserStudyMove, moveAnnotation as MoveAnnotation, studyTagsMapping } from '@/api/hybridEntities';
 import { Chess } from 'chess.js';
 import { loadOpeningGraph } from '@/api/graphStorage';
 import ChessAnalysisView from '../components/analysis/ChessAnalysisView';
 import MoveDetailsSection from '../components/analysis/MoveDetailsSection';
 import { createOpeningEditorConfig } from '../components/analysis/ChessAnalysisViewConfig.jsx';
 import { createOpeningClusters } from '../utils/clusteringAnalysis';
-import { cloudSyncManager } from '../services/CloudSyncManager.js';
+// Firebase sync is handled automatically by hybrid entities
 
 // Move tree node structure
 class MoveNode {
@@ -143,42 +143,7 @@ export default function OpeningEditor() {
     return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
   };
 
-  // Initialize auto sync service and check for conflicts
-  useEffect(() => {
-    const initializeAutoSync = async () => {
-      try {
-        // Check for conflicts that would prevent editing (App already initialized cloudSyncManager)
-        const status = cloudSyncManager.getStatus();
-        const conflictsExist = status.hasConflicts;
-        setHasConflicts(conflictsExist);
-        
-        if (conflictsExist && !isViewMode) {
-          setConflictError('You have sync conflicts that must be resolved before editing studies. Please go to Google Drive Sync to resolve them.');
-        }
-      } catch (error) {
-        console.error('Failed to initialize auto sync:', error);
-      }
-    };
-
-    initializeAutoSync();
-
-    // Listen for sync state changes
-    const handleConflictChange = () => {
-      const status = cloudSyncManager.getStatus();
-      setHasConflicts(status.hasConflicts);
-      if (status.hasConflicts && !isViewMode) {
-        setConflictError('Sync conflicts detected. Please resolve them in Google Drive Sync before making changes.');
-      } else {
-        setConflictError(null);
-      }
-    };
-
-    const unsubscribe = cloudSyncManager.onStateChange(handleConflictChange);
-
-    return () => {
-      unsubscribe();
-    };
-  }, [isViewMode]);
+  // Firebase sync is handled automatically - no manual conflict detection needed
   
   // Initialize form state from URL parameters for new openings
   useEffect(() => {
@@ -399,12 +364,7 @@ export default function OpeningEditor() {
   const autoSave = useCallback(async () => {
     if (isViewMode || !name.trim()) return;
     
-    // Check if user can edit (no conflicts)
-    if (!cloudSyncManager.getStatus().canEdit) {
-      console.warn('💾 StudyEditor: Auto-save blocked due to sync conflicts');
-      setConflictError('Cannot save changes due to sync conflicts. Please resolve them in Google Drive Sync.');
-      return;
-    }
+    // Studies can be saved - Firebase handles sync automatically
     
     try {
       const username = localStorage.getItem('chesscope_username');
@@ -519,13 +479,7 @@ export default function OpeningEditor() {
       // Update the saved state hash to prevent unnecessary future saves
       lastSavedStateRef.current = getCurrentStateHash();
       
-      // Trigger automatic sync after successful save
-      const syncOperation = savedStudyId ? 'study_update' : 'study_create';
-      cloudSyncManager.queueChange(syncOperation, {
-        studyId: savedStudy.id,
-        name: name.trim(),
-        type: syncOperation
-      });
+      // Firebase sync handled automatically by hybrid entities
       
       // Keep legacy event for compatibility
       window.dispatchEvent(new CustomEvent('studySaved', { 
@@ -1495,18 +1449,7 @@ export default function OpeningEditor() {
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription className="text-red-400">
               {conflictError || error}
-              {conflictError && (
-                <div className="mt-2">
-                  <Button 
-                    size="sm" 
-                    variant="outline"
-                    onClick={() => navigate('/google-drive-sync')}
-                    className="text-xs bg-red-800/30 border-red-600 text-red-300 hover:bg-red-700/40"
-                  >
-                    Resolve Conflicts
-                  </Button>
-                </div>
-              )}
+              {/* Firebase handles sync conflicts automatically */}
             </AlertDescription>
           </Alert>
         </div>

@@ -5,8 +5,8 @@ import {
   Loader2
 } from 'lucide-react';
 import { loadOpeningGraph } from '../api/graphStorage';
-import { getAllStudyPositionsMap } from '../api/studyEntities';
-import { useAuth } from '../contexts/AuthContext';
+import { getAllStudyPositionsMap } from '../api/hybridEntities';
+import { useAuth } from '../contexts/FirebaseAuthContext';
 import ChessAnalysisView from '../components/analysis/ChessAnalysisView';
 import { createPerformanceGraphConfig } from '../components/analysis/ChessAnalysisViewConfig.jsx';
 import { createOpeningClusters } from '../utils/clusteringAnalysis';

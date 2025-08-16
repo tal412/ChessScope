@@ -55,6 +55,7 @@
     "d3-zoom": "^3.0.0",
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.5.2",
+    "firebase": "^12.1.0",
     "focus-visible": "^5.2.1",
     "framer-motion": "^12.23.9",
     "google-auth-library": "^10.2.1",

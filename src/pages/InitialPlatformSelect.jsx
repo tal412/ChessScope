@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useChessPlatform } from '@/contexts/ChessPlatformContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,10 +17,10 @@ import { cn } from "@/lib/utils";
 import { useToast } from '@/components/ui/use-toast';
 import { SettingsLoading } from '@/components/ui/settings-loading';
 
-export default function LoginPage() {
+export default function InitialPlatformSelect() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { login, isImporting, importProgress, importStatus } = useAuth();
+  const { connectPlatform, isImporting, importProgress, importStatus } = useChessPlatform();
   const { toast } = useToast();
   const [isVisible, setIsVisible] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
@@ -31,7 +31,7 @@ export default function LoginPage() {
   const [chessComUsername, setChessComUsername] = useState('');
   const [googleAccount, setGoogleAccount] = useState('');
   const [error, setError] = useState('');
-  const [step, setStep] = useState(1); // 1: Connect Account, 2: Google Drive (optional)
+  const [step, setStep] = useState(1); // 1: Connect Account (Firebase auth handled separately)
   
   // Import settings - matching the import page exactly
   const [selectedTimeControls, setSelectedTimeControls] = useState(['rapid']); // Default selection
@@ -76,20 +76,11 @@ export default function LoginPage() {
       return;
     }
     
-    if (step === 2) {
-      // Go back to step 1
-      setIsVisible(false);
-      setTimeout(() => {
-        setStep(1);
-        setIsVisible(true);
-      }, 150);
-    } else if (step === 1) {
-        // Go back to home directly with smooth transition
-        setIsLeaving(true);
-        setTimeout(() => {
-          navigate('/', { state: { returning: true } });
-        }, 50);
-    }
+    // Go back to home directly with smooth transition
+    setIsLeaving(true);
+    setTimeout(() => {
+      navigate('/', { state: { returning: true } });
+    }, 50);
   };
 
   // Handle browser back button
@@ -163,7 +154,7 @@ export default function LoginPage() {
         autoSyncFrequency
       };
       
-      const result = await login(username, selectedPlatform, importSettings);
+      const result = await connectPlatform(selectedPlatform, username, importSettings);
       if (result.success) {
         // The onComplete callback will handle moving to step 2
         // No need for setTimeout here since SettingsLoading handles the timing
@@ -196,30 +187,16 @@ export default function LoginPage() {
     }
   };
 
-  const handleGoogleDriveConnect = async () => {
-    // For now, simulate Google Drive connection
-    try {
-      toast({
-        title: "Google Drive Connected!",
-        description: "Your data will be automatically backed up to Google Drive.",
-      });
-      
-      navigate('/');
-    } catch {
-      setError('Failed to connect Google Drive');
-    }
-  };
-
-  const handleSkipGoogleDrive = () => {
+  const handleImportCompleteAndNavigate = () => {
+    // After chess platform import is complete, navigate to main app
     navigate('/');
   };
 
   const handleImportComplete = () => {
+    // Import complete - navigate to main app
     setIsVisible(false);
     setTimeout(() => {
-      setStep(2);
-      // Start animations immediately on step 2
-      setIsVisible(true);
+      navigate('/');
     }, 150);
   };
 
@@ -549,85 +526,5 @@ export default function LoginPage() {
     );
   }
 
-  // Google Drive Step
-  return (
-    <div className="min-h-screen flex items-center justify-center p-6 relative">
-      {/* Back Button */}
-      <Button
-        onClick={handleBack}
-        variant="ghost"
-        disabled={isImporting}
-        className={`absolute top-6 left-6 transition-all duration-300 ${
-          isImporting 
-            ? 'text-slate-600 cursor-not-allowed' 
-            : 'text-slate-400 hover:text-white'
-        } ${
-          isVisible && !isLeaving ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform -translate-x-4'
-        }`}
-      >
-        <ArrowLeft className="w-5 h-5 mr-2" />
-        Back
-      </Button>
-
-      <div className={`max-w-md w-full page-transition transition-all duration-150 ease-out ${
-        isLeaving ? 'opacity-0 transform -translate-x-4' :
-        isVisible ? 'opacity-100 transform translate-x-0' : 
-        'opacity-0 transform translate-x-4'
-      }`}>
-        <Card className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50">
-          <CardHeader className="text-center">
-            <div className="w-16 h-16 bg-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Cloud className="w-8 h-8 text-white" />
-            </div>
-            <CardTitle className="text-2xl text-white">Connect Google Drive</CardTitle>
-            <p className="text-slate-400">
-              Backup your chess analysis data to Google Drive for safekeeping
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="bg-slate-700/30 p-4 rounded-lg border border-slate-600/50">
-              <div className="flex items-start gap-3">
-                <Shield className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
-                <div className="text-sm">
-                  <p className="text-slate-200 font-medium mb-1">Optional Step</p>
-                  <p className="text-slate-400">
-                    You can skip this and connect Google Drive later from settings
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <Button
-                onClick={handleGoogleDriveConnect}
-                disabled={isImporting}
-                className="bg-blue-600 hover:bg-blue-700 text-white w-full"
-              >
-                {isImporting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <Cloud className="w-4 h-4 mr-2" />
-                    Connect Google Drive
-                  </>
-                )}
-              </Button>
-              
-              <Button
-                onClick={handleSkipGoogleDrive}
-                variant="outline"
-                className="border-slate-600 text-slate-300 hover:bg-slate-700 w-full"
-                disabled={isImporting}
-              >
-                Skip for now
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
+  // No step 2 needed - Firebase auth is handled separately in Studies
 } 

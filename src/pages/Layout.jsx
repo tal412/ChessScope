@@ -13,9 +13,10 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import DriveBackupSection from "@/components/DriveBackupSection";
+// DriveBackupSection removed - using Firebase instead
 import { Network, User, Settings, Shield, RefreshCw, Loader2, Calendar as CalendarIcon, Globe, CheckCircle, AlertCircle, LogOut, ChevronLeft, ChevronRight, Github, Linkedin, BookOpen } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "@/contexts/FirebaseAuthContext";
+import { useChessPlatform } from "@/contexts/ChessPlatformContext";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { SettingsLoading } from "@/components/ui/settings-loading";
@@ -70,7 +71,17 @@ const formatLastOnline = (timestamp) => {
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, syncUserData, updateImportSettings, isSyncing, isImporting, importProgress, importStatus, syncProgress, syncStatus, pendingAutoSync } = useAuth();
+  // Chess platform auth for main app functionality
+  const { user, logout: logoutChess, isImporting, importProgress, importStatus } = useChessPlatform();
+  
+  // Firebase auth for Studies (optional)
+  const { isGoogleSignedIn, signInWithGoogle, signOutGoogle } = useAuth();
+  
+  // Placeholder values for removed sync functionality
+  const isSyncing = false;
+  const syncProgress = 0;
+  const syncStatus = '';
+  const pendingAutoSync = false;
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     const savedState = localStorage.getItem('sidebar-collapsed');
     return savedState ? JSON.parse(savedState) : false;
@@ -110,12 +121,8 @@ export default function Layout() {
   ];
 
   const handleManualSync = async () => {
-    if (isSyncing) return;
-    try {
-      await syncUserData(user);
-    } catch (error) {
-      console.error('Manual sync failed:', error);
-    }
+    // Manual sync functionality removed - Firebase handles sync automatically
+    console.log('Manual sync not needed with Firebase');
   };
 
   const handleSettingsOpen = () => {
@@ -142,7 +149,9 @@ export default function Layout() {
       console.log('🎯 Starting settings save');
       setSettingsError(''); // Clear any previous errors
       setSettingsSaveStarted(true); // Mark that save has started
-      const result = await updateImportSettings(tempSettings, handleSettingsLoadingComplete);
+      // Settings update functionality removed - would need to be reimplemented for chess platform
+      console.log('Settings update not implemented in new architecture');
+      handleSettingsLoadingComplete();
       
       if (result && !result.success) {
         setSettingsError(result.error || 'Failed to update settings');
@@ -205,8 +214,19 @@ export default function Layout() {
         } 
       });
       
+      // Sign out from Firebase if user is signed in
+      if (isGoogleSignedIn) {
+        try {
+          await signOutGoogle();
+          console.log('Successfully signed out from Firebase');
+        } catch (firebaseError) {
+          console.error('Firebase sign out failed:', firebaseError);
+          // Continue with chess platform logout even if Firebase logout fails
+        }
+      }
+      
       // Clear auth state with minimal delay to prevent black screen flash
-      await logout(150); // Reduced delay for smoother transition
+      await logoutChess(150); // Reduced delay for smoother transition
       
     } catch (error) {
       console.error('Logout failed:', error);
@@ -378,10 +398,7 @@ export default function Layout() {
                 <div className="border-t border-slate-700/30 my-1"></div>
               )}
               
-              {/* Drive Backup Section */}
-              {user && (
-                <DriveBackupSection isSidebarCollapsed={isSidebarCollapsed} />
-              )}
+              {/* Firebase sync status shown in page headers instead */}
               
               {/* Separator Line */}
               {user && (
@@ -893,7 +910,7 @@ export default function Layout() {
             <AlertDialogHeader>
               <AlertDialogTitle className="text-xl text-white">Confirm Logout</AlertDialogTitle>
               <AlertDialogDescription className="text-slate-400">
-                Are you sure you want to logout? This will clear your session and return you to the main page.
+                Are you sure you want to logout? This will clear your session, sign you out of Firebase, and return you to the main page.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

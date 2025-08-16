@@ -9,7 +9,7 @@ import { Chess } from 'chess.js';
 import PositionInfoDialog from './PositionInfoDialog';
 import StudySelector from '../studies/StudySelector';
 import { getOpeningFromFen } from '../../utils/StudyDatabase';
-import { checkPositionInStudies } from '@/api/studyEntities';
+import { checkPositionInStudies } from '@/api/hybridEntities';
 import { 
   getPositionAfterMoves, 
   getPositionFromFen, 

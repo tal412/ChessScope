@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { BookOpen, Crown, Shield, ExternalLink, Loader2 } from 'lucide-react';
-import { checkPositionInStudies } from '@/api/studyEntities';
+import { checkPositionInStudies } from '@/api/hybridEntities';
 import StudyDetailsDialog from './StudyDetailsDialog';
 
 export default function StudySelector({ fen, trigger, children, openings = [] }) {

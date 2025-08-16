@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { User } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useChessPlatform } from "@/contexts/ChessPlatformContext";
 
 const formatLastOnline = (timestamp) => {
   if (!timestamp) return 'Unknown';
@@ -41,7 +41,7 @@ const formatLastOnline = (timestamp) => {
 };
 
 const ProfilePopup = ({ isOpen, onOpenChange }) => {
-  const { user } = useAuth();
+  const { user } = useChessPlatform();
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>

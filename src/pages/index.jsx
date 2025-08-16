@@ -1,10 +1,9 @@
 import Layout from "./Layout.jsx";
-import LoginPage from "./LoginPage";
+import InitialPlatformSelect from "./InitialPlatformSelect";
 import PerformanceGraph from "./PerformanceGraph";
 import StudiesBook from "./StudiesBook";
 import StudyEditor from "./StudyEditor";
-import GoogleDriveSyncPage from "./GoogleDriveSyncPage";
-import { useAuth } from "@/contexts/AuthContext";
+import { useChessPlatform } from "@/contexts/ChessPlatformContext";
 import { Loader2, Shield, Crown, Heart, Code, DollarSign, Users, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -21,8 +20,8 @@ function BackgroundWrapper({ children }) {
     );
 }
 
-// Simple login prompt component
-function SimpleLoginPrompt() {
+// Simple platform selection prompt component
+function SimplePlatformPrompt() {
     const navigate = useNavigate();
     const location = useLocation();
     const [isNavigating, setIsNavigating] = useState(false);
@@ -34,7 +33,7 @@ function SimpleLoginPrompt() {
         setIsVisible(true);
     }, []);
     
-    // Check if we're returning from login page
+    // Check if we're returning from platform select page
     useEffect(() => {
         if (location.state?.returning) {
             setIsReturning(true);
@@ -53,7 +52,7 @@ function SimpleLoginPrompt() {
         
         // Near-instant navigation for overlapping transitions
         setTimeout(() => {
-            navigate('/login', { 
+            navigate('/platform-select', { 
                 state: { 
                     fromHome: true,
                     selectedPlatform: platform,
@@ -208,27 +207,17 @@ function SimpleLoginPrompt() {
 
 // Create a wrapper component that uses useLocation inside the Router context
 function PagesContent() {
-    const { isAuthenticated, isLoading } = useAuth();
+    const { isAuthenticated, isImporting } = useChessPlatform();
     
-    // Show loading spinner while checking authentication
-    if (isLoading) {
-        return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-                <div className="text-center">
-                    <Loader2 className="w-8 h-8 animate-spin text-amber-400 mx-auto mb-4" />
-                    <p className="text-slate-300">Loading ChessScope...</p>
-                </div>
-            </div>
-        );
-    }
+    // Don't show global loading - InitialPlatformSelect handles its own loading with SettingsLoading
     
-    // If not authenticated, show login prompt or login page
+    // If not authenticated, show platform prompt or platform select page
     if (!isAuthenticated) {
         return (
             <BackgroundWrapper>
                 <Routes>
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="*" element={<SimpleLoginPrompt />} />
+                    <Route path="/platform-select" element={<InitialPlatformSelect />} />
+                    <Route path="*" element={<SimplePlatformPrompt />} />
                 </Routes>
             </BackgroundWrapper>
         );
@@ -244,9 +233,8 @@ function PagesContent() {
                 <Route path="studies-book/editor/new" element={<StudyEditor />} />
                 <Route path="studies-book/editor/:studyId" element={<StudyEditor />} />
                 <Route path="studies-book/study/:studyId" element={<StudyEditor />} />
-                <Route path="google-drive-sync" element={<GoogleDriveSyncPage />} />
-                {/* Redirect authenticated users away from login */}
-                <Route path="login" element={<PerformanceGraph />} />
+                {/* Redirect authenticated users away from platform select */}
+                <Route path="platform-select" element={<PerformanceGraph />} />
             </Route>
         </Routes>
     );

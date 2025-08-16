@@ -21,7 +21,7 @@ import {
   Palette
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { studyTag } from '@/api/studyEntities';
+import { studyTag } from '@/api/hybridEntities';
 
 const DEFAULT_COLORS = [
   '#22c55e', // green

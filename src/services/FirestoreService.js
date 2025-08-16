@@ -1,0 +1,733 @@
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  setDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  limit,
+  writeBatch,
+  serverTimestamp,
+  onSnapshot
+} from 'firebase/firestore';
+import { db } from './firebase.js';
+import { firebaseAuth } from './FirebaseAuth.js';
+
+class FirestoreService {
+  constructor() {
+    this.currentUserId = null;
+    
+    // Listen for auth changes
+    firebaseAuth.onAuthStateChange((user) => {
+      this.currentUserId = user ? user.uid : null;
+    });
+  }
+
+  // Helper to ensure user is authenticated
+  requireAuth() {
+    if (!this.currentUserId) {
+      throw new Error('User must be authenticated to perform this operation');
+    }
+    return this.currentUserId;
+  }
+
+  // Helper to get user-scoped collection reference
+  getUserCollection(collectionName) {
+    const userId = this.requireAuth();
+    return collection(db, 'users', userId, collectionName);
+  }
+
+  // Helper to get user-scoped document reference
+  getUserDoc(collectionName, docId) {
+    const userId = this.requireAuth();
+    return doc(db, 'users', userId, collectionName, docId);
+  }
+
+  // CHESS GAMES OPERATIONS
+  async saveChessGame(gameData) {
+    try {
+      const gamesRef = this.getUserCollection('chess_games');
+      
+      const gameDoc = {
+        ...gameData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      const docRef = await addDoc(gamesRef, gameDoc);
+      return { id: docRef.id, ...gameDoc };
+    } catch (error) {
+      console.error('Error saving chess game:', error);
+      throw error;
+    }
+  }
+
+  async getChessGames(queryOptions = {}) {
+    try {
+      const gamesRef = this.getUserCollection('chess_games');
+      let q = gamesRef;
+
+      // Add query constraints
+      if (queryOptions.where) {
+        for (const [field, operator, value] of queryOptions.where) {
+          q = query(q, where(field, operator, value));
+        }
+      }
+
+      if (queryOptions.orderBy) {
+        const [field, direction = 'desc'] = queryOptions.orderBy;
+        q = query(q, orderBy(field, direction));
+      }
+
+      if (queryOptions.limit) {
+        q = query(q, limit(queryOptions.limit));
+      }
+
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error('Error getting chess games:', error);
+      throw error;
+    }
+  }
+
+  // USER STUDIES OPERATIONS
+  async createStudy(studyData) {
+    try {
+      const studiesRef = this.getUserCollection('user_studies');
+      
+      const studyDoc = {
+        ...studyData,
+        initialMoves: studyData.initial_moves || [],
+        initialFen: studyData.initial_fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        initialViewFen: studyData.initial_view_fen || studyData.initial_fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        startingPgn: studyData.starting_pgn || '',
+        folderId: studyData.folder_id || null,
+        position: studyData.position || 0,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      const docRef = await addDoc(studiesRef, studyDoc);
+      return { id: docRef.id, ...studyDoc };
+    } catch (error) {
+      console.error('Error creating study:', error);
+      throw error;
+    }
+  }
+
+  async getStudies(queryOptions = {}) {
+    try {
+      const studiesRef = this.getUserCollection('user_studies');
+      let q = studiesRef;
+
+      // Add query constraints
+      if (queryOptions.where) {
+        for (const [field, operator, value] of queryOptions.where) {
+          q = query(q, where(field, operator, value));
+        }
+      }
+
+      if (queryOptions.orderBy) {
+        const [field, direction = 'desc'] = queryOptions.orderBy;
+        q = query(q, orderBy(field, direction));
+      }
+
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error('Error getting studies:', error);
+      throw error;
+    }
+  }
+
+  async getStudyById(studyId) {
+    try {
+      const studyRef = this.getUserDoc('user_studies', studyId);
+      const snapshot = await getDoc(studyRef);
+      
+      if (snapshot.exists()) {
+        return { id: snapshot.id, ...snapshot.data() };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting study by ID:', error);
+      throw error;
+    }
+  }
+
+  async updateStudy(studyId, updateData) {
+    try {
+      const studyRef = this.getUserDoc('user_studies', studyId);
+      const updateDoc = {
+        ...updateData,
+        updatedAt: serverTimestamp()
+      };
+      
+      await updateDoc(studyRef, updateDoc);
+      return { id: studyId, ...updateDoc };
+    } catch (error) {
+      console.error('Error updating study:', error);
+      throw error;
+    }
+  }
+
+  async deleteStudy(studyId) {
+    try {
+      // Delete all moves for this study first
+      await this.deleteStudyMoves(studyId);
+      
+      // Delete study tags mappings
+      await this.deleteStudyTagsMappings(studyId);
+      
+      // Delete the study
+      const studyRef = this.getUserDoc('user_studies', studyId);
+      await deleteDoc(studyRef);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting study:', error);
+      throw error;
+    }
+  }
+
+  // STUDY MOVES OPERATIONS
+  async createStudyMove(moveData) {
+    try {
+      const movesRef = this.getUserCollection('user_study_moves');
+      
+      const moveDoc = {
+        ...moveData,
+        arrows: moveData.arrows || [],
+        highlights: moveData.highlights || [],
+        createdAt: serverTimestamp()
+      };
+
+      const docRef = await addDoc(movesRef, moveDoc);
+      return { id: docRef.id, ...moveDoc };
+    } catch (error) {
+      console.error('Error creating study move:', error);
+      throw error;
+    }
+  }
+
+  async getStudyMoves(studyId) {
+    try {
+      const movesRef = this.getUserCollection('user_study_moves');
+      const q = query(
+        movesRef,
+        where('studyId', '==', studyId),
+        orderBy('moveNumber', 'asc')
+      );
+
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error('Error getting study moves:', error);
+      throw error;
+    }
+  }
+
+  async deleteStudyMoves(studyId) {
+    try {
+      const movesRef = this.getUserCollection('user_study_moves');
+      const q = query(movesRef, where('studyId', '==', studyId));
+      
+      const snapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      
+      snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      await batch.commit();
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting study moves:', error);
+      throw error;
+    }
+  }
+
+  // STUDY FOLDERS OPERATIONS
+  async createStudyFolder(folderData) {
+    try {
+      const foldersRef = this.getUserCollection('study_folders');
+      
+      const folderDoc = {
+        ...folderData,
+        icon: folderData.icon || 'folder',
+        color: folderData.color || '#6366f1',
+        position: folderData.position || 0,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      const docRef = await addDoc(foldersRef, folderDoc);
+      return { id: docRef.id, ...folderDoc };
+    } catch (error) {
+      console.error('Error creating study folder:', error);
+      throw error;
+    }
+  }
+
+  async getStudyFolders() {
+    try {
+      const foldersRef = this.getUserCollection('study_folders');
+      const q = query(foldersRef, orderBy('position', 'asc'));
+
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error('Error getting study folders:', error);
+      throw error;
+    }
+  }
+
+  async deleteStudyFolder(folderId) {
+    try {
+      // Update all studies in this folder to have no folder
+      const studiesRef = this.getUserCollection('user_studies');
+      const q = query(studiesRef, where('folderId', '==', folderId));
+      const snapshot = await getDocs(q);
+      
+      const batch = writeBatch(db);
+      snapshot.docs.forEach(doc => {
+        batch.update(doc.ref, { folderId: null });
+      });
+      
+      // Delete the folder
+      const folderRef = this.getUserDoc('study_folders', folderId);
+      batch.delete(folderRef);
+      
+      await batch.commit();
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting study folder:', error);
+      throw error;
+    }
+  }
+
+  // STUDY TAGS OPERATIONS
+  async createStudyTag(tagData) {
+    try {
+      const tagsRef = this.getUserCollection('study_tags');
+      
+      const tagDoc = {
+        ...tagData,
+        color: tagData.color || '#6366f1',
+        createdAt: serverTimestamp()
+      };
+
+      const docRef = await addDoc(tagsRef, tagDoc);
+      return { id: docRef.id, ...tagDoc };
+    } catch (error) {
+      console.error('Error creating study tag:', error);
+      throw error;
+    }
+  }
+
+  async getStudyTags() {
+    try {
+      const tagsRef = this.getUserCollection('study_tags');
+      const q = query(tagsRef, orderBy('name', 'asc'));
+
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error('Error getting study tags:', error);
+      throw error;
+    }
+  }
+
+  async deleteStudyTag(tagId) {
+    try {
+      // Delete all tag mappings for this tag
+      await this.deleteTagMappings(tagId);
+      
+      // Delete the tag
+      const tagRef = this.getUserDoc('study_tags', tagId);
+      await deleteDoc(tagRef);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting study tag:', error);
+      throw error;
+    }
+  }
+
+  // STUDY TAGS MAPPING OPERATIONS
+  async addTagToStudy(studyId, tagId) {
+    try {
+      const mappingsRef = this.getUserCollection('study_tags_mapping');
+      
+      // Check if mapping already exists
+      const q = query(
+        mappingsRef,
+        where('studyId', '==', studyId),
+        where('tagId', '==', tagId)
+      );
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        return { success: true, message: 'Tag already assigned to study' };
+      }
+
+      const mappingDoc = {
+        studyId,
+        tagId,
+        createdAt: serverTimestamp()
+      };
+
+      const docRef = await addDoc(mappingsRef, mappingDoc);
+      return { id: docRef.id, ...mappingDoc };
+    } catch (error) {
+      console.error('Error adding tag to study:', error);
+      throw error;
+    }
+  }
+
+  async removeTagFromStudy(studyId, tagId) {
+    try {
+      const mappingsRef = this.getUserCollection('study_tags_mapping');
+      const q = query(
+        mappingsRef,
+        where('studyId', '==', studyId),
+        where('tagId', '==', tagId)
+      );
+      
+      const snapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      
+      snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      await batch.commit();
+      return { success: true };
+    } catch (error) {
+      console.error('Error removing tag from study:', error);
+      throw error;
+    }
+  }
+
+  async getStudyTagsMappings(studyId) {
+    try {
+      const mappingsRef = this.getUserCollection('study_tags_mapping');
+      const q = query(mappingsRef, where('studyId', '==', studyId));
+
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error('Error getting study tags mappings:', error);
+      throw error;
+    }
+  }
+
+  async deleteStudyTagsMappings(studyId) {
+    try {
+      const mappingsRef = this.getUserCollection('study_tags_mapping');
+      const q = query(mappingsRef, where('studyId', '==', studyId));
+      
+      const snapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      
+      snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      await batch.commit();
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting study tags mappings:', error);
+      throw error;
+    }
+  }
+
+  async deleteTagMappings(tagId) {
+    try {
+      const mappingsRef = this.getUserCollection('study_tags_mapping');
+      const q = query(mappingsRef, where('tagId', '==', tagId));
+      
+      const snapshot = await getDocs(q);
+      const batch = writeBatch(db);
+      
+      snapshot.docs.forEach(doc => {
+        batch.delete(doc.ref);
+      });
+      
+      await batch.commit();
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting tag mappings:', error);
+      throw error;
+    }
+  }
+
+  // MOVE ANNOTATIONS OPERATIONS
+  async createMoveAnnotation(annotationData) {
+    try {
+      const annotationsRef = this.getUserCollection('move_annotations');
+      
+      const annotationDoc = {
+        ...annotationData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      const docRef = await addDoc(annotationsRef, annotationDoc);
+      return { id: docRef.id, ...annotationDoc };
+    } catch (error) {
+      console.error('Error creating move annotation:', error);
+      throw error;
+    }
+  }
+
+  async getMoveAnnotations(moveId) {
+    try {
+      const annotationsRef = this.getUserCollection('move_annotations');
+      const q = query(
+        annotationsRef,
+        where('moveId', '==', moveId),
+        orderBy('createdAt', 'desc')
+      );
+
+      const snapshot = await getDocs(q);
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (error) {
+      console.error('Error getting move annotations:', error);
+      throw error;
+    }
+  }
+
+  // USER PROFILE OPERATIONS
+  async saveUserProfile(profileData) {
+    try {
+      const userId = this.requireAuth();
+      const userRef = doc(db, 'users', userId);
+      
+      const profileDoc = {
+        ...profileData,
+        updatedAt: serverTimestamp()
+      };
+
+      // Check if document exists
+      const docSnapshot = await getDoc(userRef);
+      
+      if (docSnapshot.exists()) {
+        // Document exists, update it
+        await updateDoc(userRef, profileDoc);
+      } else {
+        // Document doesn't exist, create it
+        const newProfileDoc = {
+          ...profileDoc,
+          createdAt: serverTimestamp()
+        };
+        await setDoc(userRef, newProfileDoc);
+      }
+      
+      return { id: userId, ...profileDoc };
+    } catch (error) {
+      console.error('Error saving user profile:', error);
+      throw error;
+    }
+  }
+
+  async getUserProfile() {
+    try {
+      const userId = this.requireAuth();
+      const userRef = doc(db, 'users', userId);
+      const snapshot = await getDoc(userRef);
+      
+      if (snapshot.exists()) {
+        return { id: snapshot.id, ...snapshot.data() };
+      }
+      return null;
+    } catch (error) {
+      console.error('Error getting user profile:', error);
+      throw error;
+    }
+  }
+
+  async createUserProfile(userData) {
+    try {
+      const userId = this.requireAuth();
+      const userRef = doc(db, 'users', userId);
+      
+      const profileDoc = {
+        ...userData,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      };
+
+      await setDoc(userRef, profileDoc);
+      return { id: userId, ...profileDoc };
+    } catch (error) {
+      console.error('Error creating user profile:', error);
+      throw error;
+    }
+  }
+
+  // REAL-TIME SUBSCRIPTIONS
+  subscribeToStudies(callback) {
+    try {
+      const studiesRef = this.getUserCollection('user_studies');
+      const q = query(studiesRef, orderBy('updatedAt', 'desc'));
+      
+      return onSnapshot(q, (snapshot) => {
+        const studies = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        callback(studies);
+      });
+    } catch (error) {
+      console.error('Error subscribing to studies:', error);
+      throw error;
+    }
+  }
+
+  subscribeToStudyFolders(callback) {
+    try {
+      const foldersRef = this.getUserCollection('study_folders');
+      const q = query(foldersRef, orderBy('position', 'asc'));
+      
+      return onSnapshot(q, (snapshot) => {
+        const folders = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        callback(folders);
+      });
+    } catch (error) {
+      console.error('Error subscribing to study folders:', error);
+      throw error;
+    }
+  }
+
+  // BULK OPERATIONS
+  async bulkCreateStudies(studiesData) {
+    try {
+      const batch = writeBatch(db);
+      const studiesRef = this.getUserCollection('user_studies');
+      const results = [];
+
+      studiesData.forEach(studyData => {
+        const docRef = doc(studiesRef);
+        const studyDoc = {
+          ...studyData,
+          initialMoves: studyData.initial_moves || [],
+          initialFen: studyData.initial_fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        };
+        
+        batch.set(docRef, studyDoc);
+        results.push({ id: docRef.id, ...studyDoc });
+      });
+
+      await batch.commit();
+      return results;
+    } catch (error) {
+      console.error('Error bulk creating studies:', error);
+      throw error;
+    }
+  }
+
+  async bulkCreateStudyMoves(movesData) {
+    try {
+      const batch = writeBatch(db);
+      const movesRef = this.getUserCollection('user_study_moves');
+      const results = [];
+
+      movesData.forEach(moveData => {
+        const docRef = doc(movesRef);
+        const moveDoc = {
+          ...moveData,
+          arrows: moveData.arrows || [],
+          highlights: moveData.highlights || [],
+          createdAt: serverTimestamp()
+        };
+        
+        batch.set(docRef, moveDoc);
+        results.push({ id: docRef.id, ...moveDoc });
+      });
+
+      await batch.commit();
+      return results;
+    } catch (error) {
+      console.error('Error bulk creating study moves:', error);
+      throw error;
+    }
+  }
+
+  // INITIALIZE DEFAULT TAGS
+  async initializeDefaultTags() {
+    try {
+      const defaultTags = [
+        { name: 'Opening', color: '#22c55e' },
+        { name: 'Middlegame', color: '#3b82f6' },
+        { name: 'Endgame', color: '#f59e0b' },
+        { name: 'Tactics', color: '#ef4444' },
+        { name: 'Strategy', color: '#8b5cf6' },
+        { name: 'Defense', color: '#06b6d4' }
+      ];
+
+      // Check if tags already exist
+      const existingTags = await this.getStudyTags();
+      const existingTagNames = new Set(existingTags.map(tag => tag.name));
+
+      // Only create tags that don't exist
+      const tagsToCreate = defaultTags.filter(tag => !existingTagNames.has(tag.name));
+      
+      if (tagsToCreate.length > 0) {
+        const batch = writeBatch(db);
+        const tagsRef = this.getUserCollection('study_tags');
+
+        tagsToCreate.forEach(tagData => {
+          const docRef = doc(tagsRef);
+          batch.set(docRef, {
+            ...tagData,
+            createdAt: serverTimestamp()
+          });
+        });
+
+        await batch.commit();
+      }
+
+      return { success: true, created: tagsToCreate.length };
+    } catch (error) {
+      console.error('Error initializing default tags:', error);
+      throw error;
+    }
+  }
+}
+
+// Create and export singleton instance
+export const firestoreService = new FirestoreService();
+export default firestoreService;
