@@ -48,8 +48,6 @@ class BackgroundProcessor {
         
         if (this.backgroundStartTime) {
           const backgroundDuration = this.foregroundResumeTime - this.backgroundStartTime;
-          console.log(`👁️ Welcome back! Processing continued in background for ${Math.round(backgroundDuration / 1000)}s`);
-          console.log(`📊 Progress: ${this.processedCount}/${this.totalCount} (${Math.round(this.processedCount / this.totalCount * 100)}%)`);
         }
         
         if (this.isRunning) {
@@ -65,7 +63,6 @@ class BackgroundProcessor {
       this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
       this.keepAliveOscillator = null;
     } catch (e) {
-      console.log('Web Audio not available for keep-alive');
     }
     
     // Strategy 2: Minimal service worker simulation with shared worker if available
@@ -95,13 +92,11 @@ class BackgroundProcessor {
           // Silent tick to maintain activity
         };
       } catch (e) {
-        console.log('SharedWorker not available for keep-alive');
       }
     }
   }
   
   activateBackgroundMode() {
-    console.log('🔋 Activating background processing mode');
     
     // Strategy 1: Silent audio to prevent throttling
     if (this.audioContext && !this.keepAliveOscillator) {
@@ -114,7 +109,6 @@ class BackgroundProcessor {
         this.keepAliveOscillator.frequency.value = 20000; // Inaudible frequency
         this.keepAliveOscillator.start();
       } catch (e) {
-        console.log('Could not start keep-alive audio');
       }
     }
     
@@ -128,7 +122,6 @@ class BackgroundProcessor {
   }
   
   deactivateBackgroundMode() {
-    console.log('🔋 Deactivating background processing mode');
     
     // Stop audio keep-alive
     if (this.keepAliveOscillator) {
@@ -136,7 +129,6 @@ class BackgroundProcessor {
         this.keepAliveOscillator.stop();
         this.keepAliveOscillator = null;
       } catch (e) {
-        console.log('Error stopping keep-alive audio');
       }
     }
     
@@ -173,7 +165,6 @@ class BackgroundProcessor {
     this.totalCount = items.length;
     this.startTime = Date.now();
     
-    console.log(`🚀 Starting background processing of ${items.length} items`);
     
     try {
       const results = [];
@@ -219,8 +210,6 @@ class BackgroundProcessor {
       
       // Processing complete
       const duration = Date.now() - this.startTime;
-      console.log(`✅ Background processing completed in ${Math.round(duration / 1000)}s`);
-      console.log(`📊 Processed ${this.processedCount}/${this.totalCount} items`);
       
       if (this.onComplete) {
         this.onComplete({
@@ -266,7 +255,6 @@ class BackgroundProcessor {
   }
   
   stop() {
-    console.log('🛑 Stopping background processor');
     this.cleanup();
   }
   

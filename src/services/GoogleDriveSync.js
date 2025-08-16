@@ -14,7 +14,6 @@ class GoogleDriveSyncService {
     }
 
     if (this.isSyncEnabled) {
-      console.log('Google Drive sync already enabled');
       return true;
     }
 
@@ -75,7 +74,6 @@ class GoogleDriveSyncService {
         
         const createData = await createResponse.json();
         this.syncFolderId = createData.id;
-        console.log('Created ChessScope folder:', this.syncFolderId);
       }
     } catch (error) {
       console.error('Error ensuring sync folder:', error);
@@ -160,7 +158,6 @@ class GoogleDriveSyncService {
       const searchData = await searchResponse.json();
       
       if (!searchData.files || searchData.files.length === 0) {
-        console.log('No remote sync file found');
         return { studies: [], folders: [], tags: [] };
       }
 
@@ -526,7 +523,6 @@ class GoogleDriveSyncService {
               created_at: study.created_at,
               updated_at: study.updated_at
             });
-            console.log(`✅ Added remote study to local: ${study.name}`);
           }
         } catch (error) {
           console.warn(`⚠️ Could not add study ${study.name} to local:`, error);
@@ -546,7 +542,6 @@ class GoogleDriveSyncService {
               color: folder.color,
               position: folder.position || 0
             });
-            console.log(`✅ Added remote folder to local: ${folder.name}`);
           }
         } catch (error) {
           console.warn(`⚠️ Could not add folder ${folder.name} to local:`, error);
@@ -563,7 +558,6 @@ class GoogleDriveSyncService {
               name: tag.name,
               color: tag.color
             });
-            console.log(`✅ Added remote tag to local: ${tag.name}`);
           }
         } catch (error) {
           console.warn(`⚠️ Could not add tag ${tag.name} to local:`, error);

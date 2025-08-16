@@ -8,7 +8,6 @@ const getBackupService = async () => {
       const { googleDriveBackup: service } = await import('../services/GoogleDriveBackup.js');
       googleDriveBackup = service;
     } catch (error) {
-      console.log('Google Drive backup service not available:', error);
       return null;
     }
   }
@@ -63,7 +62,6 @@ export const initDatabase = async () => {
     const shouldAttemptRestore = await checkForGoogleDriveRestore();
     
     if (shouldAttemptRestore) {
-      console.log('Attempting to restore from Google Drive...');
       try {
         const backupService = await getBackupService();
         if (backupService) {
@@ -72,7 +70,6 @@ export const initDatabase = async () => {
           return;
         }
       } catch (error) {
-        console.log('Google Drive restore failed or unavailable, continuing with local database:', error.message);
       }
     }
 
@@ -99,7 +96,6 @@ export const initDatabase = async () => {
     if (SQL && !db) {
       db = new SQL.Database();
       await createTables();
-      console.log('Created fallback database');
       isInitialized = true;
     }
     isInitializing = false;
@@ -135,7 +131,6 @@ const runMigrations = async () => {
     
     // Migrate user_openings to user_studies
     if (existingTables.includes('user_openings') && !existingTables.includes('user_studies')) {
-      console.log('Migrating user_openings table to user_studies');
       
       // Create new user_studies table with enhanced schema
       db.run(`
@@ -169,7 +164,6 @@ const runMigrations = async () => {
     
     // Migrate user_opening_moves to user_study_moves
     if (existingTables.includes('user_opening_moves') && !existingTables.includes('user_study_moves')) {
-      console.log('Migrating user_opening_moves table to user_study_moves');
       
       // Create new user_study_moves table
       db.run(`
@@ -207,7 +201,6 @@ const runMigrations = async () => {
     
     // Create study_tags table if it doesn't exist
     if (!existingTables.includes('study_tags')) {
-      console.log('Creating study_tags table');
       db.run(`
         CREATE TABLE study_tags (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -236,7 +229,6 @@ const runMigrations = async () => {
     
     // Create study_tags_mapping table if it doesn't exist
     if (!existingTables.includes('study_tags_mapping')) {
-      console.log('Creating study_tags_mapping table');
       db.run(`
         CREATE TABLE study_tags_mapping (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -255,14 +247,12 @@ const runMigrations = async () => {
     const existingColumns = columnsResult.length > 0 ? columnsResult[0].values.map(row => row[1]) : [];
     
     if (existingTables.includes('user_studies') && !existingColumns.includes('folder_id')) {
-      console.log('Adding folder support to user_studies table');
       db.run('ALTER TABLE user_studies ADD COLUMN folder_id INTEGER');
       db.run('ALTER TABLE user_studies ADD COLUMN position INTEGER DEFAULT 0');
     }
     
     // Create study_folders table if it doesn't exist
     if (!existingTables.includes('study_folders')) {
-      console.log('Creating study_folders table');
       db.run(`
         CREATE TABLE study_folders (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -512,7 +502,6 @@ export const saveDatabase = async () => {
         const { cloudSyncManager } = await import('../services/CloudSyncManager.js');
         cloudSyncManager.queueChange('database_save');
       } catch (error) {
-        console.log('Cloud sync not available:', error.message);
       }
     } else {
     }
@@ -795,13 +784,11 @@ export const clearDatabase = () => {
 
 export const resetDatabaseInstance = () => {
   try {
-    console.log('🗑️ Resetting database instance...');
     
     // Close existing database connection if it exists
     if (db) {
       try {
         db.close();
-        console.log('✅ Closed existing database connection');
       } catch (closeError) {
         console.warn('⚠️ Error closing database:', closeError);
       }
@@ -815,7 +802,6 @@ export const resetDatabaseInstance = () => {
     // Clear localStorage
     localStorage.removeItem('chesscope_db');
     
-    console.log('✅ Database instance reset completed');
     return true;
   } catch (error) {
     console.error('Error resetting database instance:', error);
@@ -918,7 +904,6 @@ initDatabase().catch(error => {
 // Retry database initialization after a delay if it failed
 setTimeout(() => {
   if (!isInitialized && !isInitializing) {
-    console.log('Retrying database initialization...');
     initDatabase().catch(error => {
       console.error('Retry database initialization failed:', error);
     });

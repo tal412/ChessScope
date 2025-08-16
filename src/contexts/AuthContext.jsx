@@ -95,7 +95,6 @@ export const AuthProvider = ({ children }) => {
     if (pendingAutoSync && !isLoading && !isSyncing) {
       // Delay auto-sync to ensure UI is responsive
       const syncTimer = setTimeout(async () => {
-        console.log('🔄 Starting delayed auto-sync...');
         try {
           // Use callback pattern to ensure we have current state
           setIsSyncing(true);
@@ -126,8 +125,6 @@ export const AuthProvider = ({ children }) => {
           setUser(updatedUser);
           localStorage.setItem('chessScope_auth', JSON.stringify({ user: updatedUser }));
           
-          console.log('✅ Auto-sync completed successfully - opening graph rebuilt');
-          console.log(`🎮 Updated last game time: ${updatedUser.lastGameTime ? new Date(updatedUser.lastGameTime).toLocaleString() : 'Unknown'}`);
         } catch (e) {
           console.error('Auto-sync on startup failed:', e);
         } finally {
@@ -225,20 +222,16 @@ export const AuthProvider = ({ children }) => {
 
   const logout = async (delay = 0) => {
     try {
-      console.log('🔄 Starting comprehensive logout cleanup...');
       
       // Stop any background processing first
       if (backgroundProcessor.getStatus().isRunning) {
-        console.log('🛑 Stopping background processor...');
         backgroundProcessor.stop();
       }
       
       // Sign out from Google account if signed in
       try {
         if (googleAuth.isSignedIn) {
-          console.log('🔄 Signing out from Google account...');
           await googleAuth.signOut();
-          console.log('✅ Signed out from Google account');
         }
       } catch (error) {
         console.warn('⚠️ Failed to sign out from Google account:', error);
@@ -251,26 +244,21 @@ export const AuthProvider = ({ children }) => {
       // If delay is specified, wait before clearing data (for smooth transitions)
       // Keep delay minimal to prevent black screen flash
       if (delay > 0) {
-        console.log(`⏳ Waiting ${delay}ms for smooth transition...`);
         await new Promise(resolve => setTimeout(resolve, delay));
       }
       
       // 1. Clear authentication data
       localStorage.removeItem('chessScope_auth');
-      console.log('✅ Cleared authentication data');
       
       // 2. Clear username data
       localStorage.removeItem('chesscope_username');
-      console.log('✅ Cleared username data');
       
       // 3. Clear database data and reset instance
       const dbReset = resetDatabaseInstance();
       if (dbReset) {
-        console.log('✅ Cleared database data and reset instance');
       } else {
         // Fallback: just clear localStorage if reset failed
         localStorage.removeItem('chesscope_db');
-        console.log('✅ Cleared database localStorage (reset failed)');
       }
       
       // 4. Clear other potential localStorage keys including canvas preferences
@@ -291,18 +279,15 @@ export const AuthProvider = ({ children }) => {
       keysToCheck.forEach(key => {
         if (localStorage.getItem(key)) {
           localStorage.removeItem(key);
-          console.log(`✅ Cleared ${key}`);
         }
       });
       
       // 5. Clear sessionStorage
       sessionStorage.clear();
-      console.log('✅ Cleared session storage');
       
       // 6. Clear all opening graphs from IndexedDB (comprehensive approach)
       try {
         await clearAllGraphs();
-        console.log('✅ Cleared all opening graphs from IndexedDB');
       } catch (error) {
         console.warn('⚠️ Could not clear all graphs:', error);
         
@@ -310,7 +295,6 @@ export const AuthProvider = ({ children }) => {
         if (currentIdentifier) {
           try {
             await deleteOpeningGraph(currentIdentifier);
-            console.log('✅ Deleted specific user graph as fallback');
           } catch (fallbackError) {
             console.warn('⚠️ Could not delete user-specific graph either:', fallbackError);
           }
@@ -322,7 +306,6 @@ export const AuthProvider = ({ children }) => {
         // Force garbage collection if available (development only)
         if (typeof window !== 'undefined' && window.gc) {
           window.gc();
-          console.log('✅ Forced garbage collection');
         }
       } catch (error) {
         // Ignore if gc is not available
@@ -332,10 +315,6 @@ export const AuthProvider = ({ children }) => {
       setUser(null);
       setIsAuthenticated(false);
       
-      console.log('🎉 Logout cleanup completed successfully');
-      
-      // Optional: Show a brief success message
-      console.log('🔒 All user data has been securely cleared');
       
     } catch (error) {
       console.error('❌ Error during logout cleanup:', error);
@@ -350,7 +329,6 @@ export const AuthProvider = ({ children }) => {
         if (googleAuth.isSignedIn) {
           try {
             await googleAuth.signOut();
-            console.log('✅ Signed out from Google (fallback)');
           } catch (googleError) {
             console.warn('⚠️ Google sign-out failed in fallback:', googleError);
           }
@@ -377,10 +355,8 @@ export const AuthProvider = ({ children }) => {
     setSyncProgress(0);
     setSyncStatus('Starting sync...');
     try {
-      console.log('Starting sync for user:', userData.username, 'on platform:', userData.platform);
       
       // Use a silent import process for sync (no UI progress updates)
-      console.log('🔄 Auto-sync: Rebuilding opening graph with latest games...');
       
       // Create a temporary userData object for the import process
       const syncUserData = {
@@ -409,8 +385,6 @@ export const AuthProvider = ({ children }) => {
       setUser(updatedUser);
       localStorage.setItem('chessScope_auth', JSON.stringify({ user: updatedUser }));
       
-      console.log('✅ Auto-sync completed successfully - opening graph rebuilt');
-      console.log(`🎮 Updated last game time: ${updatedUser.lastGameTime ? new Date(updatedUser.lastGameTime).toLocaleString() : 'Unknown'}`);
       
       return result.gameCount;
     } catch (error) {
@@ -480,7 +454,6 @@ export const AuthProvider = ({ children }) => {
       
       // Call the completion callback if provided, but don't reset importing state here
       if (onComplete) {
-        console.log('🎯 Calling settings completion callback');
         onComplete();
       }
       
@@ -625,7 +598,6 @@ export const AuthProvider = ({ children }) => {
             if (progress.processed % 50 === 0 || progress.processed === progress.total) {
               if (window.gameResults) {
                 const { wins, losses, draws, total } = window.gameResults;
-                console.log(`📊 After ${total} ${platform} games: ${wins} wins (${((wins/total)*100).toFixed(1)}%), ${losses} losses (${((losses/total)*100).toFixed(1)}%), ${draws} draws (${((draws/total)*100).toFixed(1)}%) ${progress.isBackground ? '(background mode - immediate yielding)' : ''}`);
               }
             }
           },
@@ -668,7 +640,6 @@ export const AuthProvider = ({ children }) => {
         // Background mode - skip UI animations, complete immediately
         setImportProgress(100);
         setImportStatus(`Graph built with ${totalPositions} unique positions!`);
-        console.log('🔄 Import completed in background mode - skipping UI animations');
       }
       
       // Get the most recent game time (games are already sorted by date, most recent first)
@@ -697,7 +668,6 @@ export const AuthProvider = ({ children }) => {
       try {
         if (googleDriveBackup) {
           googleDriveBackup.markDataChanged();
-          console.log('✅ Triggered backup after successful import');
         }
       } catch (error) {
         console.warn('Failed to trigger backup after import:', error);
@@ -723,7 +693,6 @@ export const AuthProvider = ({ children }) => {
       setSyncStatus('Connecting to server...');
       setSyncProgress(5);
       
-      console.log('🔄 Silent import: Fetching games...');
 
       let recentTargetedGames = [];
       const TARGET_GAMES = 1500; // Hard limit
@@ -750,7 +719,6 @@ export const AuthProvider = ({ children }) => {
         
         setSyncProgress(45);
         setSyncStatus(`Found ${recentTargetedGames.length} games from Lichess...`);
-        console.log(`🔄 Silent import: Found ${recentTargetedGames.length} games from Lichess`);
         
       } else {
         // Chess.com archive-based approach with progress tracking
@@ -759,7 +727,6 @@ export const AuthProvider = ({ children }) => {
         
         setSyncProgress(45);
         setSyncStatus(`Found ${recentTargetedGames.length} games from Chess.com...`);
-        console.log(`🔄 Silent import: Found ${recentTargetedGames.length} games from Chess.com`);
       }
       
       // Small pause to show the found games status
@@ -768,7 +735,6 @@ export const AuthProvider = ({ children }) => {
       setSyncProgress(50);
       setSyncStatus('Clearing previous data and creating new opening graph...');
       
-      console.log('🔄 Silent import: Creating new opening graph...');
 
       // Create platform-specific identifier
       const identifier = `${platform}:${username}`.toLowerCase();
@@ -784,7 +750,6 @@ export const AuthProvider = ({ children }) => {
       const openingGraph = new OpeningGraph(identifier);
       
       setSyncStatus(`Processing ${recentTargetedGames.length} games into new opening graph...`);
-      console.log(`🔄 Silent import: Processing ${recentTargetedGames.length} games...`);
 
       const totalGames = recentTargetedGames.length;
       
@@ -830,7 +795,6 @@ export const AuthProvider = ({ children }) => {
             
             // Log progress every 50 games
             if (progress.processed % 50 === 0 || progress.processed === progress.total) {
-              console.log(`🔄 Silent import: Processed ${progress.processed}/${progress.total} games ${progress.isBackground ? '(background mode - immediate yielding)' : ''}`);
             }
           },
           onError: (error, game, index) => {
@@ -842,7 +806,6 @@ export const AuthProvider = ({ children }) => {
 
       setSyncProgress(95);
       setSyncStatus('Finalizing sync and saving opening graph...');
-      console.log('🔄 Silent import: Saving opening graph...');
 
       // Save the complete graph
       await saveOpeningGraph(openingGraph);
@@ -869,8 +832,6 @@ export const AuthProvider = ({ children }) => {
         }
       }
       
-      console.log(`✅ Silent import completed: ${totalPositions} unique positions built`);
-      console.log(`🎮 Last game time: ${lastGameTime ? new Date(lastGameTime).toLocaleString() : 'Unknown'}`);
       
       return { gameCount: recentTargetedGames.length, lastGameTime };
 
@@ -885,7 +846,6 @@ export const AuthProvider = ({ children }) => {
       try {
         if (googleDriveBackup) {
           googleDriveBackup.markDataChanged();
-          console.log('✅ Triggered backup after successful sync');
         }
       } catch (error) {
         console.warn('Failed to trigger backup after sync:', error);
@@ -1134,8 +1094,6 @@ const fetchChessComGames = async (username, importSettings = {}, onProgress = nu
         return archiveDate <= targetEndDate && archiveMonthEnd >= targetStartDate;
       });
       
-      console.log(`📅 Chess.com date filtering: ${targetStartDate.toISOString().split('T')[0]} to ${targetEndDate.toISOString().split('T')[0]}`);
-      console.log(`📦 Filtered archives: ${archivesToFetch.length}/${allArchives.length} archives match date range`);
     } else {
       // If no date range specified, take all archives but limit to reasonable amount
       archivesToFetch = allArchives.slice(-12); // Last 12 months max
@@ -1371,7 +1329,6 @@ const fetchLichessGames = async (username, importSettings = {}, onProgress = nul
     
     const apiUrl = `${lichessBaseURL}${playerNameFilter}?max=1500${ratedFilter}${perfFilter}${timeSinceFilter}${timeUntilFilter}`;
     
-    console.log('Fetching Lichess games from:', apiUrl);
     
     // Report initial download start
     if (onProgress) {
@@ -1467,7 +1424,6 @@ const fetchLichessGames = async (username, importSettings = {}, onProgress = nul
     let jsonLines = [];
     try {
       jsonLines = text.trim().split('\n').filter(line => line.trim());
-      console.log(`Received ${jsonLines.length} JSON games from Lichess`);
     } catch (parseError) {
       console.error('Error parsing Lichess games response:', parseError);
       throw new Error('Invalid response format from Lichess API');
@@ -1526,7 +1482,6 @@ const fetchLichessGames = async (username, importSettings = {}, onProgress = nul
             const wins = processedGames.filter(g => g.result === 'win').length;
             const losses = processedGames.filter(g => g.result === 'lose').length;
             const draws = processedGames.filter(g => g.result === 'draw').length;
-            console.log(`📊 After ${processedGames.length} games: ${wins} wins (${((wins/processedGames.length)*100).toFixed(1)}%), ${losses} losses (${((losses/processedGames.length)*100).toFixed(1)}%), ${draws} draws (${((draws/processedGames.length)*100).toFixed(1)}%)`);
           }
         }
         
@@ -1550,8 +1505,6 @@ const fetchLichessGames = async (username, importSettings = {}, onProgress = nul
     const finalLosses = processedGames.filter(g => g.result === 'lose').length;
     const finalDraws = processedGames.filter(g => g.result === 'draw').length;
     
-    console.log(`✅ Final Lichess results: ${finalWins} wins (${((finalWins/processedGames.length)*100).toFixed(1)}%), ${finalLosses} losses (${((finalLosses/processedGames.length)*100).toFixed(1)}%), ${finalDraws} draws (${((finalDraws/processedGames.length)*100).toFixed(1)}%)`);
-    console.log(`Successfully processed ${processedGames.length} games from Lichess`);
     
     // Sort by date (most recent first) and limit to 1500 games
     return processedGames
@@ -1585,7 +1538,6 @@ const backupToGoogleDrive = async (games, googleAccount) => {
   // Simulate Google Drive API call
   await new Promise(resolve => setTimeout(resolve, 800));
   
-  console.log(`Backed up ${games.length} games to Google Drive for ${googleAccount}`);
   return { success: true, backupDate: new Date().toISOString() };
 };
 

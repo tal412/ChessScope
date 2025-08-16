@@ -82,12 +82,6 @@ class GoogleAuthService {
             return;
           }
           
-          console.log('Google Auth: Access token received', {
-            tokenLength: response.access_token?.length,
-            tokenPrefix: response.access_token?.substring(0, 20),
-            scope: response.scope,
-            expires_in: response.expires_in
-          });
           this.accessToken = response.access_token;
           
           // Verify token is valid before marking as signed in
@@ -224,7 +218,6 @@ class GoogleAuthService {
       localStorage.removeItem('google_was_signed_in');
       
       this.notifyListeners('signOut');
-      console.log('Google Auth: Signed out successfully');
       return true;
     } catch (error) {
       console.error('Sign out failed:', error);
@@ -234,7 +227,6 @@ class GoogleAuthService {
 
   async getUserProfile() {
     if (!this.accessToken) {
-      console.log('No access token available');
       return null;
     }
 
