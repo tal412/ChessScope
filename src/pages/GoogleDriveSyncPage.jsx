@@ -479,18 +479,18 @@ const GoogleDriveSyncPage = () => {
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col justify-center space-y-4">
                   <Button 
-                    onClick={handleSync}
-                    disabled={!syncStatus?.isEnabled || loading}
+                    onClick={loading ? undefined : handleSync}
+                    disabled={!syncStatus?.isEnabled && !loading}
                     className={`w-full transition-colors ${
                       loading 
-                        ? 'bg-blue-500 hover:bg-blue-500 text-white cursor-wait' 
+                        ? 'bg-blue-500 hover:bg-blue-500 text-white cursor-wait pointer-events-none' 
                         : !syncStatus?.isEnabled
                         ? 'bg-slate-700 hover:bg-slate-700 text-slate-400 cursor-not-allowed'
                         : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}
                   >
                     {loading ? (
-                      <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                      <RefreshCw className="h-4 w-4 animate-spin mr-2 text-white" />
                     ) : (
                       <RefreshCw className="h-4 w-4 mr-2" />
                     )}
@@ -500,13 +500,6 @@ const GoogleDriveSyncPage = () => {
                     }
                   </Button>
                   
-                  
-                  {/* Extra spacing content to help fill the card */}
-                  <div className="pt-4 border-t border-slate-600/30">
-                    <p className="text-xs text-slate-400 text-center">
-                      Sync your studies safely with conflict detection
-                    </p>
-                  </div>
                 </CardContent>
               </Card>
             </div>
@@ -570,31 +563,17 @@ const GoogleDriveSyncPage = () => {
 
                       {/* Sync Status */}
                       {syncStats.hasConflicts ? (
-                        <div className="bg-amber-900/20 border border-amber-600/30 rounded-lg p-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <AlertTriangle className="h-5 w-5 text-amber-400" />
-                            <h3 className="font-medium text-amber-200">Conflicts Detected</h3>
-                          </div>
-                          <div className="space-y-2 text-sm">
-                            {syncStats.conflicts.localOnly.length > 0 && (
-                              <p className="text-amber-200">
-                                {syncStats.conflicts.localOnly.length} studies only on device
-                              </p>
-                            )}
-                            {syncStats.conflicts.remoteOnly.length > 0 && (
-                              <p className="text-amber-200">
-                                {syncStats.conflicts.remoteOnly.length} studies only in cloud
-                              </p>
-                            )}
-                            {syncStats.conflicts.modified.length > 0 && (
-                              <p className="text-amber-200">
-                                {syncStats.conflicts.modified.length} studies modified in both locations
-                              </p>
-                            )}
-                          </div>
-                          <p className="text-amber-200 text-sm mt-3">
-                            Click "Resolve Conflicts" to sync safely.
-                          </p>
+                        <div className="flex items-center gap-2 text-amber-400">
+                          <AlertTriangle className="h-4 w-4" />
+                          <span className="text-sm font-medium">
+                            {(() => {
+                              const conflicts = [];
+                              if (syncStats.conflicts.localOnly.length > 0) conflicts.push(syncStats.conflicts.localOnly.length + ' local');
+                              if (syncStats.conflicts.remoteOnly.length > 0) conflicts.push(syncStats.conflicts.remoteOnly.length + ' cloud');
+                              if (syncStats.conflicts.modified.length > 0) conflicts.push(syncStats.conflicts.modified.length + ' modified');
+                              return conflicts.length > 0 ? `${conflicts.join(', ')} conflicts` : 'Conflicts detected';
+                            })()}
+                          </span>
                         </div>
                       ) : (
                         <div className="flex items-center gap-2 text-green-400">
