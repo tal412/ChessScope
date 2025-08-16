@@ -419,69 +419,70 @@ const GoogleDriveSyncPage = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column - Account & Status */}
-            <div className="flex flex-col space-y-6 h-full">
-              {/* User Account */}
-              <Card className="bg-slate-800/50 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-white">Account</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center gap-3 mb-4">
-                    {userInfo?.imageUrl && (
-                      <img 
-                        src={userInfo.imageUrl} 
-                        alt={userInfo.name}
-                        className="h-12 w-12 rounded-full"
-                      />
-                    )}
-                    <div className="flex-1">
-                      <p className="font-medium text-white">{userInfo?.name}</p>
-                      <p className="text-sm text-slate-400">{userInfo?.email}</p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleSignOutClick}
-                      disabled={loading}
-                      className="text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 p-2"
-                      title="Sign Out"
-                    >
-                      <LogOut className="h-4 w-4" />
-                    </Button>
+          <Card className="bg-slate-800/50 border-slate-700">
+            <CardHeader>
+              <div className="flex items-center justify-between w-full">
+                {/* Left side - User info and sign out */}
+                <div className="flex items-center gap-3">
+                  {userInfo?.imageUrl && (
+                    <img 
+                      src={userInfo.imageUrl} 
+                      alt={userInfo.name}
+                      className="h-10 w-10 rounded-full"
+                    />
+                  )}
+                  <div>
+                    <CardTitle className="text-white">{userInfo?.name}</CardTitle>
+                    <CardDescription className="text-slate-400">{userInfo?.email}</CardDescription>
                   </div>
-                  
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-400">Status</span>
-                      <Badge className={syncStatus?.isEnabled 
-                        ? "bg-green-900/50 text-green-300 border-green-500/30" 
-                        : "bg-slate-600/50 text-slate-300 border-slate-500/30"
-                      }>
-                        {syncStatus?.isEnabled ? "Connected" : "Not Connected"}
-                      </Badge>
-                    </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSignOutClick}
+                    disabled={loading}
+                    className="text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 p-2 ml-2"
+                    title="Sign Out"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                {/* Right side - Sync status and button */}
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col items-end gap-1">
                     {lastSyncTime && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-slate-400">Last Sync</span>
-                        <span className="text-sm text-white">{lastSyncTime.toLocaleString()}</span>
+                      <div className="text-xs text-slate-400">
+                        {lastSyncTime.toLocaleString()}
+                      </div>
+                    )}
+                    {syncStats && (
+                      <div className="text-sm">
+                        {syncStats.hasConflicts ? (
+                          <div className="flex items-center gap-2 text-amber-400">
+                            <AlertTriangle className="h-3 w-3" />
+                            <span>
+                              {(() => {
+                                const conflicts = [];
+                                if (syncStats.conflicts.localOnly.length > 0) conflicts.push(syncStats.conflicts.localOnly.length + ' local');
+                                if (syncStats.conflicts.remoteOnly.length > 0) conflicts.push(syncStats.conflicts.remoteOnly.length + ' cloud');
+                                if (syncStats.conflicts.modified.length > 0) conflicts.push(syncStats.conflicts.modified.length + ' modified');
+                                return conflicts.length > 0 ? `${conflicts.join(', ')} conflicts` : 'Conflicts detected';
+                              })()}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 text-green-400">
+                            <CheckCircle className="h-3 w-3" />
+                            <span>In sync</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Quick Actions */}
-              <Card className="bg-slate-800/50 border-slate-700 flex-1 flex flex-col">
-                <CardHeader>
-                  <CardTitle className="text-white">Quick Actions</CardTitle>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col justify-center space-y-4">
                   <Button 
                     onClick={loading ? undefined : handleSync}
                     disabled={!syncStatus?.isEnabled && !loading}
-                    className={`w-full transition-colors ${
+                    className={`transition-colors ${
                       loading 
                         ? 'bg-blue-500 hover:bg-blue-500 text-white cursor-wait pointer-events-none' 
                         : !syncStatus?.isEnabled
@@ -499,101 +500,58 @@ const GoogleDriveSyncPage = () => {
                       syncStats?.hasConflicts ? 'Resolve Conflicts' : 'Sync Now'
                     }
                   </Button>
-                  
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Middle & Right Columns - Data Overview */}
-            <div className="lg:col-span-2 flex">
-              <Card className="bg-slate-800/50 border-slate-700 flex-1 flex flex-col">
-                <CardHeader>
-                  <CardTitle className="text-white">Sync Overview</CardTitle>
-                  <CardDescription className="text-slate-400">
-                    Compare your local and cloud data
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col">
-                  {syncStats ? (
-                    <div className="flex-1 flex flex-col justify-between space-y-6">
-                      {/* Data Summary */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div className="bg-slate-700/30 rounded-lg p-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Monitor className="h-5 w-5 text-blue-400" />
-                            <h3 className="font-medium text-white">This Device</h3>
-                          </div>
-                          <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">Studies</span>
-                              <span className="text-white font-medium">{syncStats.local.studies.length}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">Folders</span>
-                              <span className="text-white font-medium">{syncStats.local.folders.length}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">Tags</span>
-                              <span className="text-white font-medium">{syncStats.local.tags.length}</span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="bg-slate-700/30 rounded-lg p-4">
-                          <div className="flex items-center gap-2 mb-3">
-                            <Cloud className="h-5 w-5 text-green-400" />
-                            <h3 className="font-medium text-white">Google Drive</h3>
-                          </div>
-                          <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">Studies</span>
-                              <span className="text-white font-medium">{syncStats.remote.studies.length}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">Folders</span>
-                              <span className="text-white font-medium">{syncStats.remote.folders.length}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-slate-400">Tags</span>
-                              <span className="text-white font-medium">{syncStats.remote.tags.length}</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Sync Status */}
-                      {syncStats.hasConflicts ? (
-                        <div className="flex items-center gap-2 text-amber-400">
-                          <AlertTriangle className="h-4 w-4" />
-                          <span className="text-sm font-medium">
-                            {(() => {
-                              const conflicts = [];
-                              if (syncStats.conflicts.localOnly.length > 0) conflicts.push(syncStats.conflicts.localOnly.length + ' local');
-                              if (syncStats.conflicts.remoteOnly.length > 0) conflicts.push(syncStats.conflicts.remoteOnly.length + ' cloud');
-                              if (syncStats.conflicts.modified.length > 0) conflicts.push(syncStats.conflicts.modified.length + ' modified');
-                              return conflicts.length > 0 ? `${conflicts.join(', ')} conflicts` : 'Conflicts detected';
-                            })()}
-                          </span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2 text-green-400">
-                          <CheckCircle className="h-4 w-4" />
-                          <span className="text-sm font-medium">In sync</span>
-                        </div>
-                      )}
+                </div>
+              </div>
+            </CardHeader>
+            {/* Data Overview - Optional */}
+            {syncStats && (
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-slate-700/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Monitor className="h-4 w-4 text-blue-400" />
+                      <h3 className="font-medium text-white text-sm">This Device</h3>
                     </div>
-                  ) : (
-                    <div className="flex-1 flex items-center justify-center">
-                      <div className="flex flex-col items-center gap-2">
-                        <Cloud className="h-8 w-8 text-slate-400" />
-                        <p className="text-slate-400">Connect to view sync data</p>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Studies</span>
+                        <span className="text-white font-medium">{syncStats.local.studies.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Folders</span>
+                        <span className="text-white font-medium">{syncStats.local.folders.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Tags</span>
+                        <span className="text-white font-medium">{syncStats.local.tags.length}</span>
                       </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+                  </div>
+
+                  <div className="bg-slate-700/30 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Cloud className="h-4 w-4 text-green-400" />
+                      <h3 className="font-medium text-white text-sm">Google Drive</h3>
+                    </div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Studies</span>
+                        <span className="text-white font-medium">{syncStats.remote.studies.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Folders</span>
+                        <span className="text-white font-medium">{syncStats.remote.folders.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Tags</span>
+                        <span className="text-white font-medium">{syncStats.remote.tags.length}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            )}
+          </Card>
         )}
         </div>
       </div>
