@@ -125,13 +125,58 @@ class GoogleDriveSyncService {
         });
         return obj;
       }) : [];
+      
+      // Get moves (with error handling for backwards compatibility)
+      let moves = [];
+      try {
+        const movesResult = db.exec("SELECT * FROM user_study_moves");
+        moves = movesResult.length > 0 ? movesResult[0].values.map(row => {
+          const obj = {};
+          movesResult[0].columns.forEach((col, index) => {
+            obj[col] = row[index];
+          });
+          return obj;
+        }) : [];
+      } catch (error) {
+        console.log('user_study_moves table not found in local database (probably old database)');
+      }
+
+      // Get move annotations (with error handling for backwards compatibility)
+      let annotations = [];
+      try {
+        const annotationsResult = db.exec("SELECT * FROM move_annotations");
+        annotations = annotationsResult.length > 0 ? annotationsResult[0].values.map(row => {
+          const obj = {};
+          annotationsResult[0].columns.forEach((col, index) => {
+            obj[col] = row[index];
+          });
+          return obj;
+        }) : [];
+      } catch (error) {
+        console.log('move_annotations table not found in local database (probably old database)');
+      }
+
+      // Get study tags mapping (with error handling for backwards compatibility)
+      let tagsMapping = [];
+      try {
+        const tagsMapResult = db.exec("SELECT * FROM study_tags_mapping");
+        tagsMapping = tagsMapResult.length > 0 ? tagsMapResult[0].values.map(row => {
+          const obj = {};
+          tagsMapResult[0].columns.forEach((col, index) => {
+            obj[col] = row[index];
+          });
+          return obj;
+        }) : [];
+      } catch (error) {
+        console.log('study_tags_mapping table not found in local database (probably old database)');
+      }
 
       db.close();
       
-      return { studies, folders, tags };
+      return { studies, folders, tags, moves, annotations, tagsMapping };
     } catch (error) {
       console.error('Error getting local studies:', error);
-      return { studies: [], folders: [], tags: [] };
+      return { studies: [], folders: [], tags: [], moves: [], annotations: [], tagsMapping: [] };
     }
   }
 
@@ -213,18 +258,66 @@ class GoogleDriveSyncService {
         return obj;
       }) : [];
 
+      // Get moves (with error handling for backwards compatibility)
+      let moves = [];
+      try {
+        const movesResult = db.exec("SELECT * FROM user_study_moves");
+        moves = movesResult.length > 0 ? movesResult[0].values.map(row => {
+          const obj = {};
+          movesResult[0].columns.forEach((col, index) => {
+            obj[col] = row[index];
+          });
+          return obj;
+        }) : [];
+      } catch (error) {
+        console.log('user_study_moves table not found in remote database (probably old database)');
+      }
+
+      // Get move annotations (with error handling for backwards compatibility)
+      let annotations = [];
+      try {
+        const annotationsResult = db.exec("SELECT * FROM move_annotations");
+        annotations = annotationsResult.length > 0 ? annotationsResult[0].values.map(row => {
+          const obj = {};
+          annotationsResult[0].columns.forEach((col, index) => {
+            obj[col] = row[index];
+          });
+          return obj;
+        }) : [];
+      } catch (error) {
+        console.log('move_annotations table not found in remote database (probably old database)');
+      }
+
+      // Get study tags mapping (with error handling for backwards compatibility)
+      let tagsMapping = [];
+      try {
+        const tagsMapResult = db.exec("SELECT * FROM study_tags_mapping");
+        tagsMapping = tagsMapResult.length > 0 ? tagsMapResult[0].values.map(row => {
+          const obj = {};
+          tagsMapResult[0].columns.forEach((col, index) => {
+            obj[col] = row[index];
+          });
+          return obj;
+        }) : [];
+      } catch (error) {
+        console.log('study_tags_mapping table not found in remote database (probably old database)');
+      }
+
       db.close();
       
       return { 
         studies, 
         folders, 
         tags,
+        moves,
+        annotations,
+        tagsMapping,
         lastModified: new Date(syncFile.modifiedTime),
         fileId: syncFile.id
       };
     } catch (error) {
       console.error('Error getting remote studies:', error);
-      return { studies: [], folders: [], tags: [] };
+      return { studies: [], folders: [], tags: [], moves: [], annotations: [], tagsMapping: [] };
     }
   }
 
@@ -300,6 +393,9 @@ class GoogleDriveSyncService {
       let mergedStudies = [];
       let mergedFolders = comparison.local.folders;
       let mergedTags = comparison.local.tags;
+      let mergedMoves = [];
+      let mergedAnnotations = [];
+      let mergedTagsMapping = [];
 
       switch (mergeStrategy) {
         case 'merge':
@@ -311,18 +407,57 @@ class GoogleDriveSyncService {
               mergedStudies.push(remoteStudy);
             }
           }
+          
+          // Merge moves - keep all local moves and add remote moves for studies that exist
+          mergedMoves = [...comparison.local.moves || []];
+          for (const remoteMove of comparison.remote.moves || []) {
+            const localMoveExists = mergedMoves.find(m => m.id === remoteMove.id);
+            const studyExists = mergedStudies.find(s => s.id === remoteMove.study_id);
+            if (!localMoveExists && studyExists) {
+              mergedMoves.push(remoteMove);
+            }
+          }
+          
+          // Merge annotations
+          mergedAnnotations = [...comparison.local.annotations || []];
+          for (const remoteAnnotation of comparison.remote.annotations || []) {
+            const localAnnotationExists = mergedAnnotations.find(a => a.id === remoteAnnotation.id);
+            const moveExists = mergedMoves.find(m => m.id === remoteAnnotation.move_id);
+            if (!localAnnotationExists && moveExists) {
+              mergedAnnotations.push(remoteAnnotation);
+            }
+          }
+          
+          // Merge tags mapping
+          mergedTagsMapping = [...comparison.local.tagsMapping || []];
+          for (const remoteMapping of comparison.remote.tagsMapping || []) {
+            const localMappingExists = mergedTagsMapping.find(tm => tm.id === remoteMapping.id);
+            const studyExists = mergedStudies.find(s => s.id === remoteMapping.study_id);
+            if (!localMappingExists && studyExists) {
+              mergedTagsMapping.push(remoteMapping);
+            }
+          }
           break;
         
         case 'local_only':
           mergedStudies = comparison.local.studies;
+          mergedMoves = comparison.local.moves || [];
+          mergedAnnotations = comparison.local.annotations || [];
+          mergedTagsMapping = comparison.local.tagsMapping || [];
           break;
         
         case 'remote_only':
           mergedStudies = comparison.remote.studies;
+          mergedMoves = comparison.remote.moves || [];
+          mergedAnnotations = comparison.remote.annotations || [];
+          mergedTagsMapping = comparison.remote.tagsMapping || [];
           break;
         
         case 'force_overwrite':
           mergedStudies = comparison.local.studies;
+          mergedMoves = comparison.local.moves || [];
+          mergedAnnotations = comparison.local.annotations || [];
+          mergedTagsMapping = comparison.local.tagsMapping || [];
           break;
         
         default:
@@ -330,10 +465,24 @@ class GoogleDriveSyncService {
       }
 
       // Create database with merged data and upload to remote
-      await this.uploadMergedData({ studies: mergedStudies, folders: mergedFolders, tags: mergedTags });
+      await this.uploadMergedData({ 
+        studies: mergedStudies, 
+        folders: mergedFolders, 
+        tags: mergedTags,
+        moves: mergedMoves,
+        annotations: mergedAnnotations,
+        tagsMapping: mergedTagsMapping
+      });
       
       // Update local database with merged data to prevent conflicts
-      await this.updateLocalWithMergedData({ studies: mergedStudies, folders: mergedFolders, tags: mergedTags });
+      await this.updateLocalWithMergedData({ 
+        studies: mergedStudies, 
+        folders: mergedFolders, 
+        tags: mergedTags,
+        moves: mergedMoves,
+        annotations: mergedAnnotations,
+        tagsMapping: mergedTagsMapping
+      });
       
       return { success: true, studyCount: mergedStudies.length };
     } catch (error) {
@@ -385,6 +534,44 @@ class GoogleDriveSyncService {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       )`);
 
+      db.run(`CREATE TABLE user_study_moves (
+        id INTEGER PRIMARY KEY,
+        study_id INTEGER NOT NULL,
+        fen TEXT NOT NULL,
+        san TEXT NOT NULL,
+        uci TEXT,
+        move_number INTEGER NOT NULL,
+        parent_fen TEXT,
+        is_main_line BOOLEAN DEFAULT 1,
+        is_initial_move BOOLEAN DEFAULT 0,
+        evaluation TEXT,
+        comment TEXT,
+        arrows TEXT,
+        highlights TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (study_id) REFERENCES user_studies(id) ON DELETE CASCADE
+      )`);
+
+      db.run(`CREATE TABLE move_annotations (
+        id INTEGER PRIMARY KEY,
+        move_id INTEGER NOT NULL,
+        type TEXT NOT NULL,
+        content TEXT NOT NULL,
+        url TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (move_id) REFERENCES user_study_moves(id) ON DELETE CASCADE
+      )`);
+
+      db.run(`CREATE TABLE study_tags_mapping (
+        id INTEGER PRIMARY KEY,
+        study_id INTEGER NOT NULL,
+        tag_id INTEGER NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (study_id) REFERENCES user_studies(id) ON DELETE CASCADE,
+        FOREIGN KEY (tag_id) REFERENCES study_tags(id) ON DELETE CASCADE
+      )`);
+
       // Insert data
       for (const study of data.studies) {
         const stmt = db.prepare(`INSERT INTO user_studies (id, username, name, color, initial_fen, initial_moves, initial_view_fen, starting_pgn, folder_id, position, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
@@ -409,6 +596,34 @@ class GoogleDriveSyncService {
       for (const tag of data.tags) {
         const stmt = db.prepare(`INSERT INTO study_tags (id, name, color, created_at) VALUES (?, ?, ?, ?)`);
         stmt.run([tag.id, tag.name, tag.color, tag.created_at]);
+        stmt.free();
+      }
+
+      // Insert moves
+      for (const move of data.moves || []) {
+        const stmt = db.prepare(`INSERT INTO user_study_moves (id, study_id, fen, san, uci, move_number, parent_fen, is_main_line, is_initial_move, evaluation, comment, arrows, highlights, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+        stmt.run([
+          move.id, move.study_id, move.fen, move.san, move.uci, move.move_number,
+          move.parent_fen, move.is_main_line, move.is_initial_move, move.evaluation,
+          move.comment, move.arrows, move.highlights, move.created_at
+        ]);
+        stmt.free();
+      }
+
+      // Insert annotations
+      for (const annotation of data.annotations || []) {
+        const stmt = db.prepare(`INSERT INTO move_annotations (id, move_id, type, content, url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)`);
+        stmt.run([
+          annotation.id, annotation.move_id, annotation.type, annotation.content,
+          annotation.url, annotation.created_at, annotation.updated_at
+        ]);
+        stmt.free();
+      }
+
+      // Insert tags mapping
+      for (const mapping of data.tagsMapping || []) {
+        const stmt = db.prepare(`INSERT INTO study_tags_mapping (id, study_id, tag_id, created_at) VALUES (?, ?, ?, ?)`);
+        stmt.run([mapping.id, mapping.study_id, mapping.tag_id, mapping.created_at]);
         stmt.free();
       }
 
@@ -500,7 +715,7 @@ class GoogleDriveSyncService {
       await dbModule.waitForDatabase();
       
       // Import necessary modules
-      const { userStudy, studyFolder, studyTag } = await import('../api/studyEntities.js');
+      const { userStudy, studyFolder, studyTag, userStudyMove, moveAnnotation, studyTagsMapping } = await import('../api/studyEntities.js');
       
       // Add any new studies from remote to local database
       for (const study of mergedData.studies) {
@@ -564,6 +779,69 @@ class GoogleDriveSyncService {
         }
       }
       
+      // Add any new moves
+      for (const move of mergedData.moves || []) {
+        try {
+          const existingMoves = await userStudyMove.filter({ id: move.id });
+          if (!existingMoves || existingMoves.length === 0) {
+            await userStudyMove.create({
+              id: move.id,
+              study_id: move.study_id,
+              fen: move.fen,
+              san: move.san,
+              uci: move.uci,
+              move_number: move.move_number,
+              parent_fen: move.parent_fen,
+              is_main_line: move.is_main_line,
+              is_initial_move: move.is_initial_move,
+              evaluation: move.evaluation,
+              comment: move.comment,
+              arrows: move.arrows,
+              highlights: move.highlights,
+              created_at: move.created_at
+            });
+          }
+        } catch (error) {
+          console.warn(`⚠️ Could not add move ${move.san} to local:`, error);
+        }
+      }
+      
+      // Add any new annotations
+      for (const annotation of mergedData.annotations || []) {
+        try {
+          const existingAnnotations = await moveAnnotation.filter({ id: annotation.id });
+          if (!existingAnnotations || existingAnnotations.length === 0) {
+            await moveAnnotation.create({
+              id: annotation.id,
+              move_id: annotation.move_id,
+              type: annotation.type,
+              content: annotation.content,
+              url: annotation.url,
+              created_at: annotation.created_at,
+              updated_at: annotation.updated_at
+            });
+          }
+        } catch (error) {
+          console.warn(`⚠️ Could not add annotation to local:`, error);
+        }
+      }
+      
+      // Add any new tags mapping
+      for (const mapping of mergedData.tagsMapping || []) {
+        try {
+          const existingMappings = await studyTagsMapping.filter({ id: mapping.id });
+          if (!existingMappings || existingMappings.length === 0) {
+            await studyTagsMapping.create({
+              id: mapping.id,
+              study_id: mapping.study_id,
+              tag_id: mapping.tag_id,
+              created_at: mapping.created_at
+            });
+          }
+        } catch (error) {
+          console.warn(`⚠️ Could not add tag mapping to local:`, error);
+        }
+      }
       
       // Save the database after all updates
       await dbModule.saveDatabase();
