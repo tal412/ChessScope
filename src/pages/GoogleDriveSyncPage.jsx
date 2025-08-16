@@ -371,50 +371,24 @@ const GoogleDriveSyncPage = () => {
 
 
         {!isSignedIn ? (
-          /* Sign In Section */
           <Card className="bg-slate-800/50 border-slate-700">
-            <CardHeader className="text-center">
-              <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                <img 
-                  src="/Google_Drive_icon_(2020).svg" 
-                  alt="Google Drive" 
-                  className="w-8 h-8"
-                />
+            <CardContent className="text-center space-y-4 py-8">
+              <div className="flex items-center justify-center gap-2 text-slate-400 mb-4">
+                <User className="h-5 w-5" />
+                <span>No user currently signed in</span>
               </div>
-              <CardTitle className="text-2xl text-white">Connect to Google Drive</CardTitle>
-              <CardDescription className="text-slate-400 text-lg">
-                Sync your chess studies across all devices with smart conflict resolution
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="text-center space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="bg-slate-700/30 rounded-lg p-4">
-                  <Cloud className="h-8 w-8 text-blue-400 mx-auto mb-2" />
-                  <h3 className="font-medium text-white mb-1">Cloud Storage</h3>
-                  <p className="text-slate-400">Secure backup of all your studies</p>
-                </div>
-                <div className="bg-slate-700/30 rounded-lg p-4">
-                  <RefreshCw className="h-8 w-8 text-green-400 mx-auto mb-2" />
-                  <h3 className="font-medium text-white mb-1">Smart Sync</h3>
-                  <p className="text-slate-400">Never lose data with conflict detection</p>
-                </div>
-                <div className="bg-slate-700/30 rounded-lg p-4">
-                  <Monitor className="h-8 w-8 text-purple-400 mx-auto mb-2" />
-                  <h3 className="font-medium text-white mb-1">Cross-Device</h3>
-                  <p className="text-slate-400">Access studies from anywhere</p>
-                </div>
-              </div>
-              
+              <p className="text-slate-300 mb-6">
+                Sign in to sync your studies to Google Drive
+              </p>
               <Button 
                 onClick={handleSignIn} 
                 disabled={loading}
-                size="lg"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {loading ? (
-                  <RefreshCw className="h-5 w-5 animate-spin mr-2" />
+                  <RefreshCw className="h-4 w-4 animate-spin mr-2" />
                 ) : (
-                  <User className="h-5 w-5 mr-2" />
+                  <User className="h-4 w-4 mr-2" />
                 )}
                 {loading ? 'Redirecting to Google...' : 'Sign in with Google'}
               </Button>
