@@ -127,6 +127,8 @@ const GoogleDriveSyncPage = () => {
       setConflictData(null);
       setLastSyncTime(null);
       setSyncStats(null);
+      setLoading(false); // Clear loading state to prevent flash
+      setError(null); // Clear any errors
     };
 
     googleAuth.addEventListener('signIn', handleSignIn);
