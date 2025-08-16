@@ -708,10 +708,13 @@ class GoogleDriveSyncService {
 
   // Update local database with merged data
   async updateLocalWithMergedData(mergedData) {
+    // Ensure database is initialized before proceeding
+    const dbModule = await import('../api/database.js');
+    
+    // Mark this as a sync operation to prevent restore loops
+    dbModule.setSyncOperation(true);
+    
     try {
-      
-      // Ensure database is initialized before proceeding
-      const dbModule = await import('../api/database.js');
       await dbModule.waitForDatabase();
       
       // Import necessary modules
@@ -782,7 +785,12 @@ class GoogleDriveSyncService {
       // Add any new moves
       for (const move of mergedData.moves || []) {
         try {
-          const existingMoves = await userStudyMove.filter({ id: move.id });
+          // Check for existing moves by the unique constraint fields to avoid UNIQUE violations
+          const existingMoves = await userStudyMove.filter({ 
+            study_id: move.study_id,
+            fen: move.fen,
+            parent_fen: move.parent_fen
+          });
           if (!existingMoves || existingMoves.length === 0) {
             await userStudyMove.create({
               id: move.id,
@@ -829,7 +837,11 @@ class GoogleDriveSyncService {
       // Add any new tags mapping
       for (const mapping of mergedData.tagsMapping || []) {
         try {
-          const existingMappings = await studyTagsMapping.filter({ id: mapping.id });
+          // Check for existing mapping by the unique constraint fields to avoid UNIQUE violations
+          const existingMappings = await studyTagsMapping.filter({ 
+            study_id: mapping.study_id,
+            tag_id: mapping.tag_id
+          });
           if (!existingMappings || existingMappings.length === 0) {
             await studyTagsMapping.create({
               id: mapping.id,
@@ -849,6 +861,9 @@ class GoogleDriveSyncService {
     } catch (error) {
       console.error('Error updating local database with merged data:', error);
       throw error;
+    } finally {
+      // Always clear sync operation flag
+      dbModule.setSyncOperation(false);
     }
   }
 

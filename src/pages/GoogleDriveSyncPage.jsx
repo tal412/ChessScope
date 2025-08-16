@@ -28,13 +28,9 @@ const GoogleDriveSyncPage = () => {
   const [loading, setLoading] = useState(false);
   const [initializing, setInitializing] = useState(true);
   const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
-  const [showToast, setShowToast] = useState(false);
   const [showConflictDialog, setShowConflictDialog] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState(null);
   const [syncStats, setSyncStats] = useState(null);
-  const [syncStatusLoading, setSyncStatusLoading] = useState(false);
-  const [authInProgress, setAuthInProgress] = useState(false);
 
   // Validate Google API configuration
   const [configError, setConfigError] = useState(null);
@@ -67,7 +63,6 @@ const GoogleDriveSyncPage = () => {
         setIsSignedIn(googleAuth.isSignedIn);
         if (googleAuth.isSignedIn) {
           setUserInfo(googleAuth.getUserInfo());
-          setSyncStatusLoading(true);
           
           // Auto-enable sync if user is already signed in
           try {
@@ -88,7 +83,6 @@ const GoogleDriveSyncPage = () => {
           
           await refreshSyncStatus();
           await loadSyncStats();
-          setSyncStatusLoading(false);
         }
       } catch (error) {
         console.error('Failed to initialize Google Auth:', error);
@@ -103,7 +97,6 @@ const GoogleDriveSyncPage = () => {
       setIsSignedIn(true);
       setUserInfo(user);
       setError(null);
-      setSyncStatusLoading(true);
       
       // Enable sync capability through CloudSyncManager
       try {
@@ -114,12 +107,6 @@ const GoogleDriveSyncPage = () => {
         if (!cloudSyncManager.isEnabled) {
           await cloudSyncManager.enableSync();
         }
-        setSuccessMessage('Google Drive connected! You can now sync your data.');
-        setShowToast(true);
-        setTimeout(() => {
-          setSuccessMessage(null);
-          setShowToast(false);
-        }, 3000);
       } catch (error) {
         console.error('Failed to enable sync:', error);
         if (error.message.includes('Authentication failed')) {
@@ -131,7 +118,6 @@ const GoogleDriveSyncPage = () => {
       
       await refreshSyncStatus();
       await loadSyncStats();
-      setSyncStatusLoading(false);
     };
 
     const handleSignOut = async () => {
@@ -141,7 +127,6 @@ const GoogleDriveSyncPage = () => {
       setConflictData(null);
       setLastSyncTime(null);
       setSyncStats(null);
-      setSyncStatusLoading(false);
     };
 
     googleAuth.addEventListener('signIn', handleSignIn);
@@ -151,12 +136,6 @@ const GoogleDriveSyncPage = () => {
 
     // Listen for sync events
     const handleSyncCompleted = (event) => {
-      setSuccessMessage('Sync completed successfully!');
-      setShowToast(true);
-      setTimeout(() => {
-        setSuccessMessage(null);
-        setShowToast(false);
-      }, 3000);
       setLastSyncTime(new Date());
       refreshSyncStatus();
       loadSyncStats();
@@ -202,12 +181,10 @@ const GoogleDriveSyncPage = () => {
     try {
       setLoading(true);
       setError(null);
-      setSyncStatusLoading(true);
       await googleAuth.signIn();
     } catch (error) {
       console.error('Sign in failed:', error);
       setError('Failed to sign in to Google. Please try again.');
-      setSyncStatusLoading(false);
     } finally {
       setLoading(false);
     }
@@ -247,12 +224,6 @@ const GoogleDriveSyncPage = () => {
       } else {
         // No conflicts, proceed with merge sync
         await googleDriveSync.syncToRemote('merge');
-        setSuccessMessage('Sync completed successfully!');
-        setShowToast(true);
-        setTimeout(() => {
-          setSuccessMessage(null);
-          setShowToast(false);
-        }, 3000);
         setLastSyncTime(new Date());
         await loadSyncStats();
       }
@@ -295,12 +266,6 @@ const GoogleDriveSyncPage = () => {
         await cloudSyncManager.enableSync();
       }
       
-      setSuccessMessage('Sync conflicts resolved successfully!');
-      setShowToast(true);
-      setTimeout(() => {
-        setSuccessMessage(null);
-        setShowToast(false);
-      }, 3000);
       setLastSyncTime(new Date());
       setConflictData(null);
       await loadSyncStats();
@@ -489,20 +454,13 @@ const GoogleDriveSyncPage = () => {
                   
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-slate-400">Sync Status</span>
-                      {syncStatusLoading ? (
-                        <Badge className="bg-blue-900/50 text-blue-300 border-blue-500/30">
-                          <RefreshCw className="h-3 w-3 animate-spin mr-1" />
-                          Connecting...
-                        </Badge>
-                      ) : (
-                        <Badge className={syncStatus?.isEnabled 
-                          ? "bg-green-900/50 text-green-300 border-green-500/30" 
-                          : "bg-red-900/50 text-red-300 border-red-500/30"
-                        }>
-                          {syncStatus?.isEnabled ? "Connected" : "Disconnected"}
-                        </Badge>
-                      )}
+                      <span className="text-sm text-slate-400">Status</span>
+                      <Badge className={syncStatus?.isEnabled 
+                        ? "bg-green-900/50 text-green-300 border-green-500/30" 
+                        : "bg-slate-600/50 text-slate-300 border-slate-500/30"
+                      }>
+                        {syncStatus?.isEnabled ? "Connected" : "Not Connected"}
+                      </Badge>
                     </div>
                     {lastSyncTime && (
                       <div className="flex items-center justify-between">
@@ -520,45 +478,25 @@ const GoogleDriveSyncPage = () => {
                   <CardTitle className="text-white">Quick Actions</CardTitle>
                 </CardHeader>
                 <CardContent className="flex-1 flex flex-col justify-center space-y-4">
-                  {/* Success Message Above Button */}
-                  <div className={`transition-all duration-300 ease-in-out ${
-                    showToast && successMessage 
-                      ? 'opacity-100 translate-y-0 max-h-12' 
-                      : 'opacity-0 -translate-y-2 max-h-0'
-                  } overflow-hidden`}>
-                    <div className="flex items-center gap-2 bg-green-900/30 border border-green-500/30 rounded-md px-3 py-2">
-                      <CheckCircle className="h-4 w-4 text-green-400 flex-shrink-0" />
-                      <span className="text-green-300 text-xs font-medium">{successMessage}</span>
-                    </div>
-                  </div>
                   <Button 
                     onClick={handleSync}
-                    disabled={(!syncStatus?.isEnabled && !loading) || syncStatusLoading}
+                    disabled={!syncStatus?.isEnabled || loading}
                     className={`w-full transition-colors ${
                       loading 
                         ? 'bg-blue-500 hover:bg-blue-500 text-white cursor-wait' 
-                        : syncStatusLoading
-                        ? 'bg-slate-600 hover:bg-slate-600 text-slate-300 cursor-not-allowed'
                         : !syncStatus?.isEnabled
                         ? 'bg-slate-700 hover:bg-slate-700 text-slate-400 cursor-not-allowed'
                         : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}
                   >
                     {loading ? (
-                      <RefreshCw className="h-4 w-4 animate-spin mr-2 text-white" />
-                    ) : syncStatusLoading ? (
-                      <RefreshCw className="h-4 w-4 animate-spin mr-2 text-slate-300" />
+                      <RefreshCw className="h-4 w-4 animate-spin mr-2" />
                     ) : (
                       <RefreshCw className="h-4 w-4 mr-2" />
                     )}
                     {loading ? 'Syncing...' : 
-                      syncStatusLoading ? 'Setting up sync...' :
                       !syncStatus?.isEnabled ? 'Sync unavailable' :
-                      syncStats?.conflicts && (
-                        syncStats.conflicts.localOnly.length > 0 || 
-                        syncStats.conflicts.remoteOnly.length > 0 || 
-                        syncStats.conflicts.modified.length > 0
-                      ) ? 'Resolve and Sync' : 'Sync Now'
+                      syncStats?.hasConflicts ? 'Resolve Conflicts' : 'Sync Now'
                     }
                   </Button>
                   
@@ -640,22 +578,22 @@ const GoogleDriveSyncPage = () => {
                           <div className="space-y-2 text-sm">
                             {syncStats.conflicts.localOnly.length > 0 && (
                               <p className="text-amber-200">
-                                💻 {syncStats.conflicts.localOnly.length} studies only on device
+                                {syncStats.conflicts.localOnly.length} studies only on device
                               </p>
                             )}
                             {syncStats.conflicts.remoteOnly.length > 0 && (
                               <p className="text-amber-200">
-                                ☁️ {syncStats.conflicts.remoteOnly.length} studies only in cloud
+                                {syncStats.conflicts.remoteOnly.length} studies only in cloud
                               </p>
                             )}
                             {syncStats.conflicts.modified.length > 0 && (
                               <p className="text-amber-200">
-                                🔄 {syncStats.conflicts.modified.length} studies modified in both locations
+                                {syncStats.conflicts.modified.length} studies modified in both locations
                               </p>
                             )}
                           </div>
                           <p className="text-amber-200 text-sm mt-3">
-                            Click "Resolve and Sync" to resolve these conflicts safely.
+                            Click "Resolve Conflicts" to sync safely.
                           </p>
                         </div>
                       ) : (
@@ -667,17 +605,10 @@ const GoogleDriveSyncPage = () => {
                     </div>
                   ) : (
                     <div className="flex-1 flex items-center justify-center">
-                      {loading ? (
-                        <div className="flex flex-col items-center gap-2">
-                          <RefreshCw className="h-8 w-8 animate-spin text-slate-400" />
-                          <p className="text-slate-400">Loading sync status...</p>
-                        </div>
-                      ) : (
-                        <div className="flex flex-col items-center gap-2">
-                          <Cloud className="h-8 w-8 text-slate-400" />
-                          <p className="text-slate-400">Sync data will load automatically</p>
-                        </div>
-                      )}
+                      <div className="flex flex-col items-center gap-2">
+                        <Cloud className="h-8 w-8 text-slate-400" />
+                        <p className="text-slate-400">Connect to view sync data</p>
+                      </div>
                     </div>
                   )}
                 </CardContent>

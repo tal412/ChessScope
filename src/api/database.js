@@ -19,6 +19,8 @@ let db = null;
 let SQL = null;
 let isInitializing = false;
 let isInitialized = false;
+let initializationPromise = null;
+let isSyncOperation = false;
 
 // Export the database instance getter
 export const getDb = () => db;
@@ -28,12 +30,66 @@ export const isDatabaseReady = () => {
   return isInitialized && db !== null;
 };
 
+// Mark sync operation
+export const setSyncOperation = (inSync) => {
+  isSyncOperation = inSync;
+};
+
 // Wait for database to be ready
 export const waitForDatabase = async (maxWaitTime = 10000) => {
-  const startTime = Date.now();
+  // If already ready, return immediately
+  if (isDatabaseReady()) {
+    return true;
+  }
   
+  console.log('Database not ready, initializing...', { isInitializing, isInitialized, hasPromise: !!initializationPromise });
+  
+  // If there's an ongoing initialization, wait for it
+  if (initializationPromise) {
+    try {
+      await Promise.race([
+        initializationPromise,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Database initialization timeout')), maxWaitTime)
+        )
+      ]);
+      
+      if (!isDatabaseReady()) {
+        throw new Error('Database initialization failed');
+      }
+      
+      return true;
+    } catch (error) {
+      // If initialization failed, clear the promise so we can retry
+      if (initializationPromise) {
+        initializationPromise = null;
+      }
+      throw error;
+    }
+  }
+  
+  // If not initializing and not ready, try to initialize
+  if (!isInitializing && !isInitialized) {
+    try {
+      await initDatabase();
+    } catch (error) {
+      console.error('Initial database initialization failed, will retry with fallback:', error);
+    }
+  }
+  
+  // Fallback to polling if needed
+  const startTime = Date.now();
   while (!isDatabaseReady() && (Date.now() - startTime) < maxWaitTime) {
     await new Promise(resolve => setTimeout(resolve, 100));
+    
+    // If still not ready after some time, try one more initialization attempt
+    if (!isDatabaseReady() && !isInitializing && (Date.now() - startTime) > maxWaitTime / 2) {
+      try {
+        await initDatabase();
+      } catch (error) {
+        console.error('Retry database initialization failed:', error);
+      }
+    }
   }
   
   if (!isDatabaseReady()) {
@@ -45,11 +101,17 @@ export const waitForDatabase = async (maxWaitTime = 10000) => {
 
 // Initialize SQL.js and database
 export const initDatabase = async () => {
-  if (isInitializing || isInitialized) {
+  if (isInitialized) {
     return;
   }
   
+  if (isInitializing && initializationPromise) {
+    return initializationPromise;
+  }
+  
   isInitializing = true;
+  
+  initializationPromise = (async () => {
   
   try {
     // Initialize SQL.js
@@ -58,8 +120,8 @@ export const initDatabase = async () => {
       locateFile: file => `https://sql.js.org/dist/${file}`
     });
 
-    // Check if we should attempt Google Drive restore first
-    const shouldAttemptRestore = await checkForGoogleDriveRestore();
+    // Check if we should attempt Google Drive restore first (but not during sync operations)
+    const shouldAttemptRestore = !isSyncOperation && await checkForGoogleDriveRestore();
     
     if (shouldAttemptRestore) {
       try {
@@ -93,14 +155,31 @@ export const initDatabase = async () => {
   } catch (error) {
     console.error('Error initializing database:', error);
     // Fallback: create new database even if loading fails
-    if (SQL && !db) {
-      db = new SQL.Database();
-      await createTables();
-      isInitialized = true;
+    try {
+      if (SQL && !db) {
+        db = new SQL.Database();
+        await createTables();
+        isInitialized = true;
+      } else if (SQL && db) {
+        // Database exists but initialization failed - ensure tables exist
+        await createTables();
+        isInitialized = true;
+      }
+    } catch (fallbackError) {
+      console.error('Fallback database creation also failed:', fallbackError);
+      isInitialized = false;
     }
     isInitializing = false;
-    throw error;
+    initializationPromise = null;
+    
+    // Only throw if we couldn't recover
+    if (!isInitialized) {
+      throw error;
+    }
   }
+  })();
+  
+  return initializationPromise;
 };
 
 // Check if we should attempt Google Drive restore
