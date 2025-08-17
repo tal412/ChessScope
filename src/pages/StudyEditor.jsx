@@ -157,7 +157,7 @@ export default function OpeningEditor() {
       if (nameParam) setName(nameParam);
       if (colorParam && ['white', 'black'].includes(colorParam)) setColor(colorParam);
       if (tagsParam) {
-        const tagIds = tagsParam.split(',').filter(id => id.trim()).map(id => parseInt(id.trim()));
+        const tagIds = tagsParam.split(',').filter(id => id.trim()).map(id => id.trim());
         setSelectedTagIds(tagIds);
       } else {
       }
@@ -183,14 +183,11 @@ export default function OpeningEditor() {
   const [currentNode, setCurrentNode] = useState(initialTree);
   const [currentPath, setCurrentPath] = useState([]);
   const [treeVersion, setTreeVersion] = useState(0);
-  const [treeChangeVersion, setTreeChangeVersion] = useState(0);
   
   // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  // Auto-save state
-  const autoSaveTimeoutRef = useRef(null);
   const [savedStudyId, setSavedOpeningId] = useState(null);
   
   // Conflict state
@@ -201,38 +198,6 @@ export default function OpeningEditor() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
-  // Track last saved state to detect real changes
-  const lastSavedStateRef = useRef(null);
-  
-  // Function to generate current state hash for change detection
-  const getCurrentStateHash = useCallback(() => {
-    const stateString = JSON.stringify({
-      name: name.trim(),
-      color,
-      selectedTagIds: [...selectedTagIds].sort(),
-      treeVersion,
-      treeChangeVersion
-    });
-    
-    return stateString;
-  }, [name, color, selectedTagIds, treeVersion, treeChangeVersion]);
-
-  // Check if there are actual changes since last save
-  const hasRealChanges = useCallback(() => {
-    const currentHash = getCurrentStateHash();
-    const lastHash = lastSavedStateRef.current;
-    
-    if (!lastHash) {
-      // First time, consider it a change only if we have meaningful data
-      return name.trim() !== '';
-    }
-    
-    const changed = currentHash !== lastHash;
-    if (changed) {
-    }
-    
-    return changed;
-  }, [getCurrentStateHash, name]);
   
   // Trigger backup on every move update
   const triggerMoveBackup = useCallback(() => {
@@ -339,16 +304,30 @@ export default function OpeningEditor() {
   // Load existing opening
   const loadedOpeningIdRef = useRef(null);
   useEffect(() => {
+    console.log('[StudyEditor useEffect] studyId changed to:', studyId, 'isNewStudy:', isNewStudy);
     if (!isNewStudy) {
-      const currentOpeningId = parseInt(studyId);
+      const currentOpeningId = studyId; // Keep as string for Firestore compatibility
       const hasTreeData = moveTree && moveTree.children.length > 0;
       const isSameOpening = loadedOpeningIdRef.current === currentOpeningId;
       const hasValidOpeningData = hasTreeData && name && name.trim() !== '';
       const isAlreadyLoaded = (isSameOpening && hasTreeData) || hasValidOpeningData;
       
+      console.log('[StudyEditor useEffect] Load check:', {
+        currentOpeningId,
+        loadedOpeningIdRef: loadedOpeningIdRef.current,
+        hasTreeData,
+        isSameOpening,
+        hasValidOpeningData,
+        isAlreadyLoaded,
+        name,
+        moveTreeChildren: moveTree?.children?.length
+      });
+      
       if (!isAlreadyLoaded) {
+        console.log('[StudyEditor useEffect] Not already loaded, calling loadOpening()');
         loadOpening();
       } else {
+        console.log('[StudyEditor useEffect] Already loaded, updating loadedOpeningIdRef');
         loadedOpeningIdRef.current = currentOpeningId;
       }
     } else {
@@ -476,8 +455,6 @@ export default function OpeningEditor() {
       }
       
       
-      // Update the saved state hash to prevent unnecessary future saves
-      lastSavedStateRef.current = getCurrentStateHash();
       
       // Firebase sync handled automatically by hybrid entities
       
@@ -508,37 +485,6 @@ export default function OpeningEditor() {
     }
   }, [hasLoaded, isNewStudy, name, initialLoadComplete]);
 
-  // Immediate auto-save on changes (but only after initial load and only for real changes)
-  useEffect(() => {
-    if (isViewMode) return;
-    
-    // Don't auto-save during initial load
-    if (!initialLoadComplete) {
-      return;
-    }
-    
-    // Don't auto-save if there are no real changes
-    if (!hasRealChanges()) {
-      return;
-    }
-    
-    // Clear existing timeout
-    if (autoSaveTimeoutRef.current) {
-      clearTimeout(autoSaveTimeoutRef.current);
-    }
-    
-    
-    // Set new timeout for auto-save (500ms after last change for immediate feel)
-    autoSaveTimeoutRef.current = setTimeout(() => {
-      autoSave();
-    }, 500);
-    
-    return () => {
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current);
-      }
-    };
-  }, [name, color, moveTree, treeChangeVersion, autoSave, isViewMode, selectedTagIds, initialLoadComplete, hasRealChanges]);
 
   // Load performance graph data
   useEffect(() => {
@@ -947,27 +893,33 @@ export default function OpeningEditor() {
   const loadOpening = async () => {
     try {
       setLoading(true);
+      console.log('[StudyEditor] Starting loadOpening with studyId:', studyId);
       
-      const openings = await UserStudy.filter({ id: parseInt(studyId) });
-      if (openings.length === 0) {
+      const opening = await UserStudy.getById(studyId);
+      console.log('[StudyEditor] Retrieved opening:', opening);
+      
+      if (!opening) {
+        console.log('[StudyEditor] No opening found, navigating back to studies-book');
         navigate('/studies-book');
         return;
       }
-      
-      const opening = openings[0];
+      console.log('[StudyEditor] Setting opening data - name:', opening.name, 'color:', opening.color, 'id:', opening.id);
       setName(opening.name);
       setColor(opening.color);
       setSavedOpeningId(opening.id);
       
-      const moves = await UserStudyMove.getByStudyId(parseInt(studyId));
+      const moves = await UserStudyMove.getByStudyId(studyId);
+      console.log('[StudyEditor] Retrieved moves:', moves ? moves.length : 0, 'moves');
       
       const root = new MoveNode('Start', opening.initial_fen);
       const nodeMap = new Map();
       nodeMap.set(opening.initial_fen, root);
       
-      moves.sort((a, b) => a.move_number - b.move_number);
+      if (moves && moves.length > 0) {
+        moves.sort((a, b) => a.move_number - b.move_number);
+      }
       
-      for (const move of moves) {
+      for (const move of (moves || [])) {
         const parentNode = nodeMap.get(move.parent_fen);
         if (parentNode) {
           const childNode = parentNode.addChild(move.san, move.fen);
@@ -1024,8 +976,9 @@ export default function OpeningEditor() {
         setCurrentPath([]);
       }
       
-      loadedOpeningIdRef.current = parseInt(studyId);
+      loadedOpeningIdRef.current = studyId;
       setHasLoaded(true); // Mark as loaded to prevent auto-save triggers
+      console.log('[StudyEditor] Successfully loaded study, setting hasLoaded=true');
       
       // Set initial saved state hash after loading
       setTimeout(() => {
@@ -1033,17 +986,18 @@ export default function OpeningEditor() {
           name: opening.name.trim(),
           color: opening.color,
           selectedTagIds: [],
-          treeVersion: 0,
-          treeChangeVersion: 0
+          treeVersion: 0
         });
-        lastSavedStateRef.current = initialHash;
+        console.log('[StudyEditor] Initial load completed');
       }, 100);
       
     } catch (error) {
-      console.error('Error loading opening:', error);
+      console.error('[StudyEditor] Error loading opening:', error);
+      console.error('[StudyEditor] Stack trace:', error.stack);
       navigate('/studies-book');
     } finally {
       setLoading(false);
+      console.log('[StudyEditor] loadOpening completed, loading set to false');
     }
   };
 
@@ -1350,15 +1304,13 @@ export default function OpeningEditor() {
         }}
         onSetMainLine={isViewMode ? null : (node) => {
           MoveNode.setMainLineToNode(moveTree, node);
-          // Force currentNode to update by incrementing treeChangeVersion
-          setTreeChangeVersion(v => v + 1);
+          // Force currentNode to update
           setTreeVersion(v => v + 1);
           triggerMoveBackup();
         }}
         onSetInitialMove={isViewMode ? null : (node) => {
           MoveNode.setInitialMoveToNode(moveTree, node);
-          // Force currentNode to update by incrementing treeChangeVersion
-          setTreeChangeVersion(v => v + 1);
+          // Force currentNode to update
           setTreeVersion(v => v + 1);
           triggerMoveBackup();
         }}
@@ -1368,7 +1320,7 @@ export default function OpeningEditor() {
         readOnly={isViewMode}
       />
     );
-  }, [currentNode, isViewMode, moveTree, drawingMode, handleDrawingModeToggle, treeChangeVersion, triggerMoveBackup]);
+  }, [currentNode, isViewMode, moveTree, drawingMode, handleDrawingModeToggle, triggerMoveBackup]);
 
   // Create configuration for ChessAnalysisView
   const analysisConfig = useMemo(() => {

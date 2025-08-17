@@ -154,29 +154,44 @@ class FirestoreService {
 
   async getStudyById(studyId) {
     try {
-      const studyRef = this.getUserDoc('user_studies', studyId);
+      console.log('[FirestoreService.getStudyById] Called with studyId:', studyId, 'type:', typeof studyId);
+      console.log('[FirestoreService.getStudyById] Current user ID:', this.currentUserId);
+      
+      const studyIdString = String(studyId);
+      console.log('[FirestoreService.getStudyById] Converted studyId to string:', studyIdString);
+      
+      const studyRef = this.getUserDoc('user_studies', studyIdString);
+      console.log('[FirestoreService.getStudyById] Created document reference');
+      
       const snapshot = await getDoc(studyRef);
+      console.log('[FirestoreService.getStudyById] Document exists?', snapshot.exists());
       
       if (snapshot.exists()) {
-        return { id: snapshot.id, ...snapshot.data() };
+        const data = snapshot.data();
+        console.log('[FirestoreService.getStudyById] Document data:', data);
+        const result = { id: snapshot.id, ...data };
+        console.log('[FirestoreService.getStudyById] Returning result:', result);
+        return result;
       }
+      console.log('[FirestoreService.getStudyById] Document not found, returning null');
       return null;
     } catch (error) {
-      console.error('Error getting study by ID:', error);
+      console.error('[FirestoreService.getStudyById] Error getting study by ID:', error);
+      console.error('[FirestoreService.getStudyById] Error stack:', error.stack);
       throw error;
     }
   }
 
   async updateStudy(studyId, updateData) {
     try {
-      const studyRef = this.getUserDoc('user_studies', studyId);
-      const updateDoc = {
+      const studyRef = this.getUserDoc('user_studies', String(studyId));
+      const updatePayload = {
         ...updateData,
         updatedAt: serverTimestamp()
       };
       
-      await updateDoc(studyRef, updateDoc);
-      return { id: studyId, ...updateDoc };
+      await updateDoc(studyRef, updatePayload);
+      return { id: studyId, ...updatePayload };
     } catch (error) {
       console.error('Error updating study:', error);
       throw error;
@@ -192,7 +207,7 @@ class FirestoreService {
       await this.deleteStudyTagsMappings(studyId);
       
       // Delete the study
-      const studyRef = this.getUserDoc('user_studies', studyId);
+      const studyRef = this.getUserDoc('user_studies', String(studyId));
       await deleteDoc(studyRef);
       
       return { success: true };
@@ -238,6 +253,26 @@ class FirestoreService {
       }));
     } catch (error) {
       console.error('Error getting study moves:', error);
+      
+      // If it's an index error, try without ordering as a fallback
+      if (error.code === 'failed-precondition' && error.message.includes('index')) {
+        console.warn('Index not available, fetching moves without ordering. Please create the index using the link in the console.');
+        try {
+          const movesRef = this.getUserCollection('user_study_moves');
+          const q = query(movesRef, where('studyId', '==', studyId));
+          const snapshot = await getDocs(q);
+          const moves = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          // Sort client-side as a workaround
+          return moves.sort((a, b) => (a.moveNumber || 0) - (b.moveNumber || 0));
+        } catch (fallbackError) {
+          console.error('Fallback query also failed:', fallbackError);
+          return []; // Return empty array to allow study to load without moves
+        }
+      }
+      
       throw error;
     }
   }
@@ -258,6 +293,18 @@ class FirestoreService {
       return { success: true };
     } catch (error) {
       console.error('Error deleting study moves:', error);
+      throw error;
+    }
+  }
+
+  async deleteStudyMove(moveId) {
+    try {
+      const movesRef = this.getUserCollection('user_study_moves');
+      const moveDoc = doc(movesRef, moveId);
+      await deleteDoc(moveDoc);
+      return { success: true };
+    } catch (error) {
+      console.error('Error deleting study move:', error);
       throw error;
     }
   }
@@ -313,7 +360,7 @@ class FirestoreService {
       });
       
       // Delete the folder
-      const folderRef = this.getUserDoc('study_folders', folderId);
+      const folderRef = this.getUserDoc('study_folders', String(folderId));
       batch.delete(folderRef);
       
       await batch.commit();
@@ -365,7 +412,7 @@ class FirestoreService {
       await this.deleteTagMappings(tagId);
       
       // Delete the tag
-      const tagRef = this.getUserDoc('study_tags', tagId);
+      const tagRef = this.getUserDoc('study_tags', String(tagId));
       await deleteDoc(tagRef);
       
       return { success: true };

@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from '@/components/ui/use-toast';
 import { SettingsLoading } from '@/components/ui/settings-loading';
 
-export default function InitialPlatformSelect() {
+export default function InitialPlatformSelect({ isTransitioning = false }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { connectPlatform, isImporting, importProgress, importStatus } = useChessPlatform();
@@ -42,6 +42,13 @@ export default function InitialPlatformSelect() {
   });
   const [showCustomDatePicker, setShowCustomDatePicker] = useState(false);
   const [autoSyncFrequency, setAutoSyncFrequency] = useState('1day');
+
+  // Handle external transition trigger
+  useEffect(() => {
+    if (isTransitioning) {
+      setIsLeaving(true);
+    }
+  }, [isTransitioning]);
 
   // Entrance animation effect
   useEffect(() => {
@@ -193,11 +200,9 @@ export default function InitialPlatformSelect() {
   };
 
   const handleImportComplete = () => {
-    // Import complete - navigate to main app
-    setIsVisible(false);
-    setTimeout(() => {
-      navigate('/');
-    }, 150);
+    // Import complete - just trigger fade out, Pages component will handle the transition
+    setIsLeaving(true);
+    // Don't navigate here - let the authentication state change handle it
   };
 
   // Step 1: Account Connection
@@ -209,7 +214,7 @@ export default function InitialPlatformSelect() {
           onClick={handleBack}
           variant="ghost"
           disabled={isImporting}
-          className={`absolute top-6 left-6 transition-all duration-300 ${
+          className={`absolute top-6 left-6 transition-all duration-250 ${
             isImporting 
               ? 'text-slate-600 cursor-not-allowed' 
               : 'text-slate-400 hover:text-white'
@@ -221,12 +226,12 @@ export default function InitialPlatformSelect() {
           Back
         </Button>
 
-                  <div className={`w-full max-w-7xl page-transition transition-all duration-150 ease-out ${
+                  <div className={`w-full max-w-7xl page-transition transition-all duration-250 ease-in-out ${
             isLeaving ? 'opacity-0 transform -translate-x-4' :
             isVisible ? 'opacity-100 transform translate-x-0' : 
             'opacity-0 transform translate-x-4'
           }`}>
-                      <div className={`text-center mb-12 page-transition transition-all duration-150 ease-out ${
+                      <div className={`text-center mb-12 page-transition transition-all duration-250 ease-in-out ${
               isLeaving ? 'opacity-0 transform -translate-x-2' :
               isVisible ? 'opacity-100 transform translate-x-0' : 
               'opacity-0 transform translate-x-2'
@@ -243,7 +248,7 @@ export default function InitialPlatformSelect() {
           </div>
 
           <form onSubmit={handleAccountSubmit} className="space-y-8">
-            <div className={`grid grid-cols-1 lg:grid-cols-3 gap-8 page-transition transition-all duration-150 ease-out ${
+            <div className={`grid grid-cols-1 lg:grid-cols-3 gap-8 page-transition transition-all duration-250 ease-in-out ${
               isLeaving ? 'opacity-0 transform -translate-x-2' :
               isVisible ? 'opacity-100 transform translate-x-0' : 
               'opacity-0 transform translate-x-2'
@@ -485,7 +490,7 @@ export default function InitialPlatformSelect() {
             </div>
 
             {/* Submit Button with integrated loading and error display */}
-            <div className={`flex flex-col items-center page-transition transition-all duration-150 ease-out ${
+            <div className={`flex flex-col items-center page-transition transition-all duration-250 ease-in-out ${
               isLeaving ? 'opacity-0' :
               isVisible ? 'opacity-100' : 
               'opacity-0'
@@ -498,6 +503,7 @@ export default function InitialPlatformSelect() {
                   status={importStatus}
                   onComplete={handleImportComplete}
                   successMessage="Games Imported Successfully!"
+                  successDuration={600}
                   className="w-full"
                   showButtons={!isImporting}
                   buttonText="Connect & Import Games"

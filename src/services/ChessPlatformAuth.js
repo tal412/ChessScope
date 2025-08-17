@@ -366,15 +366,15 @@ class ChessPlatformService {
       const isTabVisible = !document.hidden;
       
       if (isTabVisible) {
-        await new Promise(resolve => setTimeout(resolve, 150));
+        await new Promise(resolve => setTimeout(resolve, 50));
         this.notifyProgress(100);
         this.notifyStatus(`Graph built with ${totalPositions} unique positions!`);
         
         // Hold at 100% briefly so user can see it
-        await new Promise(resolve => setTimeout(resolve, 200));
+        await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Wait for the Done animation (800ms) before cleanup
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // Reduced wait for smoother completion
+        await new Promise(resolve => setTimeout(resolve, 200));
       } else {
         // Background mode - skip UI animations, complete immediately
         this.notifyProgress(100);

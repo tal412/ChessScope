@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
   Target, 
@@ -17,6 +18,9 @@ import { createOpeningClusters } from '../utils/clusteringAnalysis';
 function PerformanceGraphContent() {
   // Get auth context for syncing state
   const { isSyncing, syncProgress, syncStatus, pendingAutoSync } = useAuth();
+  const location = useLocation();
+  
+  // Entrance animation handled at router level
   
   // Core state
   const [selectedPlayer, setSelectedPlayer] = useState('white');
@@ -44,6 +48,8 @@ function PerformanceGraphContent() {
   
   // Track if we've done initial root selection
   const [hasInitialRootSelection, setHasInitialRootSelection] = useState(false);
+
+  // Entrance animation handled at router level
 
   // Auto-zoom toggle handler with persistence
   const handleAutoZoomOnClickChange = useCallback((newState) => {
@@ -463,7 +469,7 @@ function PerformanceGraphContent() {
               Loading Performance Graph
             </h2>
             <p className="text-slate-400 text-base max-w-md mx-auto">
-              Preparing your chess analysis and opening performance data
+              Building your opening analysis from imported games...
             </p>
             <div className="flex items-center justify-center gap-2 mt-6">
               <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>

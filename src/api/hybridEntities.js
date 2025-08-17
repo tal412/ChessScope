@@ -111,6 +111,25 @@ export class UserStudy extends HybridModel {
     }
   }
 
+  async getById(id) {
+    console.log('[UserStudy.getById] Called with id:', id, 'type:', typeof id);
+    console.log('[UserStudy.getById] Is Google signed in?', isGoogleSignedIn());
+    
+    if (isGoogleSignedIn()) {
+      console.log('[UserStudy.getById] Using Firestore backend');
+      const result = await firestoreService.getStudyById(id);
+      console.log('[UserStudy.getById] Firestore result:', result);
+      const transformed = result ? this.transformFromFirestore(result) : null;
+      console.log('[UserStudy.getById] Transformed result:', transformed);
+      return transformed;
+    } else {
+      console.log('[UserStudy.getById] Using local storage backend');
+      const result = await this.localModel.getById(id);
+      console.log('[UserStudy.getById] Local storage result:', result);
+      return result;
+    }
+  }
+
   async getByUsername(username) {
     if (isGoogleSignedIn()) {
       const results = await firestoreService.getStudies({
@@ -243,6 +262,14 @@ export class UserStudyMove extends HybridModel {
         .map(doc => this.transformFromFirestore(doc));
     } else {
       return await this.localModel.getChildren(studyId, parentFen);
+    }
+  }
+
+  async delete(id) {
+    if (isGoogleSignedIn()) {
+      return await firestoreService.deleteStudyMove(id);
+    } else {
+      return await this.localModel.delete(id);
     }
   }
 }

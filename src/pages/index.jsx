@@ -208,15 +208,40 @@ function SimplePlatformPrompt() {
 // Create a wrapper component that uses useLocation inside the Router context
 function PagesContent() {
     const { isAuthenticated, isImporting } = useChessPlatform();
+    const [isTransitioning, setIsTransitioning] = useState(false);
+    const [showAuthenticated, setShowAuthenticated] = useState(false);
+    
+    // Handle authentication transition
+    useEffect(() => {
+        if (isAuthenticated && !showAuthenticated && !isTransitioning) {
+            // Start transition when user becomes authenticated
+            setIsTransitioning(true);
+            
+            // Much faster transition to avoid showing loading screen too long
+            setTimeout(() => {
+                setShowAuthenticated(true);
+                setTimeout(() => {
+                    setIsTransitioning(false);
+                }, 50); // Small delay for smoother transition start
+            }, 100); // Reduced from 280ms to 100ms for faster transition
+        } else if (!isAuthenticated && showAuthenticated) {
+            // Reset when user logs out
+            setShowAuthenticated(false);
+            setIsTransitioning(false);
+        }
+    }, [isAuthenticated, showAuthenticated, isTransitioning]);
     
     // Don't show global loading - InitialPlatformSelect handles its own loading with SettingsLoading
+    
+    // If authenticated but transitioning, just show the authenticated view
+    // No need for loading overlay since Firebase handles it automatically
     
     // If not authenticated, show platform prompt or platform select page
     if (!isAuthenticated) {
         return (
             <BackgroundWrapper>
                 <Routes>
-                    <Route path="/platform-select" element={<InitialPlatformSelect />} />
+                    <Route path="/platform-select" element={<InitialPlatformSelect isTransitioning={isTransitioning} />} />
                     <Route path="*" element={<SimplePlatformPrompt />} />
                 </Routes>
             </BackgroundWrapper>
@@ -225,18 +250,22 @@ function PagesContent() {
     
     // If authenticated, show the main app with Layout wrapper
     return (
-        <Routes>
-            <Route path="/" element={<Layout />}>
-                <Route index element={<PerformanceGraph />} />
-                <Route path="PerformanceGraph" element={<PerformanceGraph />} />
-                <Route path="studies-book" element={<StudiesBook />} />
-                <Route path="studies-book/editor/new" element={<StudyEditor />} />
-                <Route path="studies-book/editor/:studyId" element={<StudyEditor />} />
-                <Route path="studies-book/study/:studyId" element={<StudyEditor />} />
-                {/* Redirect authenticated users away from platform select */}
-                <Route path="platform-select" element={<PerformanceGraph />} />
-            </Route>
-        </Routes>
+        <div className={`transition-all duration-400 ease-in-out ${
+            showAuthenticated ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-2'
+        }`}>
+            <Routes>
+                <Route path="/" element={<Layout />}>
+                    <Route index element={<PerformanceGraph />} />
+                    <Route path="PerformanceGraph" element={<PerformanceGraph />} />
+                    <Route path="studies-book" element={<StudiesBook />} />
+                    <Route path="studies-book/editor/new" element={<StudyEditor />} />
+                    <Route path="studies-book/editor/:studyId" element={<StudyEditor />} />
+                    <Route path="studies-book/study/:studyId" element={<StudyEditor />} />
+                    {/* Redirect authenticated users away from platform select */}
+                    <Route path="platform-select" element={<PerformanceGraph />} />
+                </Route>
+            </Routes>
+        </div>
     );
 }
 
