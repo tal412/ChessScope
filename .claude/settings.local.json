@@ -10,7 +10,9 @@
       "Bash(node:*)",
       "Bash(sed:*)",
       "Bash(npm run dev:*)",
-      "WebFetch(domain:console.firebase.google.com)"
+      "WebFetch(domain:console.firebase.google.com)",
+      "Bash(find:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": []
   },

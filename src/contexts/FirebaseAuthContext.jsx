@@ -11,6 +11,17 @@ const FirebaseAuthContext = createContext();
 export const useAuth = () => {
   const context = useContext(FirebaseAuthContext);
   if (!context) {
+    // In development, provide safe defaults during HMR to prevent crashes
+    if (process.env.NODE_ENV === 'development') {
+      console.warn('useAuth called outside FirebaseAuthProvider context - providing defaults for development');
+      return {
+        isGoogleSignedIn: false,
+        firebaseUser: null,
+        isLoading: false,
+        signInWithGoogle: async () => console.warn('signInWithGoogle called outside provider context'),
+        signOutGoogle: async () => console.warn('signOutGoogle called outside provider context')
+      };
+    }
     throw new Error('useAuth must be used within a FirebaseAuthProvider');
   }
   return context;
@@ -44,18 +55,15 @@ export const FirebaseAuthProvider = ({ children }) => {
             const initialProfile = {
               email: user.email,
               displayName: user.displayName,
-              photoURL: user.photoURL,
-              tagsInitialized: false
+              photoURL: user.photoURL
             };
             profile = await firestoreService.createUserProfile(initialProfile);
-          }
-          
-          // Initialize default tags if new user
-          if (!profile?.tagsInitialized) {
+            
+            // Initialize default tags for new user (method is idempotent)
             await firestoreService.initializeDefaultTags();
-            await firestoreService.saveUserProfile({
-              tagsInitialized: true
-            });
+          } else {
+            // For existing users, ensure default tags exist (method is idempotent)
+            await firestoreService.initializeDefaultTags();
           }
         } catch (error) {
           console.error('Error loading Firestore profile:', error);

@@ -21,37 +21,63 @@ import { firebaseAuth } from './FirebaseAuth.js';
 class FirestoreService {
   constructor() {
     this.currentUserId = null;
+    this.authPromise = null;
+    this.isAuthReady = false;
     
     // Listen for auth changes
     firebaseAuth.onAuthStateChange((user) => {
       this.currentUserId = user ? user.uid : null;
+      this.isAuthReady = true;
+      
+      // Resolve any pending auth promises
+      if (this.authPromise) {
+        this.authPromise = null;
+      }
+    });
+  }
+
+  // Helper to wait for authentication to be ready
+  async waitForAuth() {
+    if (this.isAuthReady) {
+      return this.currentUserId;
+    }
+    
+    // Wait for auth state to be determined
+    return new Promise((resolve) => {
+      const unsubscribe = firebaseAuth.onAuthStateChange((user) => {
+        unsubscribe();
+        this.currentUserId = user ? user.uid : null;
+        this.isAuthReady = true;
+        resolve(this.currentUserId);
+      });
     });
   }
 
   // Helper to ensure user is authenticated
-  requireAuth() {
-    if (!this.currentUserId) {
+  async requireAuth() {
+    const userId = await this.waitForAuth();
+    if (!userId) {
       throw new Error('User must be authenticated to perform this operation');
     }
-    return this.currentUserId;
+    return userId;
   }
 
   // Helper to get user-scoped collection reference
-  getUserCollection(collectionName) {
-    const userId = this.requireAuth();
+  async getUserCollection(collectionName) {
+    const userId = await this.requireAuth();
     return collection(db, 'users', userId, collectionName);
   }
 
   // Helper to get user-scoped document reference
-  getUserDoc(collectionName, docId) {
-    const userId = this.requireAuth();
+  async getUserDoc(collectionName, docId) {
+    const userId = await this.requireAuth();
     return doc(db, 'users', userId, collectionName, docId);
   }
 
   // CHESS GAMES OPERATIONS
   async saveChessGame(gameData) {
     try {
-      const gamesRef = this.getUserCollection('chess_games');
+      const gamesRef = await this.getUserCollection('chess_games');
       
       const gameDoc = {
         ...gameData,
@@ -69,7 +95,7 @@ class FirestoreService {
 
   async getChessGames(queryOptions = {}) {
     try {
-      const gamesRef = this.getUserCollection('chess_games');
+      const gamesRef = await this.getUserCollection('chess_games');
       let q = gamesRef;
 
       // Add query constraints
@@ -102,7 +128,7 @@ class FirestoreService {
   // USER STUDIES OPERATIONS
   async createStudy(studyData) {
     try {
-      const studiesRef = this.getUserCollection('user_studies');
+      const studiesRef = await this.getUserCollection('user_studies');
       
       const studyDoc = {
         username: studyData.username,
@@ -127,7 +153,7 @@ class FirestoreService {
 
   async updateStudy(studyId, studyData) {
     try {
-      const studiesRef = this.getUserCollection('user_studies');
+      const studiesRef = await this.getUserCollection('user_studies');
       const studyDocRef = doc(studiesRef, studyId);
       
       const updateData = {
@@ -155,7 +181,7 @@ class FirestoreService {
 
   async getStudies(queryOptions = {}) {
     try {
-      const studiesRef = this.getUserCollection('user_studies');
+      const studiesRef = await this.getUserCollection('user_studies');
       let q = studiesRef;
 
       // Add query constraints
@@ -189,7 +215,7 @@ class FirestoreService {
       const studyIdString = String(studyId);
       console.log('[FirestoreService.getStudyById] Converted studyId to string:', studyIdString);
       
-      const studyRef = this.getUserDoc('user_studies', studyIdString);
+      const studyRef = await this.getUserDoc('user_studies', studyIdString);
       console.log('[FirestoreService.getStudyById] Created document reference');
       
       const snapshot = await getDoc(studyRef);
@@ -213,7 +239,7 @@ class FirestoreService {
 
   async updateStudy(studyId, updateData) {
     try {
-      const studyRef = this.getUserDoc('user_studies', String(studyId));
+      const studyRef = await this.getUserDoc('user_studies', String(studyId));
       const updatePayload = {
         ...updateData,
         updatedAt: serverTimestamp()
@@ -236,7 +262,7 @@ class FirestoreService {
       await this.deleteStudyTagsMappings(studyId);
       
       // Delete the study
-      const studyRef = this.getUserDoc('user_studies', String(studyId));
+      const studyRef = await this.getUserDoc('user_studies', String(studyId));
       await deleteDoc(studyRef);
       
       return { success: true };
@@ -249,7 +275,7 @@ class FirestoreService {
   // STUDY MOVES OPERATIONS
   async createStudyMove(moveData) {
     try {
-      const movesRef = this.getUserCollection('user_study_moves');
+      const movesRef = await this.getUserCollection('user_study_moves');
       
       const moveDoc = {
         ...moveData,
@@ -268,7 +294,7 @@ class FirestoreService {
 
   async getStudyMoves(studyId) {
     try {
-      const movesRef = this.getUserCollection('user_study_moves');
+      const movesRef = await this.getUserCollection('user_study_moves');
       const q = query(
         movesRef,
         where('studyId', '==', studyId),
@@ -287,7 +313,7 @@ class FirestoreService {
       if (error.code === 'failed-precondition' && error.message.includes('index')) {
         console.warn('Index not available, fetching moves without ordering. Please create the index using the link in the console.');
         try {
-          const movesRef = this.getUserCollection('user_study_moves');
+          const movesRef = await this.getUserCollection('user_study_moves');
           const q = query(movesRef, where('studyId', '==', studyId));
           const snapshot = await getDocs(q);
           const moves = snapshot.docs.map(doc => ({
@@ -308,7 +334,7 @@ class FirestoreService {
 
   async deleteStudyMoves(studyId) {
     try {
-      const movesRef = this.getUserCollection('user_study_moves');
+      const movesRef = await this.getUserCollection('user_study_moves');
       const q = query(movesRef, where('studyId', '==', studyId));
       
       const snapshot = await getDocs(q);
@@ -328,7 +354,7 @@ class FirestoreService {
 
   async deleteStudyMove(moveId) {
     try {
-      const movesRef = this.getUserCollection('user_study_moves');
+      const movesRef = await this.getUserCollection('user_study_moves');
       const moveDoc = doc(movesRef, moveId);
       await deleteDoc(moveDoc);
       return { success: true };
@@ -341,7 +367,7 @@ class FirestoreService {
   // STUDY FOLDERS OPERATIONS
   async createStudyFolder(folderData) {
     try {
-      const foldersRef = this.getUserCollection('study_folders');
+      const foldersRef = await this.getUserCollection('study_folders');
       
       const folderDoc = {
         ...folderData,
@@ -362,7 +388,7 @@ class FirestoreService {
 
   async getStudyFolders() {
     try {
-      const foldersRef = this.getUserCollection('study_folders');
+      const foldersRef = await this.getUserCollection('study_folders');
       const q = query(foldersRef, orderBy('position', 'asc'));
 
       const snapshot = await getDocs(q);
@@ -379,7 +405,7 @@ class FirestoreService {
   async deleteStudyFolder(folderId) {
     try {
       // Update all studies in this folder to have no folder
-      const studiesRef = this.getUserCollection('user_studies');
+      const studiesRef = await this.getUserCollection('user_studies');
       const q = query(studiesRef, where('folderId', '==', folderId));
       const snapshot = await getDocs(q);
       
@@ -389,7 +415,7 @@ class FirestoreService {
       });
       
       // Delete the folder
-      const folderRef = this.getUserDoc('study_folders', String(folderId));
+      const folderRef = await this.getUserDoc('study_folders', String(folderId));
       batch.delete(folderRef);
       
       await batch.commit();
@@ -400,10 +426,26 @@ class FirestoreService {
     }
   }
 
+  async updateStudyFolder(folderId, updateData) {
+    try {
+      const folderRef = await this.getUserDoc('study_folders', String(folderId));
+      const updateDocData = {
+        ...updateData,
+        updatedAt: serverTimestamp()
+      };
+      
+      await updateDoc(folderRef, updateDocData);
+      return { id: folderId, ...updateDocData };
+    } catch (error) {
+      console.error('Error updating study folder:', error);
+      throw error;
+    }
+  }
+
   // STUDY TAGS OPERATIONS
   async createStudyTag(tagData) {
     try {
-      const tagsRef = this.getUserCollection('study_tags');
+      const tagsRef = await this.getUserCollection('study_tags');
       
       const tagDoc = {
         ...tagData,
@@ -421,7 +463,7 @@ class FirestoreService {
 
   async getStudyTags() {
     try {
-      const tagsRef = this.getUserCollection('study_tags');
+      const tagsRef = await this.getUserCollection('study_tags');
       const q = query(tagsRef, orderBy('name', 'asc'));
 
       const snapshot = await getDocs(q);
@@ -441,7 +483,7 @@ class FirestoreService {
       await this.deleteTagMappings(tagId);
       
       // Delete the tag
-      const tagRef = this.getUserDoc('study_tags', String(tagId));
+      const tagRef = await this.getUserDoc('study_tags', String(tagId));
       await deleteDoc(tagRef);
       
       return { success: true };
@@ -454,7 +496,7 @@ class FirestoreService {
   // STUDY TAGS MAPPING OPERATIONS
   async addTagToStudy(studyId, tagId) {
     try {
-      const mappingsRef = this.getUserCollection('study_tags_mapping');
+      const mappingsRef = await this.getUserCollection('study_tags_mapping');
       
       // Check if mapping already exists
       const q = query(
@@ -484,7 +526,7 @@ class FirestoreService {
 
   async removeTagFromStudy(studyId, tagId) {
     try {
-      const mappingsRef = this.getUserCollection('study_tags_mapping');
+      const mappingsRef = await this.getUserCollection('study_tags_mapping');
       const q = query(
         mappingsRef,
         where('studyId', '==', studyId),
@@ -508,7 +550,7 @@ class FirestoreService {
 
   async getStudyTagsMappings(studyId) {
     try {
-      const mappingsRef = this.getUserCollection('study_tags_mapping');
+      const mappingsRef = await this.getUserCollection('study_tags_mapping');
       const q = query(mappingsRef, where('studyId', '==', studyId));
 
       const snapshot = await getDocs(q);
@@ -524,7 +566,7 @@ class FirestoreService {
 
   async deleteStudyTagsMappings(studyId) {
     try {
-      const mappingsRef = this.getUserCollection('study_tags_mapping');
+      const mappingsRef = await this.getUserCollection('study_tags_mapping');
       const q = query(mappingsRef, where('studyId', '==', studyId));
       
       const snapshot = await getDocs(q);
@@ -544,7 +586,7 @@ class FirestoreService {
 
   async deleteTagMappings(tagId) {
     try {
-      const mappingsRef = this.getUserCollection('study_tags_mapping');
+      const mappingsRef = await this.getUserCollection('study_tags_mapping');
       const q = query(mappingsRef, where('tagId', '==', tagId));
       
       const snapshot = await getDocs(q);
@@ -565,7 +607,7 @@ class FirestoreService {
   // MOVE ANNOTATIONS OPERATIONS
   async createMoveAnnotation(annotationData) {
     try {
-      const annotationsRef = this.getUserCollection('move_annotations');
+      const annotationsRef = await this.getUserCollection('move_annotations');
       
       const annotationDoc = {
         ...annotationData,
@@ -583,7 +625,7 @@ class FirestoreService {
 
   async getMoveAnnotations(moveId) {
     try {
-      const annotationsRef = this.getUserCollection('move_annotations');
+      const annotationsRef = await this.getUserCollection('move_annotations');
       const q = query(
         annotationsRef,
         where('moveId', '==', moveId),
@@ -604,7 +646,7 @@ class FirestoreService {
   // USER PROFILE OPERATIONS
   async saveUserProfile(profileData) {
     try {
-      const userId = this.requireAuth();
+      const userId = await this.requireAuth();
       const userRef = doc(db, 'users', userId);
       
       const profileDoc = {
@@ -636,7 +678,7 @@ class FirestoreService {
 
   async getUserProfile() {
     try {
-      const userId = this.requireAuth();
+      const userId = await this.requireAuth();
       const userRef = doc(db, 'users', userId);
       const snapshot = await getDoc(userRef);
       
@@ -652,7 +694,7 @@ class FirestoreService {
 
   async createUserProfile(userData) {
     try {
-      const userId = this.requireAuth();
+      const userId = await this.requireAuth();
       const userRef = doc(db, 'users', userId);
       
       const profileDoc = {
@@ -670,9 +712,9 @@ class FirestoreService {
   }
 
   // REAL-TIME SUBSCRIPTIONS
-  subscribeToStudies(callback) {
+  async subscribeToStudies(callback) {
     try {
-      const studiesRef = this.getUserCollection('user_studies');
+      const studiesRef = await this.getUserCollection('user_studies');
       const q = query(studiesRef, orderBy('updatedAt', 'desc'));
       
       return onSnapshot(q, (snapshot) => {
@@ -688,9 +730,9 @@ class FirestoreService {
     }
   }
 
-  subscribeToStudyFolders(callback) {
+  async subscribeToStudyFolders(callback) {
     try {
-      const foldersRef = this.getUserCollection('study_folders');
+      const foldersRef = await this.getUserCollection('study_folders');
       const q = query(foldersRef, orderBy('position', 'asc'));
       
       return onSnapshot(q, (snapshot) => {
@@ -710,7 +752,7 @@ class FirestoreService {
   async bulkCreateStudies(studiesData) {
     try {
       const batch = writeBatch(db);
-      const studiesRef = this.getUserCollection('user_studies');
+      const studiesRef = await this.getUserCollection('user_studies');
       const results = [];
 
       studiesData.forEach(studyData => {
@@ -738,7 +780,7 @@ class FirestoreService {
   async bulkCreateStudyMoves(movesData) {
     try {
       const batch = writeBatch(db);
-      const movesRef = this.getUserCollection('user_study_moves');
+      const movesRef = await this.getUserCollection('user_study_moves');
       const results = [];
 
       movesData.forEach(moveData => {
@@ -762,7 +804,7 @@ class FirestoreService {
     }
   }
 
-  // INITIALIZE DEFAULT TAGS
+  // INITIALIZE DEFAULT TAGS (idempotent - safe to call multiple times)
   async initializeDefaultTags() {
     try {
       const defaultTags = [
@@ -783,7 +825,7 @@ class FirestoreService {
       
       if (tagsToCreate.length > 0) {
         const batch = writeBatch(db);
-        const tagsRef = this.getUserCollection('study_tags');
+        const tagsRef = await this.getUserCollection('study_tags');
 
         tagsToCreate.forEach(tagData => {
           const docRef = doc(tagsRef);
