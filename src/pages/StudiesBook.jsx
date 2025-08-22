@@ -115,20 +115,16 @@ function DroppableFolderCard({ folder, ...props }) {
     transition: isDragging ? transition : undefined,
   };
 
-  // Combine refs
-  const combinedRef = (node) => {
-    setDroppableRef(node);
-    setSortableRef(node);
-  };
-
   return (
-    <div ref={combinedRef} style={sortableStyle} {...attributes} {...listeners}>
-      <FolderCard 
-        folder={folder} 
-        isDragging={isDragging}
-        isDragOver={isOver}
-        {...props} 
-      />
+    <div ref={setSortableRef} style={sortableStyle} {...attributes} {...listeners}>
+      <div ref={setDroppableRef} style={{ width: '100%', height: '100%' }}>
+        <FolderCard 
+          folder={folder} 
+          isDragging={isDragging}
+          isDragOver={isOver}
+          {...props} 
+        />
+      </div>
     </div>
   );
 }
@@ -154,7 +150,7 @@ export default function StudiesBook() {
   
   // Get folder from URL params
   const folderIdFromUrl = searchParams.get('folder');
-  const [selectedFolder, setSelectedFolder] = useState(folderIdFromUrl ? parseInt(folderIdFromUrl) : null);
+  const [selectedFolder, setSelectedFolder] = useState(folderIdFromUrl || null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -201,7 +197,7 @@ export default function StudiesBook() {
   // Update selectedFolder when URL changes
   useEffect(() => {
     const folderId = searchParams.get('folder');
-    setSelectedFolder(folderId ? parseInt(folderId) : null);
+    setSelectedFolder(folderId || null);
   }, [searchParams]);
 
   const loadStudies = async () => {
@@ -227,6 +223,7 @@ export default function StudiesBook() {
           }
         })
       );
+      
       
       setStudies(studiesWithTags);
     } catch (error) {
@@ -279,6 +276,15 @@ export default function StudiesBook() {
       matchesFolder = !study.folder_id || study.folder_id === null;
     } else if (selectedFolder !== null) {
       matchesFolder = study.folder_id === selectedFolder;
+      if (selectedFolder && !matchesFolder) {
+        console.log(`Study ${study.name} folder check:`, {
+          studyFolderId: study.folder_id,
+          studyFolderIdType: typeof study.folder_id,
+          selectedFolder,
+          selectedFolderType: typeof selectedFolder,
+          matches: matchesFolder
+        });
+      }
     }
     
     return matchesSearch && matchesColor && matchesTags && matchesFolder;
@@ -368,23 +374,54 @@ export default function StudiesBook() {
       const username = localStorage.getItem('chesscope_username');
       if (!username) return;
 
-      const newFolder = await studyFolder.create({
+      // Create a temporary folder with a temporary ID for optimistic update
+      const tempId = 'temp-' + Date.now();
+      const optimisticFolder = {
+        id: tempId,
+        ...folderData,
+        username,
+        position: folders.length,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+
+      console.log('handleCreateFolder - Adding optimistic folder:', optimisticFolder.name);
+
+      // Immediately add to local state (optimistic update)
+      setFolders(prevFolders => [...prevFolders, optimisticFolder]);
+
+      // Then create in database in background
+      studyFolder.create({
         ...folderData,
         username,
         position: folders.length
-      });
-      
-      await loadFolders();
-      
-      // Firebase sync handled automatically by hybrid entities
+      })
+        .then((newFolder) => {
+          console.log('handleCreateFolder - Database creation successful:', newFolder.name);
+          // Replace optimistic folder with real folder
+          setFolders(prevFolders => 
+            prevFolders.map(f => 
+              f.id === tempId ? newFolder : f
+            )
+          );
+          // Reload to ensure consistency
+          loadFolders();
+        })
+        .catch(error => {
+          console.error('Error creating folder:', error);
+          // Remove optimistic folder on error
+          setFolders(prevFolders => 
+            prevFolders.filter(f => f.id !== tempId)
+          );
+          
+          // Check if error is due to conflicts
+          if (error.message.includes('conflict')) {
+            // Conflicts will be detected automatically by sync manager
+          }
+        });
       
     } catch (error) {
       console.error('Error creating folder:', error);
-      
-      // Check if error is due to conflicts
-      if (error.message.includes('conflict')) {
-        // Conflicts will be detected automatically by sync manager
-      }
     }
   };
 
@@ -393,10 +430,32 @@ export default function StudiesBook() {
     // Folders can be edited - Firebase handles sync automatically
 
     try {
-      await studyFolder.update(updatedFolder.id, updatedFolder);
-      await loadFolders();
-      
-      // Firebase sync handled automatically by hybrid entities
+      console.log('handleEditFolder - Updating folder:', updatedFolder.name);
+
+      // Immediately update local state (optimistic update)
+      setFolders(prevFolders => 
+        prevFolders.map(f => 
+          f.id === updatedFolder.id ? updatedFolder : f
+        )
+      );
+
+      // Then update database in background
+      studyFolder.update(updatedFolder.id, updatedFolder)
+        .then(() => {
+          console.log('handleEditFolder - Database update successful');
+          // Reload to ensure consistency
+          loadFolders();
+        })
+        .catch(error => {
+          console.error('Error editing folder:', error);
+          // Revert local state on error
+          loadFolders();
+          
+          // Check if error is due to conflicts
+          if (error.message.includes('conflict')) {
+            // Conflicts will be detected automatically by sync manager
+          }
+        });
       
       // Keep legacy event for compatibility
       window.dispatchEvent(new CustomEvent('databaseChange', { 
@@ -404,11 +463,6 @@ export default function StudiesBook() {
       }));
     } catch (error) {
       console.error('Error editing folder:', error);
-      
-      // Check if error is due to conflicts
-      if (error.message.includes('conflict')) {
-        // Conflicts will be detected automatically by sync manager
-      }
     }
   };
 
@@ -446,7 +500,7 @@ export default function StudiesBook() {
 
   const handleFolderClick = (folder) => {
     // When clicking a folder, update the URL
-    setSearchParams({ folder: folder.id.toString() });
+    setSearchParams({ folder: folder.id });
   };
 
   const handleBackClick = () => {
@@ -465,10 +519,29 @@ export default function StudiesBook() {
 
     try {
       const folderId = targetFolder ? targetFolder.id : null;
-      await userStudy.update(study.id, { folder_id: folderId });
-      await loadStudies(); // Don't show loader for quick updates
       
-      // Firebase sync handled automatically by hybrid entities
+      console.log('handleMoveStudyToFolder - Moving study:', study.name, 'to folder:', targetFolder?.name || 'root');
+      
+      // Immediately update local state (optimistic update)
+      setStudies(prevStudies => 
+        prevStudies.map(s => 
+          s.id === study.id 
+            ? { ...s, folder_id: folderId }
+            : s
+        )
+      );
+      
+      // Then update database in background
+      userStudy.update(study.id, { folder_id: folderId })
+        .then(() => {
+          // Reload to ensure consistency (without loader)
+          loadStudies();
+        })
+        .catch(error => {
+          console.error('Error moving study to folder:', error);
+          // Revert local state on error
+          loadStudies();
+        });
       
       // Keep legacy event for compatibility
       window.dispatchEvent(new CustomEvent('databaseChange', { 
@@ -486,13 +559,17 @@ export default function StudiesBook() {
 
   // Drag and drop handlers
   const handleDragStart = (event) => {
+    console.log('Drag started:', event.active.id);
     setActiveId(event.active.id);
   };
 
   const handleDragEnd = async (event) => {
     const { active, over } = event;
     
+    console.log('Drag ended:', { active: active.id, over: over?.id });
+    
     if (!over) {
+      console.log('No valid drop target');
       setActiveId(null);
       return;
     }
@@ -504,11 +581,11 @@ export default function StudiesBook() {
     const getItemInfo = (id) => {
       const strId = String(id);
       if (strId.startsWith('study-')) {
-        return { type: 'study', id: parseInt(strId.replace('study-', '')) };
+        return { type: 'study', id: strId.replace('study-', '') };
       } else if (strId.startsWith('folder-drop-')) {
-        return { type: 'folder-drop', id: parseInt(strId.replace('folder-drop-', '')) };
+        return { type: 'folder-drop', id: strId.replace('folder-drop-', '') };
       } else if (strId.startsWith('folder-')) {
-        return { type: 'folder', id: parseInt(strId.replace('folder-', '')) };
+        return { type: 'folder', id: strId.replace('folder-', '') };
       }
       return null;
     };
@@ -516,7 +593,10 @@ export default function StudiesBook() {
     const activeInfo = getItemInfo(activeId);
     const overInfo = getItemInfo(overId);
 
+    console.log('Parsed drag info:', { activeInfo, overInfo });
+
     if (!activeInfo) {
+      console.log('Invalid active item');
       setActiveId(null);
       return;
     }
@@ -524,10 +604,20 @@ export default function StudiesBook() {
     try {
       // Handle study being dropped on folder (priority handling)
       if (activeInfo.type === 'study' && (overInfo?.type === 'folder' || overInfo?.type === 'folder-drop')) {
+        console.log('Study dropped on folder detected');
+        console.log('Looking for study ID:', activeInfo.id, 'type:', typeof activeInfo.id);
+        console.log('Looking for folder ID:', overInfo.id, 'type:', typeof overInfo.id);
+        console.log('Available studies:', studies.map(s => ({ id: s.id, type: typeof s.id, name: s.name })));
+        console.log('Available folders:', folders.map(f => ({ id: f.id, type: typeof f.id, name: f.name })));
+        
         const study = studies.find(s => s.id === activeInfo.id);
         const folder = folders.find(f => f.id === overInfo.id);
         
+        console.log('Study and folder found:', { study: study?.name, folder: folder?.name });
+        
         if (study && folder && study.folder_id !== folder.id) {
+          console.log('Moving study to folder:', { studyId: study.id, folderId: folder.id });
+          
           // Immediately update local state to prevent animation back
           setStudies(prevStudies => 
             prevStudies.map(s => 
@@ -538,6 +628,7 @@ export default function StudiesBook() {
           );
           
           // Then update database in background
+          console.log('Calling userStudy.update with:', { folder_id: folder.id });
           userStudy.update(study.id, { folder_id: folder.id })
             .then(() => {
               // Reload to ensure consistency (without loader)
@@ -1018,11 +1109,11 @@ export default function StudiesBook() {
               (() => {
                 const activeIdStr = String(activeId);
                 if (activeIdStr.startsWith('study-')) {
-                  const studyId = parseInt(activeIdStr.replace('study-', ''));
+                  const studyId = activeIdStr.replace('study-', '');
                   const study = studies.find(s => s.id === studyId);
                   return study ? <StudyCard study={study} isDragging /> : null;
                 } else if (activeIdStr.startsWith('folder-')) {
-                  const folderId = parseInt(activeIdStr.replace('folder-', ''));
+                  const folderId = activeIdStr.replace('folder-', '');
                   const folder = folders.find(f => f.id === folderId);
                   return folder ? <FolderCard folder={folder} isDragging /> : null;
                 }

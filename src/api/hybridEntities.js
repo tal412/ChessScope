@@ -178,10 +178,17 @@ export class UserStudy extends HybridModel {
   }
 
   async update(id, data) {
+    console.log('UserStudy.update called with:', { id, data });
     if (isGoogleSignedIn()) {
-      const result = await firestoreService.updateStudy(id, this.transformToFirestore(data));
-      return this.transformFromFirestore(result);
+      console.log('Using Firestore backend');
+      const transformedData = this.transformToFirestore(data);
+      console.log('Transformed data for Firestore:', transformedData);
+      const result = await firestoreService.updateStudy(id, transformedData);
+      const finalResult = this.transformFromFirestore(result);
+      console.log('UserStudy.update result:', finalResult);
+      return finalResult;
     } else {
+      console.log('Using local storage backend');
       return await this.localModel.update(id, data);
     }
   }

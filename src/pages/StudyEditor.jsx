@@ -318,12 +318,14 @@ export default function OpeningEditor() {
   }, [studyId]); // Only depend on studyId to prevent duplicate loads
 
   // Auto-save function
-  const autoSave = useCallback(async () => {
+  const autoSave = useCallback(() => {
     if (isViewMode || !name.trim()) return;
     
     // Studies can be saved - Firebase handles sync automatically
+    // Save in background without blocking UI
     
-    try {
+    const performSave = async () => {
+      try {
       const username = localStorage.getItem('chesscope_username');
       
       const findInitialMove = (node) => {
@@ -401,14 +403,18 @@ export default function OpeningEditor() {
         detail: { studyId: savedStudy.id, name: name.trim(), type: savedStudyId ? 'update' : 'create' } 
       }));
         
-    } catch (error) {
-      console.error('Auto-save error:', error);
-      
-      // Check if error is due to conflicts
-      if (error.message.includes('conflict')) {
-        // Conflicts will be detected automatically by sync manager
+      } catch (error) {
+        console.error('Auto-save error:', error);
+        
+        // Check if error is due to conflicts
+        if (error.message.includes('conflict')) {
+          // Conflicts will be detected automatically by sync manager
+        }
       }
-    }
+    };
+    
+    // Execute save in background
+    performSave();
   }, [isViewMode, name, color, moveTree, savedStudyId, selectedTagIds]);
 
   // Set up the actual trigger backup function
@@ -1245,7 +1251,7 @@ export default function OpeningEditor() {
     
     return (
       <MoveDetailsSection
-        key={`${currentNode?.id || 'none'}`}
+        key={`${currentNode?.id || 'none'}-${treeVersion}`}
         selectedNode={currentNode}
         onUpdateNode={isViewMode ? null : () => {
           setTreeVersion(v => v + 1);
@@ -1254,13 +1260,15 @@ export default function OpeningEditor() {
         }}
         onSetMainLine={isViewMode ? null : (node) => {
           MoveNode.setMainLineToNode(moveTree, node);
-          // Force currentNode to update
+          // Force currentNode to update by creating a new reference
+          setCurrentNode({...node});
           setTreeVersion(v => v + 1);
           triggerMoveBackup();
         }}
         onSetInitialMove={isViewMode ? null : (node) => {
           MoveNode.setInitialMoveToNode(moveTree, node);
-          // Force currentNode to update
+          // Force currentNode to update by creating a new reference
+          setCurrentNode({...node});
           setTreeVersion(v => v + 1);
           triggerMoveBackup();
         }}
@@ -1270,7 +1278,7 @@ export default function OpeningEditor() {
         readOnly={isViewMode}
       />
     );
-  }, [currentNode, isViewMode, moveTree, drawingMode, handleDrawingModeToggle, triggerMoveBackup]);
+  }, [currentNode, isViewMode, moveTree, drawingMode, handleDrawingModeToggle, triggerMoveBackup, treeVersion]);
 
   // Create configuration for ChessAnalysisView
   const analysisConfig = useMemo(() => {
@@ -1281,60 +1289,68 @@ export default function OpeningEditor() {
       lastSaved: null, // Remove save status
       onSave: null, // Remove manual save option
       onEdit: isViewMode ? () => navigate(`/studies-book/editor/${studyId}`) : null,
-      onView: isEditMode ? async () => {
+      onView: isEditMode ? () => {
         // For new studies, ensure they're saved first
         if (!savedStudyId && name.trim()) {
-          try {
-            const username = localStorage.getItem('chesscope_username');
-            
-            const findInitialMove = (node) => {
-              if (node.isInitialMove) return node;
-              for (const child of node.children) {
-                const found = findInitialMove(child);
-                if (found) return found;
-              }
-              return null;
-            };
+          // Navigate immediately with a temporary ID
+          const tempId = 'temp-' + Date.now();
+          navigate(`/studies-book/study/${tempId}`);
+          
+          // Save in background
+          const username = localStorage.getItem('chesscope_username');
+          
+          const findInitialMove = (node) => {
+            if (node.isInitialMove) return node;
+            for (const child of node.children) {
+              const found = findInitialMove(child);
+              if (found) return found;
+            }
+            return null;
+          };
 
-            const serializeMoveTree = (node) => {
-              if (!node) return null;
-              
-              return {
-                id: node.id,
-                san: node.san,
-                fen: node.fen,
-                isMainLine: node.isMainLine,
-                isInitialMove: node.isInitialMove,
-                comment: node.comment || '',
-                links: node.links || [],
-                arrows: node.arrows || [],
-                children: node.children.map(child => serializeMoveTree(child))
-              };
-            };
+          const serializeMoveTree = (node) => {
+            if (!node) return null;
             
-            const initialMoveNode = findInitialMove(moveTree);
-            const initialViewFen = initialMoveNode ? initialMoveNode.fen : moveTree.fen;
+            return {
+              id: node.id,
+              san: node.san,
+              fen: node.fen,
+              isMainLine: node.isMainLine,
+              isInitialMove: node.isInitialMove,
+              comment: node.comment || '',
+              links: node.links || [],
+              arrows: node.arrows || [],
+              children: node.children.map(child => serializeMoveTree(child))
+            };
+          };
+          
+          const initialMoveNode = findInitialMove(moveTree);
+          const initialViewFen = initialMoveNode ? initialMoveNode.fen : moveTree.fen;
 
-            const openingData = {
-              username,
-              name: name.trim(),
-              color,
-              initial_fen: moveTree.fen,
-              initial_view_fen: initialViewFen,
-              moveTree: serializeMoveTree(moveTree)
-            };
+          const openingData = {
+            username,
+            name: name.trim(),
+            color,
+            initial_fen: moveTree.fen,
+            initial_view_fen: initialViewFen,
+            moveTree: serializeMoveTree(moveTree)
+          };
+          
+          // Create study in background
+          UserStudy.create(openingData)
+            .then((savedStudy) => {
+              console.log('Study saved successfully:', savedStudy.id);
+              // Update URL to real study ID
+              window.history.replaceState(null, '', `/studies-book/study/${savedStudy.id}`);
+            })
+            .catch(error => {
+              console.error('Failed to save study:', error);
+              // Navigate back to editor on error
+              navigate(`/studies-book/editor/new`);
+            });
             
-            // Create new study and get the ID immediately
-            const savedStudy = await UserStudy.create(openingData);
-            
-            // Navigate to view mode with the new study ID
-            navigate(`/studies-book/study/${savedStudy.id}`);
-            
-          } catch (error) {
-            console.error('Failed to save study before switching to view mode:', error);
-          }
         } else if (savedStudyId) {
-          // Study already saved, navigate to view mode
+          // Study already saved, navigate to view mode immediately
           navigate(`/studies-book/study/${savedStudyId}`);
         } else {
           // No name provided, can't save - do nothing or show error

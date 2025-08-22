@@ -34,23 +34,23 @@ const MoveActionButton = ({
       <Button
         size="sm"
         variant="ghost"
-        disabled={!readOnly && disabled && isActive}
-        onClick={readOnly || (disabled && isActive) ? null : onClick}
+        disabled={false}
+        onClick={(e) => {
+          if (!readOnly && onClick) {
+            onClick(e);
+          }
+        }}
         className={cn(
           "h-9 w-9 p-0 rounded-lg border transition-all duration-200",
-          // Different hover behavior for active vs inactive
-          isActive && disabled ? "hover:scale-100" : "hover:scale-105 active:scale-95",
           isActive 
-            ? "bg-gradient-to-br from-emerald-500 via-blue-500 to-purple-600 border-emerald-400/60 text-white shadow-lg shadow-emerald-500/30 hover:shadow-emerald-500/50 hover:from-emerald-400 hover:via-blue-400 hover:to-purple-500 ring-1 ring-emerald-400/20" 
-            : "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/70 hover:border-slate-500 hover:text-slate-100",
-          readOnly && !isActive && "opacity-60 cursor-default hover:scale-100",
-          disabled && isActive && "cursor-default hover:scale-100"
+            ? "bg-amber-500 border-amber-400 text-white" 
+            : "bg-slate-800 border-slate-700 text-slate-400",
+          !readOnly && !isActive && "hover:bg-slate-700 hover:border-slate-600 hover:text-slate-300",
+          !readOnly && isActive && "hover:bg-amber-600",
+          readOnly && "cursor-default"
         )}
       >
-        <Icon className={cn(
-          "w-4 h-4 transition-all duration-200",
-          isActive ? "stroke-white drop-shadow-sm filter brightness-110" : "stroke-current"
-        )} />
+        <Icon className="w-4 h-4" />
       </Button>
       
       {/* Enhanced tooltip with better positioning and styling - positioned below button */}
@@ -236,7 +236,7 @@ export default function MoveDetailsPanel({
                 label="main line"
                 isActive={selectedNode.isMainLine}
                 onClick={handleSetAsMainLine}
-                disabled={selectedNode.isMainLine}
+                disabled={false}  // Always allow clicking in edit mode to change main line
                 readOnly={readOnly}
               />
 
@@ -247,7 +247,7 @@ export default function MoveDetailsPanel({
                 label="initial position"
                 isActive={selectedNode.isInitialMove}
                 onClick={handleSetAsInitialPosition}
-                disabled={selectedNode.isInitialMove}
+                disabled={false}  // Always allow clicking in edit mode to change initial position
                 readOnly={readOnly}
               />
             </div>

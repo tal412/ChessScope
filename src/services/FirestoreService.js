@@ -156,17 +156,29 @@ class FirestoreService {
       const studiesRef = await this.getUserCollection('user_studies');
       const studyDocRef = doc(studiesRef, studyId);
       
+      // Build the update data object, only including fields that are provided
       const updateData = {
-        username: studyData.username,
-        name: studyData.name,
-        color: studyData.color,
-        initialFen: studyData.initial_fen || studyData.initialFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-        initialViewFen: studyData.initial_view_fen || studyData.initialViewFen || studyData.initial_fen || studyData.initialFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-        folderId: studyData.folder_id || studyData.folderId || null,
-        position: studyData.position,
-        moveTree: studyData.moveTree || null,
         updatedAt: serverTimestamp()
       };
+      
+      // Only update fields that are explicitly provided
+      if ('username' in studyData) updateData.username = studyData.username;
+      if ('name' in studyData) updateData.name = studyData.name;
+      if ('color' in studyData) updateData.color = studyData.color;
+      if ('initial_fen' in studyData || 'initialFen' in studyData) {
+        updateData.initialFen = studyData.initial_fen || studyData.initialFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+      }
+      if ('initial_view_fen' in studyData || 'initialViewFen' in studyData) {
+        updateData.initialViewFen = studyData.initial_view_fen || studyData.initialViewFen || studyData.initial_fen || studyData.initialFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+      }
+      if ('folder_id' in studyData || 'folderId' in studyData) {
+        updateData.folderId = studyData.folder_id !== undefined ? studyData.folder_id : studyData.folderId;
+      }
+      if ('position' in studyData) updateData.position = studyData.position;
+      if ('moveTree' in studyData) updateData.moveTree = studyData.moveTree || null;
+
+      console.log('FirestoreService.updateStudy - Input data:', studyData);
+      console.log('FirestoreService.updateStudy - Mapped data:', updateData);
 
       await updateDoc(studyDocRef, updateData);
       
@@ -237,21 +249,6 @@ class FirestoreService {
     }
   }
 
-  async updateStudy(studyId, updateData) {
-    try {
-      const studyRef = await this.getUserDoc('user_studies', String(studyId));
-      const updatePayload = {
-        ...updateData,
-        updatedAt: serverTimestamp()
-      };
-      
-      await updateDoc(studyRef, updatePayload);
-      return { id: studyId, ...updatePayload };
-    } catch (error) {
-      console.error('Error updating study:', error);
-      throw error;
-    }
-  }
 
   async deleteStudy(studyId) {
     try {
