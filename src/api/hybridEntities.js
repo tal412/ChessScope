@@ -41,8 +41,7 @@ class HybridModel {
       'move_number': 'moveNumber',
       'is_main_line': 'isMainLine',
       'initial_fen': 'initialFen',
-      'initial_moves': 'initialMoves',
-      'starting_pgn': 'startingPgn',
+      'initial_view_fen': 'initialViewFen',
       'created_at': 'createdAt',
       'updated_at': 'updatedAt'
     };
@@ -71,8 +70,7 @@ class HybridModel {
       'moveNumber': 'move_number',
       'isMainLine': 'is_main_line',
       'initialFen': 'initial_fen',
-      'initialMoves': 'initial_moves',
-      'startingPgn': 'starting_pgn',
+      'initialViewFen': 'initial_view_fen',
       'createdAt': 'created_at',
       'updatedAt': 'updated_at'
     };

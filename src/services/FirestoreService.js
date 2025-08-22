@@ -105,13 +105,14 @@ class FirestoreService {
       const studiesRef = this.getUserCollection('user_studies');
       
       const studyDoc = {
-        ...studyData,
-        initialMoves: studyData.initial_moves || [],
-        initialFen: studyData.initial_fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-        initialViewFen: studyData.initial_view_fen || studyData.initial_fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-        startingPgn: studyData.starting_pgn || '',
-        folderId: studyData.folder_id || null,
+        username: studyData.username,
+        name: studyData.name,
+        color: studyData.color,
+        initialFen: studyData.initial_fen || studyData.initialFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        initialViewFen: studyData.initial_view_fen || studyData.initialViewFen || studyData.initial_fen || studyData.initialFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        folderId: studyData.folder_id || studyData.folderId || null,
         position: studyData.position || 0,
+        moveTree: studyData.moveTree || null,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
       };
@@ -120,6 +121,34 @@ class FirestoreService {
       return { id: docRef.id, ...studyDoc };
     } catch (error) {
       console.error('Error creating study:', error);
+      throw error;
+    }
+  }
+
+  async updateStudy(studyId, studyData) {
+    try {
+      const studiesRef = this.getUserCollection('user_studies');
+      const studyDocRef = doc(studiesRef, studyId);
+      
+      const updateData = {
+        username: studyData.username,
+        name: studyData.name,
+        color: studyData.color,
+        initialFen: studyData.initial_fen || studyData.initialFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        initialViewFen: studyData.initial_view_fen || studyData.initialViewFen || studyData.initial_fen || studyData.initialFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
+        folderId: studyData.folder_id || studyData.folderId || null,
+        position: studyData.position,
+        moveTree: studyData.moveTree || null,
+        updatedAt: serverTimestamp()
+      };
+
+      await updateDoc(studyDocRef, updateData);
+      
+      // Return the updated document
+      const updatedDoc = await getDoc(studyDocRef);
+      return { id: updatedDoc.id, ...updatedDoc.data() };
+    } catch (error) {
+      console.error('Error updating study:', error);
       throw error;
     }
   }

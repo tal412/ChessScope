@@ -146,7 +146,7 @@ export default function StudiesBook() {
   const [deleteStudy, setDeleteStudy] = useState(null);
   const [activeId, setActiveId] = useState(null);
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const [isLoadingStudies, setIsLoadingStudies] = useState(false);
+  const [isLoadingStudies, setIsLoadingStudies] = useState(true);
   
   // Conflict state
   const [hasConflicts, setHasConflicts] = useState(false);
@@ -181,6 +181,9 @@ export default function StudiesBook() {
             loadTags()
           ]);
           setIsLoadingStudies(false);
+        } else {
+          // If not signed in, stop loading immediately
+          setIsLoadingStudies(false);
         }
         
       } catch (error) {
@@ -189,8 +192,11 @@ export default function StudiesBook() {
       }
     };
     
-    initializeAndLoadData();
-  }, [isGoogleSignedIn]);
+    // Don't run if auth is still loading
+    if (!isAuthLoading) {
+      initializeAndLoadData();
+    }
+  }, [isGoogleSignedIn, isAuthLoading]);
 
   // Update selectedFolder when URL changes
   useEffect(() => {
@@ -336,27 +342,22 @@ export default function StudiesBook() {
     navigate(`/studies-book/editor/${studyId}`);
   };
 
-  // Handle delete study
+  // Handle delete study - optimistic deletion for immediate UX
   const handleDeleteStudy = async () => {
     if (!deleteStudy) return;
     
-    // Studies can be deleted - Firebase handles sync automatically
+    const studyToDelete = deleteStudy;
     
-    try {
-      await userStudy.delete(deleteStudy.id);
-      await loadStudies(); // Don't show loader for deletion
-      
-      // Firebase sync handled automatically by hybrid entities
-      
-      setDeleteStudy(null);
-    } catch (error) {
-      console.error('Error deleting study:', error);
-      
-      // Check if error is due to conflicts
-      if (error.message.includes('conflict')) {
-        // Conflicts will be detected automatically by sync manager
-      }
-    }
+    // Immediate UI update - remove from local state
+    setStudies(prevStudies => prevStudies.filter(study => study.id !== studyToDelete.id));
+    setDeleteStudy(null);
+    
+    // Background deletion - fire and forget
+    userStudy.delete(studyToDelete.id).catch(error => {
+      console.error('Background study deletion failed:', error);
+      // Could add toast notification here if needed, but don't revert UI
+      // The sync manager will handle conflicts if needed
+    });
   };
 
   // Folder management functions
@@ -412,29 +413,35 @@ export default function StudiesBook() {
   };
 
   const handleDeleteFolder = async (folder) => {
-    // Folders can be deleted - Firebase handles sync automatically
-
-    try {
-      // Move studies out of folder first
-      const folderStudies = studies.filter(study => study.folder_id === folder.id);
-      for (const study of folderStudies) {
-        await userStudy.update(study.id, { folder_id: null });
-      }
-      
-      await studyFolder.delete(folder.id);
-      await loadFolders();
-      await loadStudies(); // Don't show loader for folder deletion
-      
-      // Firebase sync handled automatically by hybrid entities
-      
-    } catch (error) {
-      console.error('Error deleting folder:', error);
-      
-      // Check if error is due to conflicts
-      if (error.message.includes('conflict')) {
-        // Conflicts will be detected automatically by sync manager
-      }
-    }
+    // Optimistic folder deletion for immediate UX
+    
+    // Immediate UI updates
+    const folderStudies = studies.filter(study => study.folder_id === folder.id);
+    
+    // Move studies out of folder in UI immediately
+    setStudies(prevStudies => 
+      prevStudies.map(study => 
+        study.folder_id === folder.id 
+          ? { ...study, folder_id: null }
+          : study
+      )
+    );
+    
+    // Remove folder from UI immediately
+    setFolders(prevFolders => prevFolders.filter(f => f.id !== folder.id));
+    
+    // Background operations - fire and forget
+    Promise.all([
+      // Move studies out of folder in database
+      ...folderStudies.map(study => 
+        userStudy.update(study.id, { folder_id: null })
+      ),
+      // Delete folder from database
+      studyFolder.delete(folder.id)
+    ]).catch(error => {
+      console.error('Background folder deletion failed:', error);
+      // Could add toast notification here if needed, but don't revert UI
+    });
   };
 
   const handleFolderClick = (folder) => {
@@ -604,8 +611,8 @@ export default function StudiesBook() {
     return studies.filter(study => study.folder_id === folderId).length;
   };
 
-  // Show loading screen when actually loading studies data
-  if (isLoadingStudies && isGoogleSignedIn) {
+  // Show loading screen when loading auth or studies data
+  if (isAuthLoading || (isLoadingStudies && isGoogleSignedIn)) {
     return (
       <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
         <div className="text-center">

@@ -182,10 +182,17 @@ export default function OpeningEditor() {
   const [moveTree, setMoveTree] = useState(initialTree);
   const [currentNode, setCurrentNode] = useState(initialTree);
   const [currentPath, setCurrentPath] = useState([]);
-  const [treeVersion, setTreeVersion] = useState(0);
   
-  // UI state
-  const [loading, setLoading] = useState(false);
+  // Debug wrapper for setCurrentPath to track all changes
+  const setCurrentPathDebug = (newPath) => {
+    console.log('[StudyEditor] setCurrentPath called with:', newPath, 'Stack:', new Error().stack.slice(0, 500));
+    setCurrentPath(newPath);
+  };
+  const [treeVersion, setTreeVersion] = useState(0);
+  const [treeChangeVersion, setTreeChangeVersion] = useState(0);
+  
+  // UI state - start loading if we're opening an existing study
+  const [loading, setLoading] = useState(!isNewStudy);
   const [error, setError] = useState('');
   
   const [savedStudyId, setSavedOpeningId] = useState(null);
@@ -198,21 +205,14 @@ export default function OpeningEditor() {
   const [hasLoaded, setHasLoaded] = useState(false);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   
-  
-  // Trigger backup on every move update
-  const triggerMoveBackup = useCallback(() => {
-    // Trigger backup even for unsaved studies (they get saved automatically)
-    if (!isViewMode && name.trim()) {
-      window.dispatchEvent(new CustomEvent('studySaved', { 
-        detail: { 
-          studyId: savedStudyId || 'pending', 
-          name: name.trim(), 
-          type: 'move_update',
-          timestamp: Date.now()
-        } 
-      }));
+  // Create a ref for the move backup function so we can use it before it's defined
+  const triggerMoveBackupRef = useRef();
+  const triggerMoveBackup = useCallback((...args) => {
+    if (triggerMoveBackupRef.current) {
+      triggerMoveBackupRef.current(...args);
     }
-  }, [isViewMode, savedStudyId, name]);
+  }, []);
+  
   
   // Hover state for chessboard arrows
   const [hoveredMove, setHoveredMove] = useState(null);
@@ -305,39 +305,17 @@ export default function OpeningEditor() {
   const loadedOpeningIdRef = useRef(null);
   useEffect(() => {
     console.log('[StudyEditor useEffect] studyId changed to:', studyId, 'isNewStudy:', isNewStudy);
-    if (!isNewStudy) {
-      const currentOpeningId = studyId; // Keep as string for Firestore compatibility
-      const hasTreeData = moveTree && moveTree.children.length > 0;
-      const isSameOpening = loadedOpeningIdRef.current === currentOpeningId;
-      const hasValidOpeningData = hasTreeData && name && name.trim() !== '';
-      const isAlreadyLoaded = (isSameOpening && hasTreeData) || hasValidOpeningData;
-      
-      console.log('[StudyEditor useEffect] Load check:', {
-        currentOpeningId,
-        loadedOpeningIdRef: loadedOpeningIdRef.current,
-        hasTreeData,
-        isSameOpening,
-        hasValidOpeningData,
-        isAlreadyLoaded,
-        name,
-        moveTreeChildren: moveTree?.children?.length
-      });
-      
-      if (!isAlreadyLoaded) {
-        console.log('[StudyEditor useEffect] Not already loaded, calling loadOpening()');
-        loadOpening();
-      } else {
-        console.log('[StudyEditor useEffect] Already loaded, updating loadedOpeningIdRef');
-        loadedOpeningIdRef.current = currentOpeningId;
-      }
-    } else {
+    if (!isNewStudy && studyId && loadedOpeningIdRef.current !== studyId) {
+      console.log('[StudyEditor useEffect] Loading new study, calling loadOpening()');
+      loadOpening();
+    } else if (isNewStudy) {
       // Reset state for new opening
       loadedOpeningIdRef.current = null;
       setSavedOpeningId(null);
       setCurrentNode(moveTree);
-      setCurrentPath([]);
+      setCurrentPathDebug([]);
     }
-  }, [studyId]);
+  }, [studyId]); // Only depend on studyId to prevent duplicate loads
 
   // Auto-save function
   const autoSave = useCallback(async () => {
@@ -348,17 +326,6 @@ export default function OpeningEditor() {
     try {
       const username = localStorage.getItem('chesscope_username');
       
-      const getMainLine = (node) => {
-        const moves = [];
-        let current = node;
-        while (current.children.length > 0) {
-          const mainChild = current.children.find(c => c.isMainLine) || current.children[0];
-          moves.push(mainChild.san);
-          current = mainChild;
-        }
-        return moves;
-      };
-      
       const findInitialMove = (node) => {
         if (node.isInitialMove) return node;
         for (const child of node.children) {
@@ -366,6 +333,23 @@ export default function OpeningEditor() {
           if (found) return found;
         }
         return null;
+      };
+
+      // Serialize move tree for storage in study document
+      const serializeMoveTree = (node) => {
+        if (!node) return null;
+        
+        return {
+          id: node.id,
+          san: node.san,
+          fen: node.fen,
+          isMainLine: node.isMainLine,
+          isInitialMove: node.isInitialMove,
+          comment: node.comment || '',
+          links: node.links || [],
+          arrows: node.arrows || [],
+          children: node.children.map(child => serializeMoveTree(child))
+        };
       };
       
       const initialMoveNode = findInitialMove(moveTree);
@@ -376,8 +360,8 @@ export default function OpeningEditor() {
         name: name.trim(),
         color,
         initial_fen: moveTree.fen,
-        initial_moves: getMainLine(moveTree),
-        initial_view_fen: initialViewFen
+        initial_view_fen: initialViewFen,
+        moveTree: serializeMoveTree(moveTree)
       };
       
       let savedStudy;
@@ -406,54 +390,8 @@ export default function OpeningEditor() {
         savedStudy = { id: savedStudyId };
       }
       
-      // Clear existing moves
-      const existingMoves = await UserStudyMove.getByStudyId(savedStudy.id);
-      for (const move of existingMoves) {
-        await MoveAnnotation.deleteByMoveId(move.id);
-        await UserStudyMove.delete(move.id);
-      }
-      
-      // Save new moves
-      let moveNumber = 1;
-      const saveMoveNode = async (node, parentFen) => {
-        if (node.san === 'Start') return;
-        
-        const moveData = {
-          study_id: savedStudy.id,
-          fen: node.fen,
-          san: node.san,
-          move_number: moveNumber++,
-          parent_fen: parentFen,
-          is_main_line: node.isMainLine,
-          is_initial_move: node.isInitialMove,
-          comment: node.comment || '',
-          arrows: node.arrows || []
-        };
-        
-        const savedMove = await UserStudyMove.create(moveData);
-        
-        if (node.links && node.links.length > 0) {
-          for (const link of node.links) {
-            if (link.title || link.url) {
-              await MoveAnnotation.create({
-                move_id: savedMove.id,
-                type: 'link',
-                content: link.title || 'Link',
-                url: link.url || ''
-              });
-            }
-          }
-        }
-        
-        for (const child of node.children) {
-          await saveMoveNode(child, node.fen);
-        }
-      };
-      
-      for (const child of moveTree.children) {
-        await saveMoveNode(child, moveTree.fen);
-      }
-      
+      // Move tree is now saved directly in the study document
+      // No need for separate move storage
       
       
       // Firebase sync handled automatically by hybrid entities
@@ -473,9 +411,21 @@ export default function OpeningEditor() {
     }
   }, [isViewMode, name, color, moveTree, savedStudyId, selectedTagIds]);
 
+  // Set up the actual trigger backup function
+  triggerMoveBackupRef.current = useCallback(() => {
+    // Trigger backup even for unsaved studies (they get saved automatically)
+    if (!isViewMode && name.trim()) {
+      console.log('🔄 [StudyEditor] triggerMoveBackup: calling autoSave');
+      // Actually save the data instead of just dispatching an event
+      autoSave();
+    } else {
+      console.log('🚫 [StudyEditor] triggerMoveBackup: skipped', { isViewMode, name: name.trim() });
+    }
+  }, [isViewMode, name, autoSave]);
+
   // Track initial load completion
   useEffect(() => {
-    if (!initialLoadComplete && (hasLoaded || (!isNewStudy && name))) {
+    if (!initialLoadComplete && (hasLoaded || (isNewStudy && name))) {
       // Initial load is complete once we have data
       const timer = setTimeout(() => {
         setInitialLoadComplete(true);
@@ -896,50 +846,47 @@ export default function OpeningEditor() {
       console.log('[StudyEditor] Starting loadOpening with studyId:', studyId);
       
       const opening = await UserStudy.getById(studyId);
-      console.log('[StudyEditor] Retrieved opening:', opening);
+      console.log('[StudyEditor] Retrieved study:', opening);
       
       if (!opening) {
-        console.log('[StudyEditor] No opening found, navigating back to studies-book');
+        console.log('[StudyEditor] No study found, navigating back to studies-book');
         navigate('/studies-book');
         return;
       }
-      console.log('[StudyEditor] Setting opening data - name:', opening.name, 'color:', opening.color, 'id:', opening.id);
+      console.log('[StudyEditor] Setting study data - name:', opening.name, 'color:', opening.color, 'id:', opening.id);
       setName(opening.name);
       setColor(opening.color);
       setSavedOpeningId(opening.id);
       
-      const moves = await UserStudyMove.getByStudyId(studyId);
-      console.log('[StudyEditor] Retrieved moves:', moves ? moves.length : 0, 'moves');
-      
-      const root = new MoveNode('Start', opening.initial_fen);
-      const nodeMap = new Map();
-      nodeMap.set(opening.initial_fen, root);
-      
-      if (moves && moves.length > 0) {
-        moves.sort((a, b) => a.move_number - b.move_number);
-      }
-      
-      for (const move of (moves || [])) {
-        const parentNode = nodeMap.get(move.parent_fen);
-        if (parentNode) {
-          const childNode = parentNode.addChild(move.san, move.fen);
-          childNode.isMainLine = move.is_main_line;
-          childNode.isInitialMove = move.is_initial_move || false;
-          childNode.comment = move.comment || '';
-          childNode.links = [];
-          childNode.arrows = move.arrows || [];
-          nodeMap.set(move.fen, childNode);
-          childNode.moveId = move.id;
+      // Deserialize move tree from study document
+      const deserializeMoveTree = (serializedNode, parent = null) => {
+        if (!serializedNode) return null;
+        
+        const node = new MoveNode(serializedNode.san, serializedNode.fen, parent);
+        node.id = serializedNode.id;
+        node.isMainLine = serializedNode.isMainLine || false;
+        node.isInitialMove = serializedNode.isInitialMove || false;
+        node.comment = serializedNode.comment || '';
+        node.links = serializedNode.links || [];
+        node.arrows = serializedNode.arrows || [];
+        
+        // Recursively deserialize children
+        if (serializedNode.children && Array.isArray(serializedNode.children)) {
+          node.children = serializedNode.children.map(child => deserializeMoveTree(child, node));
         }
-      }
-      
-      for (const [fen, node] of nodeMap) {
-        if (node.moveId) {
-          const annotations = await MoveAnnotation.getByMoveId(node.moveId);
-          node.links = annotations
-            .filter(ann => ann.type === 'link')
-            .map(ann => ({ title: ann.content, url: ann.url }));
-        }
+        
+        return node;
+      };
+
+      let root;
+      if (opening.moveTree) {
+        // Use the new consolidated move tree structure
+        root = deserializeMoveTree(opening.moveTree);
+        console.log('[StudyEditor] Loaded move tree from study document');
+      } else {
+        // Fallback: create empty tree for studies without move tree data
+        root = new MoveNode('Start', opening.initial_fen);
+        console.log('[StudyEditor] Created empty move tree - no moveTree data in study');
       }
       
       MoveNode.calculateMainLine(root);
@@ -960,6 +907,7 @@ export default function OpeningEditor() {
       
       // Only use initial move for navigation in view mode, not edit mode
       if (isViewMode && initialMoveNode) {
+        console.log('[StudyEditor] Found initial move node:', initialMoveNode.san, 'FEN:', initialMoveNode.fen);
         setCurrentNode(initialMoveNode);
         
         // Set the current path to the initial move
@@ -969,11 +917,13 @@ export default function OpeningEditor() {
           initialPath.unshift(current.san);
           current = current.parent;
         }
-        setCurrentPath(initialPath);
+        console.log('[StudyEditor] Setting initial path to:', initialPath);
+        setCurrentPathDebug(initialPath);
       } else {
         // In edit mode or when no initial move is set, start at root
+        console.log('[StudyEditor] No initial move or in edit mode, starting at root');
         setCurrentNode(root);
-        setCurrentPath([]);
+        setCurrentPathDebug([]);
       }
       
       loadedOpeningIdRef.current = studyId;
@@ -992,7 +942,7 @@ export default function OpeningEditor() {
       }, 100);
       
     } catch (error) {
-      console.error('[StudyEditor] Error loading opening:', error);
+      console.error('[StudyEditor] Error loading study:', error);
       console.error('[StudyEditor] Stack trace:', error.stack);
       navigate('/studies-book');
     } finally {
@@ -1026,7 +976,7 @@ export default function OpeningEditor() {
     
     if (newMoves.length === 0) {
       setCurrentNode(moveTree);
-      setCurrentPath([]);
+      setCurrentPathDebug([]);
       return;
     }
     
@@ -1102,7 +1052,7 @@ export default function OpeningEditor() {
       fullPath.unshift(pathNode.san);
       pathNode = pathNode.parent;
     }
-    setCurrentPath(fullPath);
+    setCurrentPathDebug(fullPath);
     
     
     // Also notify the analysis view about the path change so ChunkVisualization stays in sync
@@ -1134,7 +1084,7 @@ export default function OpeningEditor() {
           path.unshift(current.san);
           current = current.parent;
         }
-        setCurrentPath(path);
+        setCurrentPathDebug(path);
       } else {
         console.log('❌ Could not find tree node for graph node ID:', node.id);
         // Don't set currentNode to invalid node - this prevents the blink
@@ -1151,7 +1101,7 @@ export default function OpeningEditor() {
           path.unshift(current.san);
           current = current.parent;
         }
-        setCurrentPath(path);
+        setCurrentPathDebug(path);
       } else {
         console.log('❌ Invalid tree node, not setting currentNode');
         // Don't set currentNode to invalid node - this prevents the blink
@@ -1259,10 +1209,10 @@ export default function OpeningEditor() {
           current = current.parent;
         }
         
-        setCurrentPath([...newPath]);
+        setCurrentPathDebug([...newPath]);
       } else {
         setCurrentNode(updatedTree);
-        setCurrentPath([]);
+        setCurrentPathDebug([]);
       }
       
       MoveNode.calculateMainLine(updatedTree);
@@ -1331,7 +1281,66 @@ export default function OpeningEditor() {
       lastSaved: null, // Remove save status
       onSave: null, // Remove manual save option
       onEdit: isViewMode ? () => navigate(`/studies-book/editor/${studyId}`) : null,
-      onView: isEditMode ? () => navigate(`/studies-book/study/${savedStudyId || studyId}`) : null,
+      onView: isEditMode ? async () => {
+        // For new studies, ensure they're saved first
+        if (!savedStudyId && name.trim()) {
+          try {
+            const username = localStorage.getItem('chesscope_username');
+            
+            const findInitialMove = (node) => {
+              if (node.isInitialMove) return node;
+              for (const child of node.children) {
+                const found = findInitialMove(child);
+                if (found) return found;
+              }
+              return null;
+            };
+
+            const serializeMoveTree = (node) => {
+              if (!node) return null;
+              
+              return {
+                id: node.id,
+                san: node.san,
+                fen: node.fen,
+                isMainLine: node.isMainLine,
+                isInitialMove: node.isInitialMove,
+                comment: node.comment || '',
+                links: node.links || [],
+                arrows: node.arrows || [],
+                children: node.children.map(child => serializeMoveTree(child))
+              };
+            };
+            
+            const initialMoveNode = findInitialMove(moveTree);
+            const initialViewFen = initialMoveNode ? initialMoveNode.fen : moveTree.fen;
+
+            const openingData = {
+              username,
+              name: name.trim(),
+              color,
+              initial_fen: moveTree.fen,
+              initial_view_fen: initialViewFen,
+              moveTree: serializeMoveTree(moveTree)
+            };
+            
+            // Create new study and get the ID immediately
+            const savedStudy = await UserStudy.create(openingData);
+            
+            // Navigate to view mode with the new study ID
+            navigate(`/studies-book/study/${savedStudy.id}`);
+            
+          } catch (error) {
+            console.error('Failed to save study before switching to view mode:', error);
+          }
+        } else if (savedStudyId) {
+          // Study already saved, navigate to view mode
+          navigate(`/studies-book/study/${savedStudyId}`);
+        } else {
+          // No name provided, can't save - do nothing or show error
+          console.warn('Cannot switch to view mode: study has no name');
+        }
+      } : null,
       onNavigateBack: handleNavigateBack,
       studyId,
       selectedPlayer: color,
@@ -1386,7 +1395,7 @@ export default function OpeningEditor() {
       <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-amber-500 animate-spin mx-auto mb-4" />
-          <p className="text-slate-300">Loading opening...</p>
+          <p className="text-slate-300">Loading study...</p>
         </div>
       </div>
     );
@@ -1421,7 +1430,7 @@ export default function OpeningEditor() {
         // Move handling
         currentMoves={currentPath}
         onCurrentMovesChange={(newPath) => {
-          setCurrentPath(newPath);
+          setCurrentPathDebug(newPath);
         }}
         onNewMove={handleNewMove}
         // Node selection

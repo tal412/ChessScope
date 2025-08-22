@@ -85,7 +85,7 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
       const timeoutId = setTimeout(checkMousePosition, 150);
       return () => clearTimeout(timeoutId);
     }
-  }, [isInLastCard, onHover, isHovered, moveData.san]);
+  }, [isInLastCard, isHovered, moveData.san]); // Remove onHover from dependencies to prevent unnecessary re-runs
   
   // Reset hover state when isInLastCard changes (chunk transition)
   useEffect(() => {
@@ -93,7 +93,7 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
       setIsHovered(false);
       if (onHoverEnd) onHoverEnd();
     }
-  }, [isInLastCard, isHovered, onHoverEnd]);
+  }, [isInLastCard, isHovered]); // Remove onHoverEnd from dependencies to prevent infinite loop
   
   // Opening mode styling (pink theme)
   const openingModeStyle = displayMode === 'opening' ? {
@@ -228,6 +228,12 @@ export default function ChunkVisualization({
   readOnly = false // NEW: Read-only mode for view-only scenarios
 }) {
   const [path, setPath] = useState(initialPath); // Array of selected moves (SAN notation)
+  const pathRef = useRef(path); // Keep a ref to current path for stable access
+  
+  // Keep pathRef in sync
+  useEffect(() => {
+    pathRef.current = path;
+  }, [path]);
   const [displayPath, setDisplayPath] = useState(initialPath); // Delayed path for display
   const [chessboardPath, setChessboardPath] = useState(initialPath); // Path for chessboard (delayed during back navigation)
   const [hoveredMove, setHoveredMove] = useState(null); // Track hovered move
@@ -254,27 +260,35 @@ export default function ChunkVisualization({
     if (onDirectScrollRef.current) {
       const directScrollTo = (moves) => {
         // Only update if moves are actually different to prevent loops
-        if (moves.length !== path.length || moves.some((move, index) => move !== path[index])) {
-          // Update all path states to trigger the correct chunk display
-          setPath(moves);
-          setDisplayPath(moves);
-          setChessboardPath(moves);
+        const currentPath = pathRef.current;
+        const movesChanged = moves.length !== currentPath.length || 
+                            moves.some((move, index) => move !== currentPath[index]);
+        
+        if (movesChanged) {
+          // Mark as external update to prevent feedback
+          isExternalUpdateRef.current = true;
+          // Use a single setState to prevent multiple re-renders
+          setPath([...moves]);
+          setDisplayPath([...moves]);
+          setChessboardPath([...moves]);
         }
       };
       
       onDirectScrollRef.current(directScrollTo);
     }
-  }, [openingGraph, path]); // Include path to ensure we have the current path when checking
+  }, [openingGraph]); // Remove path from dependencies to prevent re-creation loops
 
   // Calculate current moves sequence based on chessboard path (not regular path)
   const currentMoves = useMemo(() => {
     return chessboardPath;
   }, [chessboardPath]);
 
-  // Notify parent of current moves changes
+  // Notify parent of current moves changes - but only for user-initiated changes
   const prevCurrentMovesRef = useRef([]);
+  const isExternalUpdateRef = useRef(false); // Track if update came from external source
+  
   useEffect(() => {
-    if (onCurrentMovesChangeRef.current) {
+    if (onCurrentMovesChangeRef.current && !isExternalUpdateRef.current) {
       // Only notify if moves have actually changed to prevent circular updates
       const prevMoves = prevCurrentMovesRef.current;
       const movesChanged = currentMoves.length !== prevMoves.length ||
@@ -282,13 +296,24 @@ export default function ChunkVisualization({
       
       if (movesChanged) {
         prevCurrentMovesRef.current = [...currentMoves];
-        onCurrentMovesChangeRef.current(currentMoves);
+        // Use setTimeout to break the synchronous update cycle
+        setTimeout(() => {
+          onCurrentMovesChangeRef.current(currentMoves);
+        }, 0);
       }
     }
+    // Reset the flag after processing
+    isExternalUpdateRef.current = false;
   }, [currentMoves]); // Use ref to avoid infinite loops
 
-  // Handle external moves (from chessboard)
+  // Handle external moves (from chessboard) with debouncing
+  const externalMovesTimeoutRef = useRef(null);
   useEffect(() => {
+    // Clear any pending updates
+    if (externalMovesTimeoutRef.current) {
+      clearTimeout(externalMovesTimeoutRef.current);
+    }
+    
     // Skip external moves sync on initial mount - let tree maintain its own state
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
@@ -305,11 +330,30 @@ export default function ChunkVisualization({
     if (externalMovesChanged) {
       prevExternalMovesRef.current = externalMoves;
       
-      // Update all paths immediately to ensure selection state is correct
-      setPath(externalMoves);
-      setDisplayPath(externalMoves);
-      setChessboardPath(externalMoves);
+      // Debounce the state updates to prevent rapid successive changes
+      externalMovesTimeoutRef.current = setTimeout(() => {
+        // Update all paths immediately to ensure selection state is correct
+        // Only update if actually different to prevent infinite loops
+        const currentPath = pathRef.current;
+        if (externalMoves.length !== currentPath.length || 
+            externalMoves.some((move, index) => move !== currentPath[index])) {
+          // Mark this as an external update to prevent feedback loop
+          isExternalUpdateRef.current = true;
+          // Batch state updates to prevent multiple re-renders
+          const newMoves = [...externalMoves];
+          setPath(newMoves);
+          setDisplayPath(newMoves);
+          setChessboardPath(newMoves);
+        }
+      }, 10); // Small delay to batch updates
     }
+    
+    // Cleanup timeout on unmount
+    return () => {
+      if (externalMovesTimeoutRef.current) {
+        clearTimeout(externalMovesTimeoutRef.current);
+      }
+    };
   }, [externalMoves]); // Only depend on externalMoves
 
   // Helper function to apply filtering (same logic as PerformanceGraph)

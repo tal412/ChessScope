@@ -154,7 +154,27 @@ const ChessAnalysisView = ({
 
   // Reset view when color changes (clear selected node and position clusters)
   // Only depend on selectedPlayer to avoid infinite loops
+  const previousSelectedPlayerRef = useRef(selectedPlayer);
+  const isInitialMountRef = useRef(true);
+  
   useEffect(() => {
+    // Skip this effect on initial mount for opening modes
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      // Still do the auto-fit on initial mount
+      setTimeout(() => {
+        if (canvasRef.current) {
+          canvasRef.current.fitToNodes({ animate: false });
+        }
+      }, 50);
+      return;
+    }
+    
+    // Skip if selectedPlayer hasn't actually changed
+    if (previousSelectedPlayerRef.current === selectedPlayer) {
+      return;
+    }
+    previousSelectedPlayerRef.current = selectedPlayer;
     
     // Reset to root position
     const rootNode = graphDataNodesRef.current.find(node => node.data.isRoot);
@@ -172,7 +192,8 @@ const ChessAnalysisView = ({
     }
     
     // Call onCurrentMovesChange to notify parent components
-    if (onCurrentMovesChangeRef.current) {
+    // Only reset if we're not in opening mode or if this is an actual color change
+    if (onCurrentMovesChangeRef.current && mode !== 'opening-editor' && mode !== 'opening-viewer') {
       onCurrentMovesChangeRef.current([]);
     }
     
@@ -360,7 +381,15 @@ const ChessAnalysisView = ({
   
   // Moves integration handlers
   const handleMovesCurrentMovesChange = useCallback((moves) => {
-    setMovesCurrentPath(moves);
+    // Use setter function to access current state and prevent dependencies
+    setMovesCurrentPath(currentPath => {
+      // Only update if moves are actually different to prevent infinite loops
+      if (moves.length !== currentPath.length || 
+          moves.some((move, index) => move !== currentPath[index])) {
+        return [...moves];
+      }
+      return currentPath; // Return current state to prevent unnecessary re-renders
+    });
     
     // Check if moves are different from current chessboard state
     const currentMoves = chessboardSync.currentMoves || [];
@@ -444,7 +473,7 @@ const ChessAnalysisView = ({
         onCurrentNodeChange(moveTree);
       }
     }
-  }, [chessboardSync, onCurrentMovesChange, mode, onCurrentNodeChange, moveTree, graphData.nodes]);
+  }, [mode]); // Minimize dependencies to prevent infinite loops - use refs for stable access
   
   const handleMovesDirectScroll = useCallback((scrollFn) => {
     setMovesDirectScrollFn(() => scrollFn);
@@ -575,12 +604,15 @@ const ChessAnalysisView = ({
       
       if (movesChanged) {
         prevChessboardMovesRef.current = [...chessboardSync.currentMoves];
-        setTimeout(() => {
-          movesDirectScrollFn(chessboardSync.currentMoves);
-        }, 100);
+        // Temporarily disable automatic scroll sync to prevent infinite loops
+        // setTimeout(() => {
+        //   if (movesDirectScrollFnRef.current) {
+        //     movesDirectScrollFnRef.current(chessboardSync.currentMoves);
+        //   }
+        // }, 100);
       }
     }
-  }, [chessboardSync.currentMoves, movesDirectScrollFn, showMoves]);
+  }, [chessboardSync.currentMoves, showMoves]); // Remove movesDirectScrollFn from dependencies to prevent infinite loop
   
   // Sync movesCurrentPath with chessboard
   useEffect(() => {
@@ -591,29 +623,54 @@ const ChessAnalysisView = ({
   }, [chessboardSync.currentMoves, movesCurrentPath]);
 
   // Sync external currentMoves prop with chessboard when it changes
-  const lastSyncedMovesRef = useRef([]);
+  const lastSyncedMovesRef = useRef(null); // Start with null to indicate no sync yet
+  const hasInitializedRef = useRef(false); // Track if we've done initial setup
+  const isFirstRenderRef = useRef(true); // Track if this is the very first render
+  
   useEffect(() => {
-    if (currentMoves.length !== chessboardSync.currentMoves.length ||
-        !currentMoves.every((move, index) => move === chessboardSync.currentMoves[index])) {
-      
-      // Check if this is a meaningful change or just noise
-      const lastSynced = lastSyncedMovesRef.current;
-      const isRelevantChange = currentMoves.length !== lastSynced.length ||
-                               !currentMoves.every((move, index) => move === lastSynced[index]);
-      
-      if (isRelevantChange) {
-        // For opening modes: Always sync (external state is authoritative)
-        // For performance mode: Only sync if not creating a loop
-        const shouldSync = mode !== 'performance' || 
-                          currentMoves.length > 0 || 
-                          chessboardSync.currentMoves.length === 0;
-        
-        if (shouldSync) {
-          chessboardSync.syncMovesToChessboard(currentMoves);
-          setMovesCurrentPath([...currentMoves]);
-          lastSyncedMovesRef.current = [...currentMoves];
-        }
+    // On first render, just mark that we've rendered once
+    if (isFirstRenderRef.current) {
+      isFirstRenderRef.current = false;
+      // For opening modes, wait for actual moves before initializing
+      if ((mode === 'opening-editor' || mode === 'opening-viewer') && currentMoves.length === 0) {
+        console.log('[ChessAnalysisView] First render with empty moves, waiting for actual moves');
+        return;
       }
+    }
+    
+    // Skip if currentMoves hasn't actually changed from what we last synced
+    if (lastSyncedMovesRef.current !== null &&
+        currentMoves.length === lastSyncedMovesRef.current.length &&
+        currentMoves.every((move, index) => move === lastSyncedMovesRef.current[index])) {
+      return; // No change needed
+    }
+    
+    // For opening modes, don't sync empty array on initial mount - wait for actual moves
+    if (!hasInitializedRef.current && 
+        (mode === 'opening-editor' || mode === 'opening-viewer') && 
+        currentMoves.length === 0) {
+      console.log('[ChessAnalysisView] Skipping initial empty sync for opening mode');
+      return;
+    }
+    
+    // Mark as initialized after we get first non-empty moves or after first sync attempt in performance mode
+    if (currentMoves.length > 0 || mode === 'performance') {
+      hasInitializedRef.current = true;
+    }
+    
+    // Check if we need to sync with the chessboard
+    const chessboardNeedsUpdate = 
+      currentMoves.length !== chessboardSync.currentMoves.length ||
+      !currentMoves.every((move, index) => move === chessboardSync.currentMoves[index]);
+    
+    if (chessboardNeedsUpdate) {
+      console.log('[ChessAnalysisView] Syncing moves to chessboard:', currentMoves);
+      chessboardSync.syncMovesToChessboard(currentMoves);
+      setMovesCurrentPath([...currentMoves]);
+      lastSyncedMovesRef.current = [...currentMoves];
+    } else {
+      // Chessboard is already in sync, just update our tracking
+      lastSyncedMovesRef.current = [...currentMoves];
     }
   }, [currentMoves, chessboardSync, mode]);
   
