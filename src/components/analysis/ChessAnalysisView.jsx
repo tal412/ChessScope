@@ -49,7 +49,7 @@ const ChessAnalysisView = ({
   onNewMove = null,
   
   // Canvas configuration
-  canvasMode = 'performance', // 'opening' | 'performance'
+  canvasMode = 'performance', // 'study' | 'performance'
   onCanvasModeChange = null,
   
   // Performance graph specific
@@ -769,7 +769,7 @@ const ChessAnalysisView = ({
                     maxDepth={mode === 'performance' ? 20 : 50}
                     minGameCount={mode === 'performance' ? 1 : 0}
                     winRateFilter={mode === 'performance' ? [0, 100] : [0, 100]}
-                    displayMode={(mode === 'opening-editor' || mode === 'opening-viewer') && canvasMode === 'performance' ? 'performance' : (mode === 'performance' ? 'performance' : 'opening')}
+                    displayMode={(mode === 'opening-editor' || mode === 'opening-viewer') && canvasMode === 'performance' ? 'performance' : (mode === 'performance' ? 'performance' : 'study')}
                     readOnly={readOnly}
                   />
                 </div>
@@ -838,16 +838,16 @@ const ChessAnalysisView = ({
                       size="sm"
                       variant="outline"
                       onClick={() => {
-                        const newMode = canvasMode === 'opening' ? 'performance' : 'opening';
+                        const newMode = canvasMode === 'study' ? 'performance' : 'study';
                         console.log('🎯 Canvas mode toggle clicked: switching from', canvasMode, 'to', newMode);
                         onCanvasModeChange(newMode);
                       }}
                       className={`${canvasMode === 'performance' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600'} group transition-all duration-100`}
-                      title={`Switch to ${canvasMode === 'opening' ? 'Performance' : 'Opening'} view`}
+                      title={`Switch to ${canvasMode === 'study' ? 'Performance' : 'Study'} view`}
                     >
                       <Network className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
                       <span className="hidden group-hover:inline transition-opacity duration-100">
-                        {canvasMode === 'opening' ? 'Performance' : 'Opening'}
+                        {canvasMode === 'study' ? 'Performance' : 'Study'}
                       </span>
                     </Button>
                   </div>
@@ -863,11 +863,11 @@ const ChessAnalysisView = ({
                   onNextMoveHover={(node) => {
                     if (onHoveredMoveChange) {
                       // Respect the canvas's current mode for styling, which can be different from the page's mode.
-                      const isCanvasInOpeningMode = canvasMode === 'opening';
+                      const isCanvasInStudyMode = canvasMode === 'study';
                       const moveData = { ...node.data, maxGameCount: graphData.maxGameCount };
 
-                      if (isCanvasInOpeningMode) {
-                        moveData.arrowColor = '#ec4899'; // Pink for opening mode
+                      if (isCanvasInStudyMode) {
+                        moveData.arrowColor = '#ec4899'; // Pink for study mode
                         moveData.fixedThickness = 14;
                       } else if (node.data?.isMissing) {
                         // Pink arrow for nodes with no data in performance mode

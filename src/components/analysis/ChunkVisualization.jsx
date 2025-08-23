@@ -95,8 +95,8 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
     }
   }, [isInLastCard, isHovered]); // Remove onHoverEnd from dependencies to prevent infinite loop
   
-  // Opening mode styling (pink theme)
-  const openingModeStyle = displayMode === 'opening' ? {
+  // Study mode styling (pink theme)
+  const studyModeStyle = displayMode === 'study' ? {
     base: 'bg-slate-700/30 border-pink-500/60 hover:bg-pink-500/10',
     selected: 'bg-pink-500/20 border-pink-400'
   } : null;
@@ -109,8 +109,8 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
       onMouseLeave={handleMouseLeave}
       className={`w-full text-left p-3 rounded-lg border-2 transition-all duration-200 relative ${
         isSelected 
-          ? (openingModeStyle ? openingModeStyle.selected : getSelectedColor(winRate))
-          : (openingModeStyle ? openingModeStyle.base : `bg-slate-700/30 ${getPerformanceColor(winRate)}`)
+          ? (studyModeStyle ? studyModeStyle.selected : getSelectedColor(winRate))
+          : (studyModeStyle ? studyModeStyle.base : `bg-slate-700/30 ${getPerformanceColor(winRate)}`)
       }`}
     >
       {/* Percentage badge in top-right corner - only show in performance mode */}
@@ -144,8 +144,8 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
           </p>
         )}
         
-        {/* Opening info for opening mode - show opening name as subtitle */}
-        {displayMode === 'opening' && (
+        {/* Opening info for study mode - show opening name as subtitle */}
+        {displayMode === 'study' && (
           <p className="text-sm text-slate-400 mb-2 line-clamp-2">
             {moveData.openingInfo?.eco && moveData.openingInfo?.name 
               ? `${moveData.openingInfo.eco} ${moveData.openingInfo.name}`
@@ -224,7 +224,7 @@ export default function ChunkVisualization({
   maxDepth = 20,
   minGameCount = 1,
   winRateFilter = [0, 100],
-  displayMode = 'performance', // NEW: 'opening' | 'performance'
+  displayMode = 'performance', // NEW: 'study' | 'performance'
   readOnly = false // NEW: Read-only mode for view-only scenarios
 }) {
   const [path, setPath] = useState(initialPath); // Array of selected moves (SAN notation)
@@ -525,7 +525,7 @@ export default function ChunkVisualization({
     return currentNode.children.map(child => ({
       san: child.san,
       toFen: child.fen,
-      gameCount: 1, // Default count for opening mode
+      gameCount: 1, // Default count for study mode
       details: { winRate: 50 }, // Default neutral win rate
       winRate: 50,
       openingInfo: generateOpeningInfo(child.san, path)
@@ -559,15 +559,15 @@ export default function ChunkVisualization({
 
   // Calculate chunks to display and global max game count
   const { chunks, globalMaxGameCount, currentChunkIndex } = useMemo(() => {
-    // Handle custom move tree mode (opening edit/view) - only when displayMode is 'opening'
-    if (customMoveTree && displayMode === 'opening') {
+    // Handle custom move tree mode (study edit/view) - only when displayMode is 'study'
+    if (customMoveTree && displayMode === 'study') {
       const result = [];
       
       // Get root moves from custom tree with improved opening info
       const rootMoves = customMoveTree.children.map(child => ({
         san: child.san,
         toFen: child.fen,
-        gameCount: 1, // Default count for opening mode
+        gameCount: 1, // Default count for study mode
         details: { winRate: 50 }, // Default neutral win rate
         winRate: 50,
         openingInfo: generateOpeningInfo(child.san, [])
@@ -608,7 +608,7 @@ export default function ChunkVisualization({
         }
       }
       
-      // For opening mode, global max is always 1
+      // For study mode, global max is always 1
       const globalMaxGameCount = 1;
       const currentChunkIndex = Math.min(displayPath.length, result.length - 1);
       
@@ -727,7 +727,7 @@ export default function ChunkVisualization({
     return (
       <div className="flex items-center justify-center h-full">
         <p className="text-slate-400">
-          {displayMode === 'opening' 
+          {displayMode === 'study' 
             ? "No opening moves available" 
             : "No opening graph available"}
         </p>
@@ -776,8 +776,8 @@ export default function ChunkVisualization({
                     const enhancedMoveData = {
                       ...moveData,
                       maxGameCount: globalMaxGameCount,
-                      arrowColor: displayMode === 'opening' ? '#ec4899' : getArrowColor(moveData.details?.winRate ?? moveData.winRate ?? 0),
-                      fixedThickness: displayMode === 'opening' ? 14 : undefined
+                      arrowColor: displayMode === 'study' ? '#ec4899' : getArrowColor(moveData.details?.winRate ?? moveData.winRate ?? 0),
+                      fixedThickness: displayMode === 'study' ? 14 : undefined
                     };
                     onMoveHover(enhancedMoveData);
                   }

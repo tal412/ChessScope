@@ -21,7 +21,7 @@ import { calculateOptimalTransform } from './utils/geometry';
 export const ChessCanvas = forwardRef(function ChessCanvas({
   // Core data
   graphData = { nodes: [], edges: [] },
-  mode = 'performance', // 'opening' | 'performance'
+  mode = 'performance', // 'study' | 'performance'
   
   // External state integration (optional)
   currentNodeId = null,
@@ -996,6 +996,9 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
 
       {/* Canvas Controls */}
       <CanvasControls
+        // Mode prop - needed for conditional rendering
+        mode={mode}
+        
         // Zoom controls
         onZoomIn={() => {
           loadingStates.setUserInteracted(true);

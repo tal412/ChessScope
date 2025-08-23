@@ -99,6 +99,51 @@ export const FirebaseAuthProvider = ({ children }) => {
     }
   };
 
+  // Sign up with email and password
+  const signUpWithEmailPassword = async (email, password, displayName = null) => {
+    try {
+      const result = await firebaseAuth.signUpWithEmailPassword(email, password, displayName);
+      
+      if (result.success) {
+        // User state will be updated by the auth listener
+        return { success: true };
+      } else {
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      console.error('Email sign up error:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Sign in with email and password
+  const signInWithEmailPassword = async (email, password) => {
+    try {
+      const result = await firebaseAuth.signInWithEmailPassword(email, password);
+      
+      if (result.success) {
+        // User state will be updated by the auth listener
+        return { success: true };
+      } else {
+        return { success: false, error: result.error };
+      }
+    } catch (error) {
+      console.error('Email sign in error:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
+  // Send password reset email
+  const resetPassword = async (email) => {
+    try {
+      const result = await firebaseAuth.sendPasswordResetEmail(email);
+      return result;
+    } catch (error) {
+      console.error('Password reset error:', error);
+      return { success: false, error: error.message };
+    }
+  };
+
   // Sign out from Google
   const signOutGoogle = async () => {
     try {
@@ -128,13 +173,16 @@ export const FirebaseAuthProvider = ({ children }) => {
     
     // Firebase auth actions
     signInWithGoogle,
+    signUpWithEmailPassword,
+    signInWithEmailPassword,
+    resetPassword,
     signOutGoogle,
     
     // Firestore service access
     firestoreService,
     
     // For Studies pages that need to check if user can sync
-    canSyncToCloud: isGoogleSignedIn
+    canSyncToCloud: !!firebaseUser
   };
 
   return (

@@ -1,5 +1,9 @@
 import { 
-  signInWithPopup, 
+  signInWithPopup,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendPasswordResetEmail,
+  updateProfile,
   signOut as firebaseSignOut, 
   onAuthStateChanged 
 } from 'firebase/auth';
@@ -83,6 +87,115 @@ class FirebaseAuthService {
       }
       
       return { success: false, error: error.message || 'Failed to sign in with Google' };
+    }
+  }
+
+  // Sign up with email and password
+  async signUpWithEmailPassword(email, password, displayName = null) {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      // Update display name if provided
+      if (displayName) {
+        await updateProfile(user, {
+          displayName: displayName
+        });
+      }
+      
+      // Extract user information
+      const userData = {
+        uid: user.uid,
+        email: user.email,
+        displayName: displayName || user.displayName,
+        photoURL: user.photoURL,
+        emailVerified: user.emailVerified,
+        createdAt: user.metadata.creationTime,
+        lastSignIn: user.metadata.lastSignInTime
+      };
+
+      console.log('Successfully signed up with email/password:', userData);
+      return { success: true, user: userData };
+    } catch (error) {
+      console.error('Email/password sign-up error:', error);
+      
+      // Handle specific error codes
+      if (error.code === 'auth/email-already-in-use') {
+        return { success: false, error: 'This email is already registered. Please use the "Sign In" tab to log in with your existing account.' };
+      } else if (error.code === 'auth/invalid-email') {
+        return { success: false, error: 'Invalid email address. Please check and try again.' };
+      } else if (error.code === 'auth/weak-password') {
+        return { success: false, error: 'Password is too weak. Please use at least 6 characters.' };
+      } else if (error.code === 'auth/operation-not-allowed') {
+        return { success: false, error: 'Email/password accounts are not enabled. Please contact support.' };
+      }
+      
+      return { success: false, error: error.message || 'Failed to sign up' };
+    }
+  }
+
+  // Sign in with email and password
+  async signInWithEmailPassword(email, password) {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      // Extract user information
+      const userData = {
+        uid: user.uid,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
+        emailVerified: user.emailVerified,
+        createdAt: user.metadata.creationTime,
+        lastSignIn: user.metadata.lastSignInTime
+      };
+
+      console.log('Successfully signed in with email/password:', userData);
+      return { success: true, user: userData };
+    } catch (error) {
+      console.error('Email/password sign-in error:', error);
+      
+      // Handle specific error codes
+      if (error.code === 'auth/invalid-email') {
+        return { success: false, error: 'Invalid email address. Please check and try again.' };
+      } else if (error.code === 'auth/user-disabled') {
+        return { success: false, error: 'This account has been disabled. Please contact support.' };
+      } else if (error.code === 'auth/user-not-found') {
+        return { success: false, error: 'No account found with this email. Please sign up first.' };
+      } else if (error.code === 'auth/wrong-password') {
+        return { success: false, error: 'Incorrect password. Please try again.' };
+      } else if (error.code === 'auth/invalid-credential') {
+        return { success: false, error: 'Invalid email or password. Please check and try again.' };
+      } else if (error.code === 'auth/operation-not-allowed') {
+        return { success: false, error: 'Email/password authentication is not enabled. Please contact support.' };
+      } else if (error.code === 'auth/too-many-requests') {
+        return { success: false, error: 'Too many failed attempts. Please try again later.' };
+      }
+      
+      return { success: false, error: error.message || 'Failed to sign in' };
+    }
+  }
+
+  // Send password reset email
+  async sendPasswordResetEmail(email) {
+    try {
+      await sendPasswordResetEmail(auth, email);
+      console.log('Password reset email sent successfully');
+      return { success: true, message: 'Password reset email sent. Please check your inbox.' };
+    } catch (error) {
+      console.error('Password reset error:', error);
+      
+      // Handle specific error codes
+      if (error.code === 'auth/invalid-email') {
+        return { success: false, error: 'Invalid email address. Please check and try again.' };
+      } else if (error.code === 'auth/user-not-found') {
+        return { success: false, error: 'No account found with this email address.' };
+      } else if (error.code === 'auth/too-many-requests') {
+        return { success: false, error: 'Too many requests. Please try again later.' };
+      }
+      
+      return { success: false, error: error.message || 'Failed to send password reset email' };
     }
   }
 

@@ -75,7 +75,7 @@ export default function Layout() {
   const { user, logout: logoutChess, isImporting, importProgress, importStatus } = useChessPlatform();
   
   // Firebase auth for Studies (optional)
-  const { isGoogleSignedIn, signInWithGoogle, signOutGoogle } = useAuth();
+  const { firebaseUser, signInWithGoogle, signOutGoogle } = useAuth();
   
   // Placeholder values for removed sync functionality
   const isSyncing = false;
@@ -215,7 +215,7 @@ export default function Layout() {
       });
       
       // Sign out from Firebase if user is signed in
-      if (isGoogleSignedIn) {
+      if (firebaseUser) {
         try {
           await signOutGoogle();
           console.log('Successfully signed out from Firebase');

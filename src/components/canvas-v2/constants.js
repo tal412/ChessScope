@@ -145,7 +145,7 @@ export const PERFORMANCE_COLORS = {
   missing: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' },      // Gray
 };
 
-export const OPENING_NODE_COLORS = {
+export const STUDY_NODE_COLORS = {
   whiteMove: { bg: '#ffffff', border: '#d1d5db', text: '#000000' },
   blackMove: { bg: '#374151', border: '#4b5563', text: '#ffffff' },
   selected: { bg: '#3b82f6', border: '#2563eb', text: '#ffffff' },
@@ -154,6 +154,9 @@ export const OPENING_NODE_COLORS = {
   missing: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' },
   startNode: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' },
 };
+
+// Backward compatibility alias
+export const OPENING_NODE_COLORS = STUDY_NODE_COLORS;
 
 // Opening cluster colors - EXACT match with ReactFlow
 export const OPENING_CLUSTER_COLORS = [{ bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' }];

@@ -98,8 +98,8 @@ export function CanvasControls({
               <Layers className="h-4 w-4" />
             </Button>
             
-            {/* Position Clusters Toggle */}
-            {onTogglePositionClusters && (
+            {/* Position Clusters Toggle - Hidden in study mode */}
+            {onTogglePositionClusters && mode !== 'study' && (
               <Button
                 size="sm"
                 variant="ghost"

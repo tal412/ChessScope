@@ -228,7 +228,7 @@ export default function OpeningEditor() {
   const [showDetails, setShowDetails] = useState(true);
   
   // Canvas state
-  const [canvasMode, setCanvasMode] = useState('opening');
+  const [canvasMode, setCanvasMode] = useState('study');
   const [openingGraph, setOpeningGraph] = useState(null);
   const [performanceGraphData, setPerformanceGraphData] = useState({ nodes: [], edges: [], maxGameCount: 0 });
   
@@ -1131,7 +1131,7 @@ export default function OpeningEditor() {
 
   // Context menu actions
   const contextMenuActions = useMemo(() => {
-    if (canvasMode !== 'opening' || isViewMode) {
+    if (canvasMode !== 'study' || isViewMode) {
       return null;
     }
     
@@ -1459,7 +1459,7 @@ export default function OpeningEditor() {
         onHoveredMoveChange={setHoveredMove}
         // Context menu
         onNodeRightClick={(event, node) => {
-          if (canvasMode === 'opening') {
+          if (canvasMode === 'study') {
             return;
           }
         }}

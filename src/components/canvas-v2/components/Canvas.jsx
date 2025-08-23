@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useCallback } from 'react';
 import { CANVAS_CONFIG, RENDER_CONFIG, CLUSTER_CONFIG, SHADOW_CONFIG } from '../constants.js';
-import { getPerformanceColors, getOpeningNodeColors, hexToRgba } from '../utils/colors.js';
+import { getPerformanceColors, getStudyNodeColors, hexToRgba } from '../utils/colors.js';
 import { drawIcon, drawChainLinkIcon, createConvexHull } from '../utils/geometry.js';
 
 /**
@@ -78,10 +78,10 @@ function renderPerformanceNodeText(ctx, node, centerX, centerY) {
 }
 
 /**
- * Render opening node text
+ * Render study node text
  */
-function renderOpeningNodeText(ctx, node, centerX, centerY) {
-  const colors = getOpeningNodeColors(node || {});
+function renderStudyNodeText(ctx, node, centerX, centerY) {
+  const colors = getStudyNodeColors(node || {});
   const textColor = colors.text;
   
   // Set up text stroke for readability (matching v1)
@@ -191,7 +191,7 @@ export function Canvas({
   hoveredClusterColor = null,
   
   // Mode
-  mode = 'performance', // 'performance' | 'opening'
+  mode = 'performance', // 'performance' | 'study'
   
   // Dimensions
   width = 800,
@@ -450,8 +450,8 @@ export function Canvas({
       
       if (!sourceNode || !targetNode) return;
       
-      if (mode === 'opening') {
-        // Opening mode edge rendering
+      if (mode === 'study') {
+        // Study mode edge rendering
         const isMainLine = edge.data?.isMainLine || false;
         
         ctx.strokeStyle = isMainLine ? '#ffffff' : '#6b7280';
@@ -516,7 +516,7 @@ export function Canvas({
       // Get colors
       const colors = mode === 'performance' 
         ? getPerformanceColors(node.data || {})
-        : getOpeningNodeColors(node);
+        : getStudyNodeColors(node);
 
       // Calculate node rectangle bounds (matching v1)
       const nodeX = x - CANVAS_CONFIG.NODE_HALF_SIZE;
@@ -583,7 +583,7 @@ export function Canvas({
       if (mode === 'performance') {
         renderPerformanceNodeText(ctx, node, centerX, centerY);
       } else {
-        renderOpeningNodeText(ctx, node, centerX, centerY);
+        renderStudyNodeText(ctx, node, centerX, centerY);
       }
       
       // Draw icons if present

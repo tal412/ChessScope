@@ -1,4 +1,4 @@
-import { PERFORMANCE_COLORS, OPENING_NODE_COLORS } from '../constants.js';
+import { PERFORMANCE_COLORS, STUDY_NODE_COLORS } from '../constants.js';
 
 /**
  * Get performance-based color scheme for a node
@@ -41,26 +41,26 @@ export function getPerformanceColors(nodeDataOrWinRate, gameCount, isMissing = f
 }
 
 /**
- * Get opening-based color scheme for a node
+ * Get study-based color scheme for a node
  * @param {Object} node - Node data
  * @param {boolean} isSelected - Whether the node is selected
  * @returns {Object} Color scheme object with bg, border, text properties
  */
-export function getOpeningNodeColors(node, isSelected = false) {
+export function getStudyNodeColors(node, isSelected = false) {
   const nodeData = node.data || {};
 
   if (nodeData.isMissing) {
-    return OPENING_NODE_COLORS.missing;
+    return STUDY_NODE_COLORS.missing;
   }
   
   if (nodeData.isRoot) {
-    return OPENING_NODE_COLORS.startNode;
+    return STUDY_NODE_COLORS.startNode;
   }
   
   const moveSequence = nodeData.moveSequence || [];
   const isWhiteMove = moveSequence.length % 2 !== 0;
   
-  return isWhiteMove ? OPENING_NODE_COLORS.whiteMove : OPENING_NODE_COLORS.blackMove;
+  return isWhiteMove ? STUDY_NODE_COLORS.whiteMove : STUDY_NODE_COLORS.blackMove;
 }
 
 /**
@@ -82,7 +82,9 @@ export function hexToRgba(hex, alpha = 1) {
 
 // Backward compatibility aliases for original function names
 export const getPerformanceData = getPerformanceColors;
-export const getOpeningNodeColor = getOpeningNodeColors;
+// Backward compatibility aliases
+export const getOpeningNodeColors = getStudyNodeColors;
+export const getOpeningNodeColor = getStudyNodeColors;
 
 // Also export hexToRgb as alias for hexToRgba for compatibility
 export const hexToRgb = hexToRgba; 
