@@ -115,6 +115,10 @@ button:focus-visible {
     --appbar-accent: 210 40% 91%;
     --appbar-accent-foreground: 240 5.9% 10%;
     --appbar-border: 210 40% 86%;
+    --column-primary: 0 0% 98%;
+    --column-secondary: 210 20% 95%;
+    --column-tertiary: 220 15% 93%;
+    --column-border: 210 15% 88%;
   }
   
   .light {
@@ -157,6 +161,10 @@ button:focus-visible {
     --appbar-accent: 210 40% 91%;
     --appbar-accent-foreground: 240 5.9% 10%;
     --appbar-border: 210 40% 86%;
+    --column-primary: 0 0% 98%;
+    --column-secondary: 210 20% 95%;
+    --column-tertiary: 220 15% 93%;
+    --column-border: 210 15% 88%;
   }
   
   .dark {
@@ -197,6 +205,10 @@ button:focus-visible {
     --appbar-accent: 220 35% 23%;
     --appbar-accent-foreground: 240 4.8% 95.9%;
     --appbar-border: 220 35% 28%;
+    --column-primary: 0 0% 3.9%;
+    --column-secondary: 220 25% 8%;
+    --column-tertiary: 220 30% 12%;
+    --column-border: 220 25% 15%;
   }
 }
 

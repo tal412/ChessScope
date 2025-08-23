@@ -731,6 +731,7 @@ const ChessAnalysisView = ({
           moves: (
             <LayoutSection
               key="moves"
+              className="bg-column-primary border-r-2 border-column-border"
               headerControls={
                 <div className="w-full">
                   <NavigationButtons
@@ -757,7 +758,7 @@ const ChessAnalysisView = ({
                 </div>
               }
             >
-              <div className="bg-slate-200 dark:bg-slate-950 h-full w-full p-4">
+              <div className="h-full w-full p-4">
                 {(effectiveOpeningGraph || mode === 'opening-editor') ? (
                 <div className="h-full w-full">
                   <ChunkVisualization
@@ -797,9 +798,10 @@ const ChessAnalysisView = ({
           board: (
             <LayoutSection
               key="board"
+              className="bg-column-secondary border-r-2 border-column-border"
               noPadding={true}
             >
-              <div className="bg-slate-200 dark:bg-slate-950 h-full w-full">
+              <div className="h-full w-full">
                 <div className="h-full w-full flex items-center justify-center p-4">
                               <InteractiveChessboard
                 currentMoves={chessboardSync.currentMoves}
@@ -834,10 +836,10 @@ const ChessAnalysisView = ({
           graph: (
             <LayoutSection
               key="graph"
+              className={`bg-column-tertiary border-r-2 border-column-border ${(!hasDetailsSection || !showDetails) ? 'border-r-0' : ''}`}
               noPadding={true}
-              className="border-r-0"
             >
-              <div className="bg-white dark:bg-card h-full w-full">
+              <div className="h-full w-full">
                 <div className="relative h-full w-full">
                 {/* Canvas Mode Toggle - Show in both opening editor and viewer */}
                 {(mode === 'opening-editor' || mode === 'opening-viewer') && onCanvasModeChange && (

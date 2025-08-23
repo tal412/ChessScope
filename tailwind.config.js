@@ -66,6 +66,12 @@ module.exports = {
   				accent: 'hsl(var(--appbar-accent))',
   				'accent-foreground': 'hsl(var(--appbar-accent-foreground))',
   				border: 'hsl(var(--appbar-border))'
+  			},
+  			column: {
+  				primary: 'hsl(var(--column-primary))',
+  				secondary: 'hsl(var(--column-secondary))',
+  				tertiary: 'hsl(var(--column-tertiary))',
+  				border: 'hsl(var(--column-border))'
   			}
   		},
   		keyframes: {

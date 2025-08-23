@@ -1,7 +1,6 @@
 import React, { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from 'react';
 import Chessground from 'react-chessground';
 import 'react-chessground/dist/styles/chessground.css';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { NavigationButtons, NavigationPresets } from '@/components/ui/navigation-buttons';
 import { ChevronLeft, ChevronRight, RotateCcw, GripVertical, ArrowUpDown, Info, Fish, Loader2, AlertTriangle, BookOpen } from 'lucide-react';
@@ -1308,17 +1307,17 @@ export default function InteractiveChessboard({
 
   return (
     <div ref={containerRef} className={`w-full h-full flex items-center justify-center ${className}`}>
-      <Card 
-        className="bg-white dark:bg-card border-border/50 w-full h-full flex flex-col"
+      <div 
+        className="bg-card border border-border/50 w-full h-full flex flex-col"
       >
-        <CardHeader className="card-header pb-2 px-3 pt-3 flex-shrink-0">
+        <div className="bg-appbar-accent border-b border-appbar-border pb-2 px-3 pt-3 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
               {/* Fixed height container for opening title - always reserves space for 2 lines */}
               <div className="h-14 flex items-start">
-                <CardTitle className="text-card-foreground text-lg leading-tight line-clamp-2" title={getFormattedOpeningName()}>
+                <div className="text-card-foreground text-lg leading-tight line-clamp-2 font-semibold leading-none tracking-tight" title={getFormattedOpeningName()}>
                   {getFormattedOpeningName()}
-                </CardTitle>
+                </div>
               </div>
               {/* Reserved space for Position Status Indicator - prevents layout shifts */}
               <div className="h-8 flex flex-col justify-start">
@@ -1365,8 +1364,8 @@ export default function InteractiveChessboard({
               </Button>
             )}
           </div>
-        </CardHeader>
-        <CardContent className="flex-1 flex flex-col gap-2 min-h-0 p-3">
+        </div>
+        <div className="flex-1 flex flex-col gap-2 min-h-0 p-3">
           {/* Chessboard using react-chessground */}
           <div 
             data-board-container 
@@ -1551,31 +1550,31 @@ export default function InteractiveChessboard({
         </div>
 
         {/* Move List or Drawing Mode UI - Fixed height container */}
-        <div data-move-list className="flex-shrink-0 bg-muted/50 rounded-lg p-2 h-[80px] overflow-y-auto">
+        <div data-move-list className="flex-shrink-0 bg-appbar-accent border-t border-appbar-border p-3 h-[80px] overflow-y-auto">
           {drawingMode ? (
             /* Drawing Mode UI */
             <div className="h-full flex flex-col justify-center">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                <div className="w-2 h-2 bg-green-500 animate-pulse"></div>
                 <span className="text-xs font-medium text-foreground">Drawing Mode Active</span>
               </div>
               <div className="text-xs text-muted-foreground">
                 <div className="mb-1">Right-click drag for arrows:</div>
                 <div className="flex items-center justify-between">
-                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'green' ? 'bg-green-500/20' : ''}`}>
-                    <div className="w-2 h-0.5 bg-green-500 rounded-full"></div>
+                  <div className={`flex items-center gap-1 px-1 py-0.5 transition-colors ${getCurrentArrowColor() === 'green' ? 'bg-green-500/20' : ''}`}>
+                    <div className="w-2 h-0.5 bg-green-500"></div>
                     <span className="text-xs">None</span>
                   </div>
-                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'red' ? 'bg-red-500/20' : ''}`}>
-                    <div className="w-2 h-0.5 bg-red-500 rounded-full"></div>
+                  <div className={`flex items-center gap-1 px-1 py-0.5 transition-colors ${getCurrentArrowColor() === 'red' ? 'bg-red-500/20' : ''}`}>
+                    <div className="w-2 h-0.5 bg-red-500"></div>
                     <span className="text-xs">SHIFT</span>
                   </div>
-                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'blue' ? 'bg-blue-500/20' : ''}`}>
-                    <div className="w-2 h-0.5 bg-blue-500 rounded-full"></div>
+                  <div className={`flex items-center gap-1 px-1 py-0.5 transition-colors ${getCurrentArrowColor() === 'blue' ? 'bg-blue-500/20' : ''}`}>
+                    <div className="w-2 h-0.5 bg-blue-500"></div>
                     <span className="text-xs">ALT/CMD</span>
                   </div>
-                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'yellow' ? 'bg-yellow-500/20' : ''}`}>
-                    <div className="w-2 h-0.5 bg-yellow-500 rounded-full"></div>
+                  <div className={`flex items-center gap-1 px-1 py-0.5 transition-colors ${getCurrentArrowColor() === 'yellow' ? 'bg-yellow-500/20' : ''}`}>
+                    <div className="w-2 h-0.5 bg-yellow-500"></div>
                     <span className="text-xs">SHIFT+ALT/CMD</span>
                   </div>
                 </div>
@@ -1595,8 +1594,8 @@ export default function InteractiveChessboard({
                     return (
                       <div
                         key={index}
-                        className={`cursor-pointer hover:bg-accent/50 px-1 py-0.5 rounded text-center ${
-                          isCurrentMove ? 'bg-accent text-accent-foreground' : 'text-foreground'
+                        className={`cursor-pointer hover:bg-primary/10 px-2 py-1 text-center border border-transparent ${
+                          isCurrentMove ? 'bg-primary/20 text-foreground border-primary/30' : 'text-foreground hover:border-border'
                         }`}
                         onClick={() => navigateToMove(index + 1)}
                       >
@@ -1616,8 +1615,8 @@ export default function InteractiveChessboard({
             </>
           )}
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
     </div>
   );
 }

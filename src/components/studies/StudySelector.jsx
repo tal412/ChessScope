@@ -46,7 +46,7 @@ export default function StudySelector({ fen, trigger, children, openings = [] })
       <DialogTrigger asChild>
         {children || triggerElement}
       </DialogTrigger>
-      <DialogContent className="bg-slate-800 border-slate-700 text-slate-100">
+      <DialogContent className="bg-card border-border text-card-foreground">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-amber-500" />
@@ -56,7 +56,7 @@ export default function StudySelector({ fen, trigger, children, openings = [] })
         
         <div className="mt-4">
           {openings.length === 0 ? (
-            <div className="text-center py-8 text-slate-400">
+            <div className="text-center py-8 text-muted-foreground">
               <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
               <p>No saved studies contain this position</p>
               <StudyDetailsDialog 
@@ -76,7 +76,7 @@ export default function StudySelector({ fen, trigger, children, openings = [] })
                   <button
                     key={study.id}
                     onClick={() => handleStudyClick(study.id)}
-                    className="w-full p-3 bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors text-left group"
+                    className="w-full p-3 bg-muted hover:bg-accent transition-colors text-left group"
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -84,9 +84,9 @@ export default function StudySelector({ fen, trigger, children, openings = [] })
                           <BookOpen className="w-5 h-5 text-amber-400" />
                         </div>
                         <div>
-                          <p className="font-medium text-slate-100">{study.name}</p>
+                          <p className="font-medium text-foreground">{study.name}</p>
                           <div className="flex items-center gap-2 mt-1">
-                            <Badge variant="outline" className={`text-xs ${study.color === 'white' ? 'border-amber-500/50 text-amber-400' : 'border-slate-500 text-slate-400'}`}>
+                            <Badge variant="outline" className={`text-xs ${study.color === 'white' ? 'border-amber-500/50 text-amber-400' : 'border-border text-muted-foreground'}`}>
                               {study.color === 'white' ? (
                                 <Crown className="w-3 h-3 mr-1" />
                               ) : (
@@ -112,14 +112,14 @@ export default function StudySelector({ fen, trigger, children, openings = [] })
                                   </Badge>
                                 ))}
                                 {study.tags.length > 2 && (
-                                  <span className="text-xs text-slate-400">+{study.tags.length - 2}</span>
+                                  <span className="text-xs text-muted-foreground">+{study.tags.length - 2}</span>
                                 )}
                               </div>
                             )}
                           </div>
                         </div>
                       </div>
-                      <ExternalLink className="w-4 h-4 text-slate-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <ExternalLink className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
                   </button>
                 ))}

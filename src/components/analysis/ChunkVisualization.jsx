@@ -106,7 +106,7 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
       onClick={onSelect}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`w-full text-left p-3 rounded-lg border-2 relative ${
+      className={`w-full text-left p-3 border-2 relative ${
         isSelected 
           ? (studyModeStyle ? studyModeStyle.selected : getSelectedColor(winRate))
           : (studyModeStyle ? studyModeStyle.base : `bg-secondary/30 ${getPerformanceColor(winRate)}`)
@@ -170,13 +170,13 @@ const GraphChunk = ({ title, moves, onMoveSelect, selectedMove, depth, onMoveHov
 
   return (
     <div 
-      className="w-full h-full bg-white dark:bg-card border border-border/50 rounded-xl overflow-hidden flex flex-col"
+      className="w-full h-full bg-card border border-border/50 overflow-hidden flex flex-col"
     >
       {/* Header - Fixed height */}
-      <div className="p-4 pb-3 border-b border-border/50 flex-shrink-0" style={{ minHeight: '80px', maxHeight: '80px' }}>
+      <div className="bg-appbar-accent border-b border-appbar-border p-4 pb-3 flex-shrink-0" style={{ minHeight: '80px', maxHeight: '80px' }}>
         <div className="text-card-foreground text-base flex items-center justify-between font-semibold leading-none tracking-tight">
           <span>{title}</span>
-          <Badge variant="outline" className="text-xs bg-secondary/50 text-muted-foreground">
+          <Badge variant="outline" className="text-xs bg-background/50 border-border text-muted-foreground">
             {sortedMoves.length} moves
           </Badge>
         </div>

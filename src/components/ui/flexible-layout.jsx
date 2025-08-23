@@ -296,7 +296,11 @@ export function LayoutSection({
   return (
     <section 
       className={cn(
-        "h-full border-r border-border/50 overflow-hidden bg-white dark:bg-card",
+        "h-full overflow-hidden",
+        // Only apply default background if no background class is provided in className
+        !className?.includes('bg-') && "bg-white dark:bg-card",
+        // Only apply default border if no border class is provided in className
+        !className?.includes('border-r') && "border-r border-border/50",
         className
       )}
       {...props}

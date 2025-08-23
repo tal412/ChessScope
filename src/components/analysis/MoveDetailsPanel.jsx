@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -41,7 +40,7 @@ const MoveActionButton = ({
           }
         }}
         className={cn(
-          "h-9 w-9 p-0 rounded-lg border transition-all duration-200",
+          "h-9 w-9 p-0 border transition-all duration-200",
           isActive 
             ? "bg-amber-500 border-amber-400 text-white" 
             : "bg-card border-border text-muted-foreground",
@@ -224,9 +223,9 @@ export default function MoveDetailsPanel({
   return (
     <div className={cn("h-full flex flex-col", className)}>
       {/* Move Header */}
-      <Card className="bg-card border-border flex-shrink-0 mb-4">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-card-foreground text-lg flex items-center justify-between">
+      <div className="bg-card border border-border flex-shrink-0 mb-4">
+        <div className="p-6 pb-3">
+          <div className="text-card-foreground text-lg flex items-center justify-between font-semibold leading-none tracking-tight">
             <span>Move: {selectedNode.san}</span>
             <div className="flex items-center gap-2">
               {/* Main Line Button */}
@@ -251,19 +250,19 @@ export default function MoveDetailsPanel({
                 readOnly={readOnly}
               />
             </div>
-          </CardTitle>
-        </CardHeader>
-      </Card>
+          </div>
+        </div>
+      </div>
 
       {/* Move Details */}
-      <Card className="bg-card border-border flex-1 flex flex-col min-h-0">
-        <CardHeader className="flex-shrink-0 pb-3">
-          <CardTitle className="text-card-foreground text-base flex items-center">
+      <div className="bg-card border border-border flex-1 flex flex-col min-h-0">
+        <div className="flex-shrink-0 pb-3 p-6">
+          <div className="text-card-foreground text-base flex items-center font-semibold leading-none tracking-tight">
             <Info className="w-4 h-4 mr-2 text-amber-500" />
             Move Details
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="flex-1 overflow-hidden flex flex-col space-y-4">
+          </div>
+        </div>
+        <div className="flex-1 overflow-hidden flex flex-col space-y-4 p-6 pt-0">
           {/* Comment Section */}
           <div className="flex-1 flex flex-col min-h-0">
             <Label className="text-foreground flex-shrink-0 mb-2">
@@ -271,7 +270,7 @@ export default function MoveDetailsPanel({
               Comment
             </Label>
             {readOnly ? (
-              <div className="bg-muted border border-border rounded-md p-3 flex-1 min-h-0 overflow-y-auto">
+              <div className="bg-muted border border-border p-3 flex-1 min-h-0 overflow-y-auto">
                 {commentValue ? (
                   <div className="text-foreground whitespace-pre-wrap break-words">
                     {commentValue}
@@ -307,7 +306,7 @@ export default function MoveDetailsPanel({
                     onClick={handleDrawingModeToggle}
                     disabled={selectedNode && selectedNode.san === 'Start'}
                     className={cn(
-                      "w-full transition-all duration-200 border rounded-lg hover:scale-[1.02] active:scale-[0.98]",
+                      "w-full transition-all duration-200 border hover:scale-[1.02] active:scale-[0.98]",
                       selectedNode && selectedNode.san === 'Start'
                         ? "opacity-50 cursor-not-allowed border-border text-muted-foreground bg-card/50"
                         : drawingMode 
@@ -386,7 +385,7 @@ export default function MoveDetailsPanel({
                 <>
                   {linksValue && linksValue.length > 0 ? (
                     linksValue.map((link, index) => (
-                      <div key={index} className="bg-muted border border-border rounded-md p-3">
+                      <div key={index} className="bg-muted border border-border p-3">
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
                             <div className="text-foreground font-medium truncate">
@@ -443,7 +442,7 @@ export default function MoveDetailsPanel({
                     size="sm"
                     variant="ghost"
                     onClick={handleAddLink}
-                    className="w-full bg-secondary/50 border border-border text-muted-foreground hover:bg-accent/70 hover:border-border hover:text-foreground rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                    className="w-full bg-secondary/50 border border-border text-muted-foreground hover:bg-accent/70 hover:border-border hover:text-foreground transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Add Link
@@ -452,8 +451,8 @@ export default function MoveDetailsPanel({
               )}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 }
