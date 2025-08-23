@@ -60,7 +60,7 @@ export default function StudyCard({
       <ContextMenuTrigger>
         <Card 
           className={cn(
-            "bg-slate-800 border-slate-700 hover:border-amber-500/50 transition-all cursor-pointer group",
+            "bg-card border-border hover:border-amber-500/50 transition-all cursor-pointer group",
             isDragging && "opacity-50 rotate-2 scale-105",
             className
           )}
@@ -69,11 +69,11 @@ export default function StudyCard({
           <CardHeader className="pb-2 pt-3 px-3">
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
-                <CardTitle className="text-sm text-slate-100 truncate leading-tight">
+                <CardTitle className="text-sm text-card-foreground truncate leading-tight">
                   {study.name}
                 </CardTitle>
                 <div className="flex items-center gap-1 mt-1">
-                  <Badge variant="outline" className={`text-xs px-1.5 py-0.5 ${study.color === 'white' ? 'border-amber-500/50 text-amber-400' : 'border-slate-500 text-slate-400'}`}>
+                  <Badge variant="outline" className={`text-xs px-1.5 py-0.5 ${study.color === 'white' ? 'border-amber-500/50 text-amber-400' : 'border-border text-muted-foreground'}`}>
                     {study.color === 'white' ? (
                       <Crown className="w-2.5 h-2.5 mr-1" />
                     ) : (
@@ -117,7 +117,7 @@ export default function StudyCard({
                       </Badge>
                     ))}
                     {study.tags.length > 3 && (
-                      <Badge variant="outline" className="text-xs px-1 py-0 border-slate-500 text-slate-400" style={{ fontSize: '10px' }}>
+                      <Badge variant="outline" className="text-xs px-1 py-0 border-border text-muted-foreground" style={{ fontSize: '10px' }}>
                         +{study.tags.length - 3}
                       </Badge>
                     )}
@@ -147,7 +147,7 @@ export default function StudyCard({
           <CardContent className="pb-3 px-3">
             {/* Mini Chessboard Preview - Made smaller */}
             <div className="w-3/4 mx-auto">
-              <div className="aspect-square mb-2 rounded-md overflow-hidden bg-slate-900">
+              <div className="aspect-square mb-2 rounded-md overflow-hidden bg-muted">
                 <Chessground
                   fen={study.initial_view_fen || study.initial_fen}
                   orientation={study.color}
@@ -161,7 +161,7 @@ export default function StudyCard({
               </div>
             </div>
             
-            <div className="flex items-center justify-between text-xs text-slate-500">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>{study.initial_moves?.length || 0} moves</span>
               <ChevronRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
             </div>
@@ -169,10 +169,10 @@ export default function StudyCard({
         </Card>
       </ContextMenuTrigger>
       
-      <ContextMenuContent className="bg-slate-800 border-slate-700">
+      <ContextMenuContent className="bg-popover border-border">
         <ContextMenuItem 
           onClick={(e) => handleContextAction(() => onEdit?.(study), e)}
-          className="text-slate-200 hover:text-white hover:bg-slate-700"
+          className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
         >
           <Edit className="w-4 h-4 mr-2" />
           Edit Study
@@ -182,7 +182,7 @@ export default function StudyCard({
           <>
             <ContextMenuItem 
               onClick={(e) => handleContextAction(() => onMoveToFolder?.(study, null), e)}
-              className="text-slate-200 hover:text-white hover:bg-slate-700"
+              className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
             >
               <FolderInput className="w-4 h-4 mr-2" />
               Move to Root
@@ -191,7 +191,7 @@ export default function StudyCard({
               <ContextMenuItem 
                 key={folder.id}
                 onClick={(e) => handleContextAction(() => onMoveToFolder?.(study, folder), e)}
-                className="text-slate-200 hover:text-white hover:bg-slate-700 pl-8"
+                className="text-popover-foreground hover:text-accent-foreground hover:bg-accent pl-8"
               >
                 <span 
                   className="w-3 h-3 rounded mr-2"

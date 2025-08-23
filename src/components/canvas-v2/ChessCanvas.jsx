@@ -962,34 +962,34 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
     >
       {/* Initialization Loading Overlay */}
       {loadingStates.shouldShowInitializationOverlay(dimensions, zoom.transform, isGenerating, initialTransform) && (
-        <div className="absolute inset-0 bg-slate-900/50 flex items-center justify-center z-30">
+        <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-30">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-2"></div>
-            <p className="text-slate-300 text-sm">Initializing canvas...</p>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+            <p className="text-foreground text-sm">Initializing canvas...</p>
           </div>
         </div>
       )}
 
       {/* Autofit Loading Overlay */}
       {loadingStates.shouldShowAutoFitOverlay() && (
-        <div className="absolute inset-0 bg-slate-900/30 flex items-center justify-center z-20">
+        <div className="absolute inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center z-20">
           <div className="text-center">
-            <div className="animate-pulse rounded-lg bg-slate-700/80 px-4 py-2">
-              <p className="text-slate-200 text-sm">Adjusting view...</p>
+            <div className="animate-pulse rounded-lg bg-card/90 border border-border px-4 py-2">
+              <p className="text-card-foreground text-sm">Adjusting view...</p>
             </div>
           </div>
         </div>
       )}
 
       {/* Zoom Level Indicator */}
-      <div className="absolute top-4 left-4 z-40 bg-slate-800/90 text-slate-200 px-3 py-1.5 rounded-md text-sm font-medium border border-slate-600/50 shadow-lg">
+      <div className="absolute top-4 left-4 z-40 bg-card/90 backdrop-blur-sm text-card-foreground px-3 py-1.5 rounded-md text-sm font-medium border border-border/50 shadow-lg">
         <div className="flex items-center gap-2">
-          <span className="text-slate-400">Zoom:</span>
-          <span className="text-white font-mono">
+          <span className="text-muted-foreground">Zoom:</span>
+          <span className="text-foreground font-mono">
             {Math.round(zoom.scale * 100)}%
           </span>
         </div>
-        <div className="text-xs text-slate-400 mt-0.5">
+        <div className="text-xs text-muted-foreground mt-0.5">
           MMB / R: Fit View
         </div>
       </div>

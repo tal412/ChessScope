@@ -24,6 +24,11 @@ export function SettingsLoading({
   error = null // Error state to prevent success messages
 }) {
   const [displayState, setDisplayState] = useState('buttons'); // 'buttons', 'loading', 'success', 'hidden'
+  
+  // Log state changes
+  useEffect(() => {
+    console.log('📄 [SETTINGS-LOADING] Display state changed to:', displayState, 'at', new Date().toLocaleTimeString());
+  }, [displayState]);
 
   // Reset state when isLoading changes from false to true
   useEffect(() => {
@@ -47,10 +52,18 @@ export function SettingsLoading({
       if (progress >= 100 && displayState === 'loading') {
         // Only show success if there's no error
         if (!error) {
+          const successStartTime = performance.now();
+          console.log('✅ [SETTINGS-LOADING] Success state triggered at', new Date().toLocaleTimeString());
+          console.log('✅ [SETTINGS-LOADING] Will show success message for', successDuration, 'ms');
+          
           setDisplayState('success');
           
           // After successDuration, hide and call completion
           const timer = setTimeout(() => {
+            const successEndTime = performance.now();
+            console.log('✅ [SETTINGS-LOADING] Success duration ended after', Math.round(successEndTime - successStartTime), 'ms');
+            console.log('✅ [SETTINGS-LOADING] Calling onComplete callback');
+            
             setDisplayState('hidden');
             if (onComplete) {
               onComplete();
@@ -60,17 +73,27 @@ export function SettingsLoading({
           return () => clearTimeout(timer);
         } else {
           // If there's an error, go back to buttons immediately
+          console.log('❌ [SETTINGS-LOADING] Error detected, returning to buttons');
           setDisplayState('buttons');
         }
       } else if (progress < 100) {
+        console.log('⏳ [SETTINGS-LOADING] Still loading, progress:', progress + '%');
         setDisplayState('loading');
       }
     } else if (!isLoading && displayState === 'loading') {
       // If loading ends without reaching 100%, only show success if no error
       if (!error) {
+        const successStartTime = performance.now();
+        console.log('✅ [SETTINGS-LOADING] Success state triggered (loading ended) at', new Date().toLocaleTimeString());
+        console.log('✅ [SETTINGS-LOADING] Will show success message for', successDuration, 'ms');
+        
         setDisplayState('success');
         
         const timer = setTimeout(() => {
+          const successEndTime = performance.now();
+          console.log('✅ [SETTINGS-LOADING] Success duration ended after', Math.round(successEndTime - successStartTime), 'ms');
+          console.log('✅ [SETTINGS-LOADING] Calling onComplete callback');
+          
           setDisplayState('hidden');
           if (onComplete) {
             onComplete();
@@ -80,6 +103,7 @@ export function SettingsLoading({
         return () => clearTimeout(timer);
       } else {
         // If there's an error, go back to buttons
+        console.log('❌ [SETTINGS-LOADING] Error detected, returning to buttons');
         setDisplayState('buttons');
       }
     }
@@ -102,7 +126,7 @@ export function SettingsLoading({
       <div className="w-full max-w-lg min-w-[300px]">
         {displayState === 'success' ? (
           // Success Animation - maintain consistent height and width
-          <div className="flex items-center justify-center space-x-3 animate-in slide-in-from-bottom-2 duration-300 min-h-[56px] w-full">
+          <div className="flex items-center justify-center space-x-3 animate-in slide-in-from-bottom-2 duration-300 min-h-[44px] w-full">
             <CheckCircle className="w-5 h-5 text-green-400" />
             <span className="text-sm font-medium text-green-400">
               {successMessage}
@@ -110,17 +134,17 @@ export function SettingsLoading({
           </div>
         ) : displayState === 'loading' ? (
           // Loading Animation - Progress bar with consistent dimensions
-          <div className="space-y-2 py-2 min-h-[56px] flex flex-col justify-center w-full">
+          <div className="space-y-2 py-2 min-h-[44px] flex flex-col justify-center w-full">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-slate-300 font-medium truncate pr-4">
+              <span className="text-foreground font-medium truncate pr-4">
                 {progress >= 100 ? 'Finalizing...' : status || 'Updating Analysis...'}
               </span>
-              <span className="text-slate-400 flex-shrink-0">
+              <span className="text-muted-foreground flex-shrink-0">
                 {Math.round(progress)}%
               </span>
             </div>
             
-            <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+            <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
               <div 
                 className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full origin-left"
                 style={{ 
@@ -151,7 +175,7 @@ export function SettingsLoading({
                   onClick={onButtonClick}
                   disabled={buttonDisabled}
                   size="lg"
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-12 py-3 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 w-full max-w-[300px] min-h-[56px]"
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-12 py-2 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 w-full max-w-[300px] min-h-[44px]"
                 >
                   <div className="flex items-center gap-3">
                     <ChevronRight className="w-5 h-5" />

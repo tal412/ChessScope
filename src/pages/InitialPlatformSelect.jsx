@@ -16,6 +16,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from '@/components/ui/use-toast';
 import { SettingsLoading } from '@/components/ui/settings-loading';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 export default function InitialPlatformSelect({ isTransitioning = false }) {
   const navigate = useNavigate();
@@ -70,10 +71,10 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
       setSelectedTimeControls(['rapid']);
     }
     
-    // Start animations with slight delay for smooth transition from main page
+    // Start entrance animation after main page exit completes
     setTimeout(() => {
       setIsVisible(true);
-    }, 50);
+    }, 100); // Shorter pause for snappy transition
   }, [location.state]);
 
   // Handle back navigation
@@ -83,11 +84,11 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
       return;
     }
     
-    // Go back to home directly with smooth transition
+    // Go back to home with exact same timing as forward transition
     setIsLeaving(true);
     setTimeout(() => {
       navigate('/', { state: { returning: true } });
-    }, 50);
+    }, 150); // Match CSS animation duration exactly
   };
 
   // Handle browser back button
@@ -128,6 +129,12 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
 
   const handleAccountSubmit = async (e) => {
     e.preventDefault();
+    
+    // Start the overall timer
+    const overallStartTime = performance.now();
+    console.log('🚀 [IMPORT-FLOW] Starting import process at', new Date().toLocaleTimeString());
+    window.importFlowStartTime = overallStartTime;
+    
     if (!username.trim()) {
       setError(`Please enter your ${selectedPlatform === 'lichess' ? 'Lichess' : 'Chess.com'} username`);
       return;
@@ -153,6 +160,8 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
     setError('');
 
     try {
+      console.log('🚀 [IMPORT-FLOW] Calling connectPlatform...');
+      
       // Convert our settings to the expected format
       const importSettings = {
         selectedTimeControls,
@@ -163,12 +172,15 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
       
       const result = await connectPlatform(selectedPlatform, username, importSettings);
       if (result.success) {
+        console.log('🚀 [IMPORT-FLOW] connectPlatform succeeded');
         // The onComplete callback will handle moving to step 2
         // No need for setTimeout here since SettingsLoading handles the timing
       } else {
+        console.log('🚀 [IMPORT-FLOW] connectPlatform failed:', result.error);
         setError(result.error || `Failed to connect ${selectedPlatform === 'lichess' ? 'Lichess' : 'Chess.com'} account`);
       }
-    } catch {
+    } catch (error) {
+      console.log('🚀 [IMPORT-FLOW] connectPlatform threw error:', error);
       setError('Connection failed. Please check your username and try again.');
     }
   };
@@ -200,69 +212,82 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
   };
 
   const handleImportComplete = () => {
-    // Import complete - just trigger fade out, Pages component will handle the transition
-    setIsLeaving(true);
-    // Don't navigate here - let the authentication state change handle it
+    const startTime = performance.now();
+    console.log('🎯 [ANIMATION] handleImportComplete called at', new Date().toLocaleTimeString());
+    
+    // Import complete - wait for success message to be fully visible before starting exit
+    setTimeout(() => {
+      const pauseEndTime = performance.now();
+      console.log('🎯 [ANIMATION] Success message pause ended after', Math.round(pauseEndTime - startTime), 'ms - starting page exit');
+      
+      // Trigger page exit animation
+      setIsLeaving(true);
+      console.log('🎯 [ANIMATION] setIsLeaving(true) - starting CSS exit animation');
+      
+      // Wait for CSS animation to complete, then dispatch event
+      setTimeout(() => {
+        console.log('🎯 [ANIMATION] Exit animation complete - dispatching platformPageExitComplete event');
+        window.dispatchEvent(new CustomEvent('platformPageExitComplete'));
+      }, 150); // Wait for CSS animation duration
+    }, 2000); // Allow 2 seconds pause after success message appears
   };
 
   // Step 1: Account Connection
   if (step === 1) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 relative">
+      <div className={`min-h-screen flex items-center justify-center p-6 relative transition-all duration-150 ease-out ${
+        isLeaving ? 'opacity-0 transform translate-x-2' :
+        isVisible ? 'opacity-100 transform translate-x-0' : 
+        'opacity-0 transform -translate-x-2'
+      }`}>
         {/* Back Button */}
         <Button
           onClick={handleBack}
           variant="ghost"
           disabled={isImporting}
-          className={`absolute top-6 left-6 transition-all duration-250 ${
+          className={`absolute top-4 left-4 ${
             isImporting 
-              ? 'text-slate-600 cursor-not-allowed' 
-              : 'text-slate-400 hover:text-white'
-          } ${
-            isVisible && !isLeaving ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform -translate-x-4'
+              ? 'text-muted-foreground cursor-not-allowed' 
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           <ArrowLeft className="w-5 h-5 mr-2" />
           Back
         </Button>
 
-                  <div className={`w-full max-w-7xl page-transition transition-all duration-250 ease-in-out ${
-            isLeaving ? 'opacity-0 transform -translate-x-4' :
-            isVisible ? 'opacity-100 transform translate-x-0' : 
-            'opacity-0 transform translate-x-4'
-          }`}>
-                      <div className={`text-center mb-12 page-transition transition-all duration-250 ease-in-out ${
-              isLeaving ? 'opacity-0 transform -translate-x-2' :
-              isVisible ? 'opacity-100 transform translate-x-0' : 
-              'opacity-0 transform translate-x-2'
-            }`}>
+        {/* Theme Toggle Button - Fixed top right */}
+        <div className="absolute top-4 right-4 z-50">
+          <ThemeToggle 
+            variant="outline" 
+            className="shadow-lg border-border/50 backdrop-blur-sm bg-background/80 hover:bg-accent hover:text-accent-foreground"
+          />
+        </div>
+
+        <div className="w-full max-w-7xl">
+          <div className="text-center mb-12">
             <div className="flex items-center justify-center mb-6">
               <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center">
-                <Shield className="w-8 h-8 text-slate-900" />
+                <Shield className="w-8 h-8 text-background" />
               </div>
             </div>
-            <h1 className="text-4xl font-bold text-white mb-3">Connect Your {selectedPlatform === 'lichess' ? 'Lichess' : 'Chess.com'} Account</h1>
-            <p className="text-slate-400 text-lg max-w-2xl mx-auto">
+            <h1 className="text-4xl font-bold text-foreground mb-3">Connect Your {selectedPlatform === 'lichess' ? 'Lichess' : 'Chess.com'} Account</h1>
+            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               Configure your import settings and connect to analyze your opening performance and discover patterns in your games
             </p>
           </div>
 
           <form onSubmit={handleAccountSubmit} className="space-y-8">
-            <div className={`grid grid-cols-1 lg:grid-cols-3 gap-8 page-transition transition-all duration-250 ease-in-out ${
-              isLeaving ? 'opacity-0 transform -translate-x-2' :
-              isVisible ? 'opacity-100 transform translate-x-0' : 
-              'opacity-0 transform translate-x-2'
-            }`}>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
               {/* Left Column - Account Connection */}
-              <Card className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50">
+              <Card className="bg-card border-border">
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
                       <User className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <CardTitle className="text-xl text-white">Connect Account</CardTitle>
-                      <p className="text-slate-400 text-sm">Link your {selectedPlatform === 'lichess' ? 'Lichess' : 'Chess.com'} profile</p>
+                      <CardTitle className="text-xl text-card-foreground">Connect Account</CardTitle>
+                      <p className="text-muted-foreground text-sm">Link your {selectedPlatform === 'lichess' ? 'Lichess' : 'Chess.com'} profile</p>
                     </div>
                   </div>
                 </CardHeader>
@@ -272,7 +297,7 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
                       {selectedPlatform === 'lichess' ? (
                         <div className="flex items-center gap-2">
                           <img src="/Lichess_Logo_2019.svg.png" alt="Lichess" className="h-8 w-8" />
-                          <span className="text-white font-semibold text-lg">Lichess</span>
+                          <span className="text-foreground font-semibold text-lg">Lichess</span>
                         </div>
                       ) : (
                         <img src="/chesscom_logo_wordmark.svg" alt="Chess.com Logo" className="h-8 w-auto" />
@@ -288,18 +313,18 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
                         setError(''); // Clear error when user types
                       }}
                       placeholder="Enter your username"
-                      className="bg-slate-700/50 border-slate-600 text-white placeholder:text-slate-400 focus:border-blue-500"
+                      className="bg-input border-border text-foreground placeholder:text-muted-foreground focus:border-ring"
                       disabled={isImporting}
                       required
                     />
                   </div>
                   
-                  <div className="bg-slate-700/30 p-4 rounded-lg border border-slate-600/50">
+                  <div className="bg-muted/30 p-4 rounded-lg border border-border/50">
                     <div className="flex items-start gap-3">
                       <Shield className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
                       <div className="text-sm">
-                        <p className="text-slate-200 font-medium mb-1">Secure & Private</p>
-                        <p className="text-slate-400">
+                        <p className="text-foreground font-medium mb-1">Secure & Private</p>
+                        <p className="text-muted-foreground">
                           Only public game history is accessed. No private data is read.
                         </p>
                       </div>
@@ -309,15 +334,15 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
               </Card>
 
               {/* Middle Column - Time Controls */}
-              <Card className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50">
+              <Card className="bg-card border-border">
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
                       <Settings className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <CardTitle className="text-xl text-white">Time Controls</CardTitle>
-                      <p className="text-slate-400 text-sm">Select game types to analyze</p>
+                      <CardTitle className="text-xl text-card-foreground">Time Controls</CardTitle>
+                      <p className="text-muted-foreground text-sm">Select game types to analyze</p>
                     </div>
                   </div>
                 </CardHeader>
@@ -340,22 +365,22 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
                         className={`flex items-center space-x-3 p-3 rounded-lg transition-colors select-none ${
                           isImporting 
                             ? 'cursor-not-allowed opacity-50' 
-                            : 'hover:bg-slate-700/30 cursor-pointer'
+                            : 'hover:bg-muted/30 cursor-pointer'
                         }`}
                         onClick={() => !isImporting && handleTimeControlClick(timeControl.id)}
                       >
-                        <div className="w-4 h-4 rounded border border-slate-500 bg-slate-700 flex items-center justify-center pointer-events-none">
+                        <div className="w-4 h-4 rounded border border-border bg-muted flex items-center justify-center pointer-events-none">
                           {selectedTimeControls.includes(timeControl.id) && (
-                            <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <svg className="w-3 h-3 text-primary-foreground" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                             </svg>
                           )}
                         </div>
                         <div className="flex-1">
-                          <label htmlFor={timeControl.id} className="text-slate-200 font-medium cursor-pointer">
+                          <label htmlFor={timeControl.id} className="text-foreground font-medium cursor-pointer">
                             {timeControl.label}
                           </label>
-                          <p className="text-slate-400 text-xs">{timeControl.desc}</p>
+                          <p className="text-muted-foreground text-xs">{timeControl.desc}</p>
                         </div>
                       </div>
                     ))}
@@ -364,26 +389,26 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
               </Card>
 
               {/* Right Column - Date Range & Auto-Sync */}
-              <Card className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50">
+              <Card className="bg-card border-border">
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
                       <Globe className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <CardTitle className="text-xl text-white">Import Settings</CardTitle>
-                      <p className="text-slate-400 text-sm">Configure data range</p>
+                      <CardTitle className="text-xl text-card-foreground">Import Settings</CardTitle>
+                      <p className="text-muted-foreground text-sm">Configure data range</p>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-6">
                   <div className="space-y-2">
-                    <Label className="text-slate-200 font-medium">Date Range</Label>
+                    <Label className="text-foreground font-medium">Date Range</Label>
                     <select 
                       value={selectedDateRange} 
                       onChange={(e) => setSelectedDateRange(e.target.value)}
                       disabled={isImporting}
-                      className="bg-slate-700/50 border-slate-600 text-white rounded-md px-3 py-2 w-full"
+                      className="bg-input border-border text-foreground rounded-md px-3 py-2 w-full"
                     >
                       <option value="1">Last 1 month</option>
                       <option value="2">Last 2 months</option>
@@ -397,14 +422,14 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
                     <div className="space-y-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label className="text-slate-200 text-sm font-medium">From</Label>
+                          <Label className="text-foreground text-sm font-medium">From</Label>
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button
                                 variant="outline"
                                 className={cn(
-                                  "w-full justify-start text-left font-normal bg-slate-700/50 border-slate-600 text-white hover:bg-slate-700",
-                                  !customDateRange.from && "text-slate-400"
+                                  "w-full justify-start text-left font-normal bg-input border-border text-foreground hover:bg-muted",
+                                  !customDateRange.from && "text-muted-foreground"
                                 )}
                                 disabled={isImporting}
                               >
@@ -416,26 +441,26 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
                                 )}
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700" align="start">
+                            <PopoverContent className="w-auto p-0 bg-popover border-border" align="start">
                               <Calendar
                                 mode="single"
                                 selected={customDateRange.from}
                                 onSelect={(date) => setCustomDateRange(prev => ({ ...prev, from: date }))}
                                 disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                                 initialFocus
-                                className="bg-slate-800"
+                                className="bg-popover"
                               />
                             </PopoverContent>
                           </Popover>
                         </div>
                         <div className="space-y-2">
-                          <Label className="text-slate-200 text-sm font-medium">To</Label>
+                          <Label className="text-foreground text-sm font-medium">To</Label>
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button
                                 variant="outline"
                                 className={cn(
-                                  "w-full justify-start text-left font-normal bg-slate-700/50 border-slate-600 text-white hover:bg-slate-700",
+                                  "w-full justify-start text-left font-normal bg-input border-border text-foreground hover:bg-muted",
                                   !customDateRange.to && "text-slate-400"
                                 )}
                                 disabled={isImporting}
@@ -448,14 +473,14 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
                                 )}
                               </Button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-auto p-0 bg-slate-800 border-slate-700" align="start">
+                            <PopoverContent className="w-auto p-0 bg-popover border-border" align="start">
                               <Calendar
                                 mode="single"
                                 selected={customDateRange.to}
                                 onSelect={(date) => setCustomDateRange(prev => ({ ...prev, to: date }))}
                                 disabled={(date) => date > new Date() || date < new Date("1900-01-01")}
                                 initialFocus
-                                className="bg-slate-800"
+                                className="bg-popover"
                               />
                             </PopoverContent>
                           </Popover>
@@ -466,13 +491,13 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
 
                   <div className="space-y-3">
                     <div className="space-y-2">
-                      <Label className="text-slate-200 font-medium">Auto-Sync Frequency</Label>
-                      <p className="text-slate-400 text-xs">How often to check for and import new games</p>
+                      <Label className="text-foreground font-medium">Auto-Sync Frequency</Label>
+                      <p className="text-muted-foreground text-xs">How often to check for and import new games</p>
                       <select 
                         value={autoSyncFrequency} 
                         onChange={(e) => setAutoSyncFrequency(e.target.value)}
                         disabled={isImporting}
-                        className="bg-slate-700/50 border-slate-600 text-white rounded-md px-3 py-2 w-full"
+                        className="bg-input border-border text-foreground rounded-md px-3 py-2 w-full"
                       >
                         <option value="never">Never (Manual only)</option>
                         <option value="visit">Every visit</option>
@@ -490,11 +515,7 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
             </div>
 
             {/* Submit Button with integrated loading and error display */}
-            <div className={`flex flex-col items-center page-transition transition-all duration-250 ease-in-out ${
-              isLeaving ? 'opacity-0' :
-              isVisible ? 'opacity-100' : 
-              'opacity-0'
-            }`}>
+            <div className="flex flex-col items-center">
               {/* Fixed container to prevent layout shifts */}
               <div className="w-full max-w-md min-h-[120px] flex flex-col items-center justify-center space-y-4">
                 <SettingsLoading 
@@ -503,7 +524,7 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
                   status={importStatus}
                   onComplete={handleImportComplete}
                   successMessage="Games Imported Successfully!"
-                  successDuration={600}
+                  successDuration={2600}
                   className="w-full"
                   showButtons={!isImporting}
                   buttonText="Connect & Import Games"

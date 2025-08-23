@@ -102,7 +102,7 @@ export default function FolderCard({
         <ContextMenuTrigger>
           <Card 
             className={cn(
-              "bg-slate-800 border-slate-700 hover:border-amber-500/50 transition-all cursor-pointer group relative",
+              "bg-card border-border hover:border-amber-500/50 transition-all cursor-pointer group relative",
               isDragging && "opacity-50 rotate-2 scale-105",
               isDragOver && "border-amber-400 bg-amber-500/10 scale-102",
               className
@@ -134,12 +134,12 @@ export default function FolderCard({
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <CardTitle className="text-sm text-slate-100 truncate leading-tight">
+                  <CardTitle className="text-sm text-card-foreground truncate leading-tight">
                     {folder.name}
                   </CardTitle>
                   <Badge 
                     variant="outline" 
-                    className="text-xs mt-1 border-slate-600 text-slate-400"
+                    className="text-xs mt-1 border-border text-muted-foreground"
                   >
                     {studiesCount} {studiesCount === 1 ? 'study' : 'studies'}
                   </Badge>
@@ -148,8 +148,8 @@ export default function FolderCard({
             </CardHeader>
             
             <CardContent className="px-4 pb-4">
-              <div className="h-16 bg-slate-900 rounded-md border border-slate-700 flex items-center justify-center">
-                <div className="text-slate-500 text-xs text-center">
+              <div className="h-16 bg-muted rounded-md border border-border flex items-center justify-center">
+                <div className="text-muted-foreground text-xs text-center">
                   {studiesCount === 0 ? 'Empty folder' : `${studiesCount} studies inside`}
                 </div>
               </div>
@@ -164,13 +164,13 @@ export default function FolderCard({
           </Card>
         </ContextMenuTrigger>
         
-        <ContextMenuContent className="bg-slate-800 border-slate-700">
+        <ContextMenuContent className="bg-popover border-border">
           <ContextMenuItem 
             onClick={(e) => {
               e.stopPropagation();
               setShowEditDialog(true);
             }}
-            className="text-slate-200 hover:text-white hover:bg-slate-700"
+            className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
           >
             <Edit className="w-4 h-4 mr-2" />
             Edit Folder
@@ -190,15 +190,15 @@ export default function FolderCard({
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className="bg-slate-800 border-slate-700">
+        <AlertDialogContent className="bg-card border-border">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-slate-100">Delete Folder</AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-400">
+            <AlertDialogTitle className="text-card-foreground">Delete Folder</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
               Are you sure you want to delete "{folder.name}"? The studies inside will be moved to the root level. This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600">
+            <AlertDialogCancel className="bg-secondary border-border text-secondary-foreground hover:bg-accent">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
@@ -216,26 +216,26 @@ export default function FolderCard({
 
       {/* Edit Folder Dialog */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
-        <DialogContent className="bg-slate-800 border-slate-700 max-w-md">
+        <DialogContent className="bg-card border-border max-w-md">
           <DialogHeader>
-            <DialogTitle className="text-slate-100">Edit Folder</DialogTitle>
+            <DialogTitle className="text-card-foreground">Edit Folder</DialogTitle>
           </DialogHeader>
           
           <div className="space-y-4">
             <div>
-              <label className="text-sm font-medium text-slate-200 mb-2 block">
+              <label className="text-sm font-medium text-foreground mb-2 block">
                 Folder Name
               </label>
               <Input
                 value={editName}
                 onChange={(e) => setEditName(e.target.value)}
-                className="bg-slate-700 border-slate-600 text-slate-100"
+                className="bg-input border-border text-foreground"
                 placeholder="Enter folder name"
               />
             </div>
 
             <div>
-              <label className="text-sm font-medium text-slate-200 mb-2 block">
+              <label className="text-sm font-medium text-foreground mb-2 block">
                 Icon
               </label>
               <div className="grid grid-cols-5 gap-2">
@@ -245,10 +245,10 @@ export default function FolderCard({
                     type="button"
                     onClick={() => setEditIcon(name)}
                     className={cn(
-                      "p-2 rounded-md border-2 transition-all hover:bg-slate-700",
+                      "p-2 rounded-md border-2 transition-all hover:bg-accent",
                       editIcon === name 
                         ? "border-amber-500 bg-amber-500/20" 
-                        : "border-slate-600 bg-slate-800"
+                        : "border-border bg-card"
                     )}
                   >
                     <Icon className="w-4 h-4 mx-auto" style={{ color: editColor }} />
@@ -258,7 +258,7 @@ export default function FolderCard({
             </div>
 
             <div>
-              <label className="text-sm font-medium text-slate-200 mb-2 block">
+              <label className="text-sm font-medium text-foreground mb-2 block">
                 Color
               </label>
               <div className="grid grid-cols-5 gap-2">
@@ -270,8 +270,8 @@ export default function FolderCard({
                     className={cn(
                       "w-8 h-8 rounded-md border-2 transition-all hover:scale-110",
                       editColor === color 
-                        ? "border-white scale-110" 
-                        : "border-slate-600"
+                        ? "border-foreground scale-110" 
+                        : "border-border"
                     )}
                     style={{ backgroundColor: color }}
                   />
@@ -284,7 +284,7 @@ export default function FolderCard({
             <Button
               variant="outline"
               onClick={handleEditCancel}
-              className="bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600"
+              className="bg-secondary border-border text-secondary-foreground hover:bg-accent"
             >
               Cancel
             </Button>

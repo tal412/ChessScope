@@ -256,12 +256,15 @@ const ChessAnalysisView = ({
     }
   }, [openingGraph, mode]);
   
+  // Check if details functionality is available (based on additionalSections)
+  const hasDetailsSection = additionalSections && additionalSections.details;
+  
   // Component visibility state
   const componentVisibility = {
     moves: showMoves,
     board: showBoard,
     graph: showGraph,
-    ...(showDetails !== undefined && { details: showDetails })
+    ...(hasDetailsSection && { details: showDetails })
   };
   
   // Component toggle configuration
@@ -269,7 +272,7 @@ const ChessAnalysisView = ({
     moves: { icon: Menu, label: 'Moves' },
     board: { icon: Grid3x3, label: 'Board' },
     graph: { icon: Network, label: 'Graph' },
-    ...(showDetails !== undefined && { details: { icon: FileText, label: 'Details' } })
+    ...(hasDetailsSection && { details: { icon: FileText, label: 'Details' } })
   };
   
   // Handle component toggles
@@ -711,7 +714,7 @@ const ChessAnalysisView = ({
   
   // Render the shared layout
   return (
-    <div className={`h-full w-full bg-slate-900 ${className}`}>
+    <div className={`h-full w-full ${className}`}>
       <FlexibleLayout
         title={title}
         icon={icon}
@@ -754,7 +757,8 @@ const ChessAnalysisView = ({
                 </div>
               }
             >
-              {(effectiveOpeningGraph || mode === 'opening-editor') ? (
+              <div className="bg-slate-200 dark:bg-slate-950 h-full w-full p-4">
+                {(effectiveOpeningGraph || mode === 'opening-editor') ? (
                 <div className="h-full w-full">
                   <ChunkVisualization
                     openingGraph={effectiveOpeningGraph}
@@ -776,16 +780,17 @@ const ChessAnalysisView = ({
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <div className="text-center p-4">
-                    <Menu className="w-8 h-8 text-slate-500 mx-auto mb-2" />
-                    <p className="text-slate-400 text-xs">
-                      {mode === 'opening-editor' ? "Opening moves" : "Loading moves..."}
+                    <Menu className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-muted-foreground text-xs">
+                      {mode === 'opening-editor' ? "Study moves" : "Loading moves..."}
                     </p>
                     {mode === 'performance' && !effectiveOpeningGraph && (
-                      <p className="text-slate-500 text-xs">Import games for stats</p>
+                      <p className="text-muted-foreground text-xs">Import games for stats</p>
                     )}
                   </div>
                 </div>
-              )}
+                )}
+              </div>
             </LayoutSection>
           ),
 
@@ -794,7 +799,8 @@ const ChessAnalysisView = ({
               key="board"
               noPadding={true}
             >
-              <div className="h-full w-full flex items-center justify-center p-4">
+              <div className="bg-slate-200 dark:bg-slate-950 h-full w-full">
+                <div className="h-full w-full flex items-center justify-center p-4">
                               <InteractiveChessboard
                 currentMoves={chessboardSync.currentMoves}
                 onNewMove={handleChessboardMove}
@@ -809,7 +815,7 @@ const ChessAnalysisView = ({
                 className="w-full max-w-none"
                 showPositionMessage={mode === 'performance' && graphData.nodes.length > 0}
                 showOpeningGraphMessage={mode !== 'performance' && !!effectiveOpeningGraph}
-                performanceGraphMessage="Position not in opening graph"
+                performanceGraphMessage={allowEditing ? "Position not in study graph. You can add new moves in edit mode" : "Position not in study graph"}
                 showOpeningSelector={mode === 'performance'}
                 openingGraph={effectiveOpeningGraph}
                 graphNodes={graphData.nodes}
@@ -820,6 +826,7 @@ const ChessAnalysisView = ({
                 positionStatus={getPositionStatus(chessboardSync.currentMoves)}
                 startingFen={moveTree?.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'}
               />
+                </div>
               </div>
             </LayoutSection>
           ),
@@ -828,9 +835,10 @@ const ChessAnalysisView = ({
             <LayoutSection
               key="graph"
               noPadding={true}
-              className="bg-slate-900 border-r-0"
+              className="border-r-0"
             >
-              <div className="relative h-full w-full">
+              <div className="bg-white dark:bg-card h-full w-full">
+                <div className="relative h-full w-full">
                 {/* Canvas Mode Toggle - Show in both opening editor and viewer */}
                 {(mode === 'opening-editor' || mode === 'opening-viewer') && onCanvasModeChange && (
                   <div className="absolute top-4 right-4 z-20 flex gap-2">
@@ -842,7 +850,7 @@ const ChessAnalysisView = ({
                         console.log('🎯 Canvas mode toggle clicked: switching from', canvasMode, 'to', newMode);
                         onCanvasModeChange(newMode);
                       }}
-                      className={`${canvasMode === 'performance' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600'} group transition-all duration-100`}
+                      className={`${canvasMode === 'performance' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-secondary border-border text-secondary-foreground hover:bg-accent'} group transition-all duration-100`}
                       title={`Switch to ${canvasMode === 'study' ? 'Performance' : 'Study'} view`}
                     >
                       <Network className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
@@ -899,6 +907,7 @@ const ChessAnalysisView = ({
                   openingClusters={graphData.openingClusters || []}
                   className="w-full h-full"
                 />
+                </div>
               </div>
             </LayoutSection>
           ),

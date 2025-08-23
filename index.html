@@ -1,12 +1,19 @@
 <!doctype html>
-<html lang="en" class="dark">
+<html lang="en" class="light">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ChessScope - Opening Analysis</title>
+    <script>
+      // Initialize theme immediately to prevent flash
+      (function() {
+        const savedTheme = localStorage.getItem('chess-scope-theme') || 'light';
+        document.documentElement.className = savedTheme;
+      })();
+    </script>
   </head>
-  <body style="background: linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a); margin: 0; padding: 0;">
+  <body style="margin: 0; padding: 0;">
     <div id="root"></div>
     <script>
       // Test function to check stockfish.js accessibility

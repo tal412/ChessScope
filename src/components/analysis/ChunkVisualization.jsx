@@ -1,5 +1,4 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -97,7 +96,7 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
   
   // Study mode styling (pink theme)
   const studyModeStyle = displayMode === 'study' ? {
-    base: 'bg-slate-700/30 border-pink-500/60 hover:bg-pink-500/10',
+    base: 'bg-secondary/30 border-pink-500/60 hover:bg-pink-500/10',
     selected: 'bg-pink-500/20 border-pink-400'
   } : null;
   
@@ -107,10 +106,10 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
       onClick={onSelect}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`w-full text-left p-3 rounded-lg border-2 transition-all duration-200 relative ${
+      className={`w-full text-left p-3 rounded-lg border-2 relative ${
         isSelected 
           ? (studyModeStyle ? studyModeStyle.selected : getSelectedColor(winRate))
-          : (studyModeStyle ? studyModeStyle.base : `bg-slate-700/30 ${getPerformanceColor(winRate)}`)
+          : (studyModeStyle ? studyModeStyle.base : `bg-secondary/30 ${getPerformanceColor(winRate)}`)
       }`}
     >
       {/* Percentage badge in top-right corner - only show in performance mode */}
@@ -118,7 +117,7 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
         <div className="absolute top-2 right-2">
           <Badge
             variant="outline"
-            className={`text-xs font-semibold ${isSelected ? 'text-white border-white/30' : 'text-slate-300 border-slate-500/50'}`}
+            className={`text-xs font-semibold ${isSelected ? 'text-primary-foreground border-primary/30' : 'text-muted-foreground border-border/50'}`}
           >
             {winRate.toFixed(0)}%
           </Badge>
@@ -128,34 +127,34 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
       {/* Main content */}
       <div className={displayMode === 'performance' ? "pr-16" : "pr-2"}> {/* Adjust padding based on mode */}
         <div className="flex items-center justify-between mb-1">
-          <span className="font-bold text-white text-lg">{moveData.san}</span>
+          <span className="font-bold text-foreground text-lg">{moveData.san}</span>
         </div>
         
         {/* Opening info - only show in performance mode */}
         {displayMode === 'performance' && (
-          <p className="text-sm text-slate-400 mb-2 line-clamp-2" title={
+          <p className="text-sm text-muted-foreground mb-2 line-clamp-2" title={
             moveData.openingInfo?.eco && moveData.openingInfo?.name 
               ? `${moveData.openingInfo.eco} ${moveData.openingInfo.name}` 
-              : (moveData.openingInfo?.name || 'Unknown Opening')
+              : (moveData.openingInfo?.name || 'Unknown Position')
           }>
             {moveData.openingInfo?.eco && moveData.openingInfo?.name 
               ? `${moveData.openingInfo.eco} ${moveData.openingInfo.name}` 
-              : (moveData.openingInfo?.name || 'Unknown Opening')}
+              : (moveData.openingInfo?.name || 'Unknown Position')}
           </p>
         )}
         
         {/* Opening info for study mode - show opening name as subtitle */}
         {displayMode === 'study' && (
-          <p className="text-sm text-slate-400 mb-2 line-clamp-2">
+          <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
             {moveData.openingInfo?.eco && moveData.openingInfo?.name 
               ? `${moveData.openingInfo.eco} ${moveData.openingInfo.name}`
-              : (moveData.openingInfo?.name || 'User Opening Move')}
+              : (moveData.openingInfo?.name || 'Study Move')}
           </p>
         )}
         
         {/* Game count - only show in performance mode */}
         {displayMode === 'performance' && (
-          <div className="text-left text-xs text-slate-500">
+          <div className="text-left text-xs text-muted-foreground">
             {moveData.gameCount}g
           </div>
         )}
@@ -171,13 +170,13 @@ const GraphChunk = ({ title, moves, onMoveSelect, selectedMove, depth, onMoveHov
 
   return (
     <div 
-      className="w-full h-full bg-slate-800/95 border border-slate-700/50 backdrop-blur-optimized rounded-xl overflow-hidden flex flex-col"
+      className="w-full h-full bg-white dark:bg-card border border-border/50 rounded-xl overflow-hidden flex flex-col"
     >
       {/* Header - Fixed height */}
-      <div className="p-4 pb-3 border-b border-slate-700/50 flex-shrink-0" style={{ minHeight: '80px', maxHeight: '80px' }}>
-        <div className="text-slate-200 text-base flex items-center justify-between font-semibold leading-none tracking-tight">
+      <div className="p-4 pb-3 border-b border-border/50 flex-shrink-0" style={{ minHeight: '80px', maxHeight: '80px' }}>
+        <div className="text-card-foreground text-base flex items-center justify-between font-semibold leading-none tracking-tight">
           <span>{title}</span>
-          <Badge variant="outline" className="text-xs bg-slate-700/50 text-slate-400">
+          <Badge variant="outline" className="text-xs bg-secondary/50 text-muted-foreground">
             {sortedMoves.length} moves
           </Badge>
         </div>
@@ -188,7 +187,7 @@ const GraphChunk = ({ title, moves, onMoveSelect, selectedMove, depth, onMoveHov
         style={{ minHeight: 0 }}
       >
         {sortedMoves.length === 0 ? (
-          <p className="text-slate-500 text-center py-4 text-sm">No moves available</p>
+          <p className="text-muted-foreground text-center py-4 text-sm">No moves available</p>
         ) : (
           <div className="space-y-3 p-4">
             {sortedMoves.map((moveData, index) => (
@@ -444,7 +443,7 @@ export default function ChunkVisualization({
           const { eco, name } = matchingMove.openingInfo;
           return {
             eco: eco || '',
-            name: name || 'Unknown Opening'
+            name: name || 'Unknown Position'
           };
         }
       } catch (error) {
@@ -469,7 +468,7 @@ export default function ChunkVisualization({
         'g3': { eco: 'A00', name: "Benko's Opening" },
         'Nc3': { eco: 'A00', name: "Van't Kruijs Opening" }
       };
-      return openingNames[move] || { eco: '', name: 'User Opening' };
+      return openingNames[move] || { eco: '', name: 'Study Position' };
     } else if (fullPath.length === 2) {
       // Second moves - respond to first move
       const [firstMove, secondMove] = fullPath;
@@ -494,12 +493,12 @@ export default function ChunkVisualization({
         };
         return responses[secondMove] || { eco: 'D00', name: "Queen's Pawn Opening" };
       }
-      return { eco: '', name: 'Opening Development' };
+      return { eco: '', name: 'Study Development' };
     } else {
       // Later moves - more generic descriptions
       return { 
         eco: '', 
-        name: moveNumber <= 6 ? `Opening Move ${moveNumber}` : 'Middle Game' 
+        name: moveNumber <= 6 ? `Study Move ${moveNumber}` : 'Middle Game' 
       };
     }
   }, [openingGraph, isWhiteTree, customMoveTree]);
@@ -726,9 +725,9 @@ export default function ChunkVisualization({
   if (!openingGraph && !customMoveTree) {
     return (
       <div className="flex items-center justify-center h-full">
-        <p className="text-slate-400">
+        <p className="text-muted-foreground">
           {displayMode === 'study' 
-            ? "No opening moves available" 
+            ? "No study moves available" 
             : "No opening graph available"}
         </p>
       </div>
@@ -745,18 +744,9 @@ export default function ChunkVisualization({
     >
       {/* Chunk Content */}
       <div className="flex-1 overflow-hidden">
-        <AnimatePresence mode="wait">
           {chunks.length > 0 && chunks[currentChunkIndex] && (
-            <motion.div
+            <div
               key={`chunk_${chunks[currentChunkIndex].depth}`}
-              initial={{ opacity: 0, x: 50 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -50 }}
-              transition={{ 
-                type: 'tween',
-                duration: 0.08,
-                ease: 'easeInOut'
-              }}
               className="h-full w-full overflow-hidden"
             >
               <GraphChunk
@@ -786,9 +776,8 @@ export default function ChunkVisualization({
                 isLastCard={currentChunkIndex === chunks.length - 1}
                 displayMode={displayMode}
               />
-            </motion.div>
+            </div>
           )}
-        </AnimatePresence>
       </div>
     </div>
   );

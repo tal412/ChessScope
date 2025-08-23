@@ -115,7 +115,7 @@ export const createPerformanceGraphConfig = ({
   
   // Right controls
   rightControls: (
-    <div className="flex items-center gap-2 text-slate-300 mr-3">
+    <div className="flex items-center gap-2 text-muted-foreground mr-3">
       {selectedPlayer === 'white' ? (
         <>
           <Crown className="w-4 h-4 text-amber-400" />
@@ -123,7 +123,7 @@ export const createPerformanceGraphConfig = ({
         </>
       ) : (
         <>
-          <Shield className="w-4 h-4 text-slate-400" />
+          <Shield className="w-4 h-4 text-muted-foreground" />
           <span className="text-sm">Black</span>
         </>
       )}
@@ -188,15 +188,15 @@ export const createOpeningEditorConfig = ({
         <div className="flex items-center gap-2">
           {/* Opening name with smooth animation */}
           <div className="relative">
-            <span className="text-slate-400 text-sm">
-              {isEditMode && !openingId ? 'Create Opening' : 
-               isViewMode ? 'View Opening' : 
-               'Edit Opening'}
+            <span className="text-muted-foreground text-sm">
+              {isEditMode && !openingId ? 'Create Study' : 
+               isViewMode ? 'View Study' : 
+               'Edit Study'}
               {name && ':'}
             </span>
             {name && (
               <span 
-                className="ml-2 text-white font-medium animate-in fade-in slide-in-from-left-2 duration-300"
+                className="ml-2 text-foreground font-medium animate-in fade-in slide-in-from-left-2 duration-300"
                 key={name} // Re-trigger animation when name changes
               >
                 {name}
@@ -210,7 +210,7 @@ export const createOpeningEditorConfig = ({
           </span>
         )}
         {isEditMode && (
-          <span className="bg-amber-500/20 text-amber-400 border-amber-500/30 px-2 py-1 rounded text-xs font-semibold">
+          <span className="bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/50 px-2 py-1 rounded text-xs font-semibold shadow-sm">
             <Edit className="w-3 h-3 inline mr-1" />
             EDIT MODE
           </span>
@@ -221,12 +221,12 @@ export const createOpeningEditorConfig = ({
     
     // Custom header styling based on mode (only for edit mode)
     headerClassName: isEditMode 
-      ? "bg-gradient-to-r from-amber-900/30 to-orange-900/30 border-b-2 border-amber-500/50"
+      ? "bg-gradient-to-r from-amber-100/60 to-orange-100/60 border-b-2 border-amber-500/50 dark:from-amber-900/30 dark:to-orange-900/30"
       : "",
     
     // Custom content area styling based on mode (only for edit mode)
     className: isEditMode 
-      ? "bg-gradient-to-br from-amber-950/10 via-slate-900 to-orange-950/10"
+      ? "bg-gradient-to-br from-amber-50/20 via-background to-orange-50/20 dark:from-amber-950/10 dark:via-background dark:to-orange-950/10"
       : "",
     
     // Data
@@ -244,7 +244,7 @@ export const createOpeningEditorConfig = ({
     showMoves: true,
     showBoard: true,
     showGraph: true,
-    showDetails: true,
+    showDetails: false,
     
     // Canvas configuration
     canvasMode,
@@ -279,7 +279,7 @@ export const createOpeningEditorConfig = ({
       <Button
         variant="ghost"
         onClick={onNavigateBack}
-        className="text-slate-300 hover:text-white"
+        className="text-muted-foreground hover:text-foreground"
       >
         <span className="mr-1">←</span>
         Back
@@ -290,7 +290,7 @@ export const createOpeningEditorConfig = ({
     rightControls: (
       <div className="flex items-center gap-2">
         {/* Player perspective display */}
-        <div className="flex items-center gap-2 text-slate-300 mr-3">
+        <div className="flex items-center gap-2 text-muted-foreground mr-3">
           {selectedPlayer === 'white' ? (
             <>
               <Crown className="w-4 h-4 text-amber-400" />
@@ -298,7 +298,7 @@ export const createOpeningEditorConfig = ({
             </>
           ) : (
             <>
-              <Shield className="w-4 h-4 text-slate-400" />
+              <Shield className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm">Black</span>
             </>
           )}
@@ -312,10 +312,10 @@ export const createOpeningEditorConfig = ({
               onClick={onEdit}
               size="sm"
               variant="outline"
-              className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white"
+              className="bg-secondary border-border text-secondary-foreground hover:bg-accent hover:text-accent-foreground"
             >
               <Edit className="w-4 h-4 mr-0.5" />
-              Edit Opening
+              Edit Study
             </Button>
           )
         ) : (
@@ -325,7 +325,7 @@ export const createOpeningEditorConfig = ({
               onClick={onView}
               size="sm"
               variant="outline"
-              className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white"
+              className="bg-secondary border-border text-secondary-foreground hover:bg-accent hover:text-accent-foreground"
             >
               <Check className="w-4 h-4 mr-0.5" />
               Done Editing

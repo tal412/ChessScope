@@ -137,12 +137,12 @@ export const SHADOW_CONFIG = {
 // =============================================================================
 
 export const PERFORMANCE_COLORS = {
-  excellent: { bg: '#10b981', border: '#059669', text: '#ffffff' },    // Green
-  good: { bg: '#06b6d4', border: '#0891b2', text: '#ffffff' },         // Cyan
-  solid: { bg: '#f59e0b', border: '#d97706', text: '#000000' },        // Amber
-  challenging: { bg: '#f97316', border: '#ea580c', text: '#ffffff' },  // Orange
-  difficult: { bg: '#dc2626', border: '#b91c1c', text: '#ffffff' },    // Red
-  missing: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' },      // Gray
+  excellent: { bg: '#059669', border: '#047857', text: '#ffffff' },    // Darker Green
+  good: { bg: '#0891b2', border: '#0e7490', text: '#ffffff' },         // Darker Cyan
+  solid: { bg: '#d97706', border: '#b45309', text: '#ffffff' },        // Darker Amber with white text
+  challenging: { bg: '#ea580c', border: '#c2410c', text: '#ffffff' },  // Darker Orange
+  difficult: { bg: '#b91c1c', border: '#991b1b', text: '#ffffff' },    // Darker Red
+  missing: { bg: '#4b5563', border: '#374151', text: '#ffffff' },      // Darker Gray
 };
 
 export const STUDY_NODE_COLORS = {

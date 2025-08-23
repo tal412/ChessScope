@@ -86,7 +86,7 @@ export function NavigationButtons({
   const canReset = currentIndex > 0 && !disabled;
 
   // Button styling
-  const buttonClass = "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/60 hover:border-slate-500 hover:text-slate-200 transition-all duration-200";
+  const buttonClass = "bg-secondary/50 border-border text-muted-foreground hover:bg-accent/60 hover:border-border hover:text-foreground transition-all duration-200";
 
   return (
     <div className={`flex items-center justify-between w-full ${config.styling.className}`}>
@@ -140,7 +140,7 @@ export function NavigationButtons({
         </Button>
 
         {config.features.showCounter && (
-          <span className="text-slate-400 text-sm px-2 min-w-[60px] text-center">
+          <span className="text-muted-foreground text-sm px-2 min-w-[60px] text-center">
             {currentIndex} / {totalCount}
           </span>
         )}

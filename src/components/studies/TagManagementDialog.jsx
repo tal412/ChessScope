@@ -198,7 +198,7 @@ export default function TagManagementDialog({
   };
 
   const triggerElement = trigger || (
-    <Button variant="outline" size="sm" className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white">
+    <Button variant="outline" size="sm" className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-600 hover:text-gray-900 dark:hover:text-white">
       <Tags className="w-4 h-4 mr-2" />
       Manage Tags
     </Button>
@@ -228,9 +228,9 @@ export default function TagManagementDialog({
       <DialogTrigger asChild>
         {children || triggerElement}
       </DialogTrigger>
-      <DialogContent className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50 text-slate-100 max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-optimized border-gray-200/50 dark:border-slate-700/50 text-gray-900 dark:text-slate-100 max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl text-white flex items-center gap-2">
+          <DialogTitle className="text-xl text-gray-900 dark:text-white flex items-center gap-2">
             <Tags className="w-5 h-5 text-amber-500" />
             Manage Study Tags
           </DialogTitle>
@@ -238,15 +238,15 @@ export default function TagManagementDialog({
         
         <div className="space-y-6 py-4">
           {/* Create New Tag */}
-          <div className="space-y-4 p-4 bg-slate-700/30 rounded-lg border border-slate-600">
-            <h3 className="text-sm font-medium text-slate-300 flex items-center gap-2">
+          <div className="space-y-4 p-4 bg-gray-100 dark:bg-slate-700/30 rounded-lg border border-gray-300 dark:border-slate-600">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-slate-300 flex items-center gap-2">
               <Plus className="w-4 h-4" />
               Create New Tag
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-slate-300">Tag Name</Label>
+                <Label className="text-gray-700 dark:text-slate-300">Tag Name</Label>
                 <Input
                   value={newTagName}
                   onChange={(e) => {
@@ -254,13 +254,13 @@ export default function TagManagementDialog({
                     setError('');
                   }}
                   placeholder="e.g. Sicilian Defense"
-                  className="bg-slate-700 border-slate-600 text-slate-100 placeholder:text-slate-400"
+                  className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-900 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-400"
                   disabled={loading}
                 />
               </div>
               
               <div className="space-y-2">
-                <Label className="text-slate-300">Color</Label>
+                <Label className="text-gray-700 dark:text-slate-300">Color</Label>
                 <div className="flex flex-wrap gap-2">
                   {DEFAULT_COLORS.map(color => (
                     <button
@@ -314,7 +314,7 @@ export default function TagManagementDialog({
 
           {/* Existing Tags */}
           <div className="space-y-4">
-            <h3 className="text-sm font-medium text-slate-300">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-slate-300">
               Existing Tags ({tags.length})
             </h3>
             
@@ -323,7 +323,7 @@ export default function TagManagementDialog({
                 <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
               </div>
             ) : tags.length === 0 ? (
-              <div className="text-center py-8 text-slate-400">
+              <div className="text-center py-8 text-gray-500 dark:text-slate-400">
                 <Tags className="w-12 h-12 mx-auto mb-3 opacity-50" />
                 <p>No tags created yet</p>
               </div>
@@ -333,7 +333,7 @@ export default function TagManagementDialog({
                   {tags.map((tag) => (
                     <div
                       key={tag.id}
-                      className="flex items-center justify-between p-3 bg-slate-700/20 rounded-lg border border-slate-600"
+                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-700/20 rounded-lg border border-gray-200 dark:border-slate-600"
                     >
                       {editingTag === tag.id ? (
                         <TagEditForm
@@ -392,8 +392,8 @@ export default function TagManagementDialog({
           </div>
 
           {error && (
-            <div className="p-3 rounded-md bg-red-900/20 border border-red-700">
-              <p className="text-sm text-red-400">{error}</p>
+            <div className="p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700">
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
             </div>
           )}
 
@@ -402,13 +402,13 @@ export default function TagManagementDialog({
         {/* Delete Confirmation Overlay */}
         {deletingTag && (
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-slate-800 border border-slate-600 rounded-lg p-6 mx-4 max-w-md w-full shadow-xl">
+            <div className="bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg p-6 mx-4 max-w-md w-full shadow-xl">
               <div className="flex items-center gap-3 mb-4">
                 <Trash2 className="w-6 h-6 text-red-400" />
-                <h3 className="text-lg font-semibold text-white">Delete Tag</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Delete Tag</h3>
               </div>
               
-              <p className="text-slate-300 mb-6">
+              <p className="text-gray-700 dark:text-slate-300 mb-6">
                 Are you sure you want to delete this tag? It will be removed from all studies and cannot be undone.
               </p>
               
@@ -418,7 +418,7 @@ export default function TagManagementDialog({
                   size="sm"
                   onClick={cancelDeleteTag}
                   disabled={loading}
-                  className="text-slate-400 hover:text-slate-200"
+                  className="text-gray-600 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200"
                 >
                   Cancel
                 </Button>
@@ -468,7 +468,7 @@ function TagEditForm({ tag, onSave, onCancel, loading }) {
       <Input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        className="bg-slate-700 border-slate-600 text-slate-100 flex-1"
+        className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-900 dark:text-slate-100 flex-1"
         disabled={loading}
       />
       
@@ -480,7 +480,7 @@ function TagEditForm({ tag, onSave, onCancel, loading }) {
             onClick={() => setColor(c)}
             className={cn(
               "w-6 h-6 rounded-full border transition-all",
-              color === c ? 'border-white' : 'border-transparent'
+              color === c ? 'border-gray-800 dark:border-white' : 'border-transparent'
             )}
             style={{ backgroundColor: c }}
             disabled={loading}
@@ -503,7 +503,7 @@ function TagEditForm({ tag, onSave, onCancel, loading }) {
         size="sm"
         onClick={onCancel}
         disabled={loading}
-        className="h-8 w-8 p-0 text-slate-400"
+        className="h-8 w-8 p-0 text-gray-600 dark:text-slate-400"
       >
         <X className="w-3 h-3" />
       </Button>

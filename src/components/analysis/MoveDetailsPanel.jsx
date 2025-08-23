@@ -44,8 +44,8 @@ const MoveActionButton = ({
           "h-9 w-9 p-0 rounded-lg border transition-all duration-200",
           isActive 
             ? "bg-amber-500 border-amber-400 text-white" 
-            : "bg-slate-800 border-slate-700 text-slate-400",
-          !readOnly && !isActive && "hover:bg-slate-700 hover:border-slate-600 hover:text-slate-300",
+            : "bg-card border-border text-muted-foreground",
+          !readOnly && !isActive && "hover:bg-accent hover:border-border hover:text-foreground",
           !readOnly && isActive && "hover:bg-amber-600",
           readOnly && "cursor-default"
         )}
@@ -54,7 +54,7 @@ const MoveActionButton = ({
       </Button>
       
       {/* Enhanced tooltip with better positioning and styling - positioned below button */}
-      <div className="absolute right-0 top-full mt-3 px-3 py-2 bg-slate-900/95 backdrop-blur-sm border border-slate-700/50 rounded-md text-xs text-slate-200 whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-xl">
+      <div className="absolute right-0 top-full mt-3 px-3 py-2 bg-popover/95 backdrop-blur-sm border border-border/50 rounded-md text-xs text-popover-foreground whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-xl">
         {readOnly ? (
           // View mode - just show the label
           isActive ? `✓ ${label.charAt(0).toUpperCase() + label.slice(1)}` : `Not ${label}`
@@ -62,7 +62,7 @@ const MoveActionButton = ({
           // Edit mode - show action text
           isActive ? `✓ ${label.charAt(0).toUpperCase() + label.slice(1)} (active)` : `Set as ${label}`
         )}
-        <div className="absolute -top-1 right-3 w-2 h-2 bg-slate-900 border-l border-t border-slate-700/50 transform rotate-45"></div>
+        <div className="absolute -top-1 right-3 w-2 h-2 bg-popover border-l border-t border-border/50 transform rotate-45"></div>
       </div>
     </div>
   );
@@ -112,7 +112,7 @@ export default function MoveDetailsPanel({
   if (!selectedNode || selectedNode.san === 'Start') {
     return (
       <div className={cn("h-full flex items-center justify-center", className)}>
-        <div className="text-center text-slate-400">
+        <div className="text-center text-muted-foreground">
           <FileText className="w-12 h-12 mx-auto mb-3 opacity-50" />
           <p className="text-lg font-medium mb-2">No Move Selected</p>
           <p className="text-sm">
@@ -224,9 +224,9 @@ export default function MoveDetailsPanel({
   return (
     <div className={cn("h-full flex flex-col", className)}>
       {/* Move Header */}
-      <Card className="bg-slate-800 border-slate-700 flex-shrink-0 mb-4">
+      <Card className="bg-card border-border flex-shrink-0 mb-4">
         <CardHeader className="pb-3">
-          <CardTitle className="text-slate-100 text-lg flex items-center justify-between">
+          <CardTitle className="text-card-foreground text-lg flex items-center justify-between">
             <span>Move: {selectedNode.san}</span>
             <div className="flex items-center gap-2">
               {/* Main Line Button */}
@@ -256,9 +256,9 @@ export default function MoveDetailsPanel({
       </Card>
 
       {/* Move Details */}
-      <Card className="bg-slate-800 border-slate-700 flex-1 flex flex-col min-h-0">
+      <Card className="bg-card border-border flex-1 flex flex-col min-h-0">
         <CardHeader className="flex-shrink-0 pb-3">
-          <CardTitle className="text-slate-100 text-base flex items-center">
+          <CardTitle className="text-card-foreground text-base flex items-center">
             <Info className="w-4 h-4 mr-2 text-amber-500" />
             Move Details
           </CardTitle>
@@ -266,18 +266,18 @@ export default function MoveDetailsPanel({
         <CardContent className="flex-1 overflow-hidden flex flex-col space-y-4">
           {/* Comment Section */}
           <div className="flex-1 flex flex-col min-h-0">
-            <Label className="text-slate-300 flex-shrink-0 mb-2">
+            <Label className="text-foreground flex-shrink-0 mb-2">
               <MessageSquare className="w-4 h-4 inline mr-1" />
               Comment
             </Label>
             {readOnly ? (
-              <div className="bg-slate-700 border border-slate-600 rounded-md p-3 flex-1 min-h-0 overflow-y-auto">
+              <div className="bg-muted border border-border rounded-md p-3 flex-1 min-h-0 overflow-y-auto">
                 {commentValue ? (
-                  <div className="text-slate-100 whitespace-pre-wrap break-words">
+                  <div className="text-foreground whitespace-pre-wrap break-words">
                     {commentValue}
                   </div>
                 ) : (
-                  <div className="text-slate-400 italic">No comment for this move</div>
+                  <div className="text-muted-foreground italic">No comment for this move</div>
                 )}
               </div>
             ) : (
@@ -285,7 +285,7 @@ export default function MoveDetailsPanel({
                 value={commentValue}
                 onChange={(e) => handleCommentChange(e.target.value)}
                 placeholder="Add notes about this move..."
-                className="bg-slate-700 border-slate-600 text-slate-100 flex-1 resize-none"
+                className="bg-input border-border text-foreground flex-1 resize-none"
               />
             )}
           </div>
@@ -309,10 +309,10 @@ export default function MoveDetailsPanel({
                     className={cn(
                       "w-full transition-all duration-200 border rounded-lg hover:scale-[1.02] active:scale-[0.98]",
                       selectedNode && selectedNode.san === 'Start'
-                        ? "opacity-50 cursor-not-allowed border-slate-600 text-slate-500 bg-slate-800/50"
+                        ? "opacity-50 cursor-not-allowed border-border text-muted-foreground bg-card/50"
                         : drawingMode 
                           ? "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white border-emerald-500/50 shadow-lg shadow-emerald-500/25" 
-                          : "bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/70 hover:border-slate-500 hover:text-slate-100"
+                          : "bg-secondary/50 border-border text-muted-foreground hover:bg-accent/70 hover:border-border hover:text-foreground"
                     )}
                     title={selectedNode && selectedNode.san === 'Start' ? "Cannot draw arrows on starting position" : undefined}
                   >
@@ -327,7 +327,7 @@ export default function MoveDetailsPanel({
               
               {/* Show drawing mode status */}
               {!readOnly && drawingMode && (
-                <div className="text-xs text-slate-400">
+                <div className="text-xs text-muted-foreground">
                   <div className="flex items-center gap-2 text-green-400">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                     Drawing mode active - right-click drag on board to draw arrows
@@ -338,7 +338,7 @@ export default function MoveDetailsPanel({
               {/* Arrow list */}
               {(selectedNode.arrows || []).length > 0 && (
                 <>
-                  <Separator className="bg-slate-600" />
+                  <Separator className="bg-border" />
                   <div className="space-y-2 max-h-24 overflow-y-auto">
                     {(selectedNode.arrows || []).map((arrow, index) => (
                       <div key={index} className="flex items-center justify-between text-xs">
@@ -347,7 +347,7 @@ export default function MoveDetailsPanel({
                             className="w-3 h-1 rounded-full" 
                             style={{ backgroundColor: arrow.color }}
                           ></div>
-                          <span className="text-slate-300 font-mono">
+                          <span className="text-foreground font-mono">
                             {arrow.from.toUpperCase()} → {arrow.to.toUpperCase()}
                           </span>
                         </div>
@@ -376,7 +376,7 @@ export default function MoveDetailsPanel({
           {/* Links Section */}
           <div className="flex-shrink-0 min-h-0 max-h-48 flex flex-col">
             {readOnly && (
-              <Label className="text-slate-300 flex-shrink-0 mb-2">
+              <Label className="text-foreground flex-shrink-0 mb-2">
                 <LinkIcon className="w-4 h-4 inline mr-1" />
                 Links
               </Label>
@@ -386,13 +386,13 @@ export default function MoveDetailsPanel({
                 <>
                   {linksValue && linksValue.length > 0 ? (
                     linksValue.map((link, index) => (
-                      <div key={index} className="bg-slate-700 border border-slate-600 rounded-md p-3">
+                      <div key={index} className="bg-muted border border-border rounded-md p-3">
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
-                            <div className="text-slate-100 font-medium truncate">
+                            <div className="text-foreground font-medium truncate">
                               {link.title || 'Untitled Link'}
                             </div>
-                            <div className="text-slate-400 text-sm truncate">
+                            <div className="text-muted-foreground text-sm truncate">
                               {link.url || 'No URL'}
                             </div>
                           </div>
@@ -410,7 +410,7 @@ export default function MoveDetailsPanel({
                       </div>
                     ))
                   ) : (
-                    <div className="text-slate-400 italic text-sm">No links for this move</div>
+                    <div className="text-muted-foreground italic text-sm">No links for this move</div>
                   )}
                 </>
               ) : (
@@ -421,13 +421,13 @@ export default function MoveDetailsPanel({
                         value={link.title}
                         onChange={(e) => handleLinkChange(index, 'title', e.target.value)}
                         placeholder="Link title"
-                        className="bg-slate-700 border-slate-600 text-slate-100 flex-1"
+                        className="bg-input border-border text-foreground flex-1"
                       />
                       <Input
                         value={link.url}
                         onChange={(e) => handleLinkChange(index, 'url', e.target.value)}
                         placeholder="URL"
-                        className="bg-slate-700 border-slate-600 text-slate-100 flex-1"
+                        className="bg-input border-border text-foreground flex-1"
                       />
                       <Button
                         size="sm"
@@ -443,7 +443,7 @@ export default function MoveDetailsPanel({
                     size="sm"
                     variant="ghost"
                     onClick={handleAddLink}
-                    className="w-full bg-slate-700/50 border border-slate-600 text-slate-300 hover:bg-slate-600/70 hover:border-slate-500 hover:text-slate-100 rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                    className="w-full bg-secondary/50 border border-border text-muted-foreground hover:bg-accent/70 hover:border-border hover:text-foreground rounded-lg transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                   >
                     <Plus className="w-4 h-4 mr-2" />
                     Add Link

@@ -157,9 +157,9 @@ function PerformanceGraphContent() {
             winRate: 50,
             gameCount: 0,
             san: null,
-            openingName: 'Import games to see your opening moves',
+            openingName: 'Import games to see your moves',
             openingEco: '',
-            ecoOpeningName: 'Import games to see your opening moves',
+            ecoOpeningName: 'Import games to see your moves',
             isRoot: true,
             depth: 0,
             moveSequence: []
@@ -268,11 +268,11 @@ function PerformanceGraphContent() {
                   fen: move.toFen,
                 winRate: move.details?.winRate || move.winRate || 0,
                   gameCount: gameCount,
-                  openingName: move.openingInfo?.name || 'Unknown Opening',
+                  openingName: move.openingInfo?.name || 'Unknown Position',
                   openingEco: move.openingInfo?.eco || '',
                   ecoOpeningName: move.openingInfo?.eco && move.openingInfo?.name 
                     ? `${move.openingInfo.eco} ${move.openingInfo.name}` 
-                    : (move.openingInfo?.name || 'Unknown Opening'),
+                    : (move.openingInfo?.name || 'Unknown Position'),
                 depth: depth,
                 moveSequence: newMoveSequence,
                 parent: parentId
@@ -458,17 +458,17 @@ function PerformanceGraphContent() {
   // Show loading screen during initial load OR when syncing
   if ((loading && !isSyncing && !pendingAutoSync) || (initialLoad && !openingGraph)) {
     return (
-      <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
+      <div className="h-screen w-full bg-background dark:bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="relative mb-8">
-            <div className="animate-spin rounded-full h-20 w-20 border-4 border-slate-700 border-t-purple-500 mx-auto"></div>
+            <div className="animate-spin rounded-full h-20 w-20 border-4 border-border border-t-purple-500 mx-auto"></div>
             <div className="absolute inset-0 rounded-full bg-purple-500/10 blur-lg"></div>
           </div>
           <div className="space-y-3">
-            <h2 className="text-2xl font-bold text-slate-200">
+            <h2 className="text-2xl font-bold text-foreground">
               Loading Performance Graph
             </h2>
-            <p className="text-slate-400 text-base max-w-md mx-auto">
+            <p className="text-muted-foreground text-base max-w-md mx-auto">
               Building your opening analysis from imported games...
             </p>
             <div className="flex items-center justify-center gap-2 mt-6">
@@ -484,7 +484,7 @@ function PerformanceGraphContent() {
 
   if (!openingGraph) {
     return (
-      <div className="w-full h-full bg-slate-900 flex items-center justify-center">
+      <div className="w-full h-full bg-background dark:bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <Target className="w-16 h-16 text-slate-600 mx-auto mb-4" />
           <h3 className="text-xl font-bold text-slate-300 mb-2">No Chess Data Found</h3>
@@ -498,7 +498,7 @@ function PerformanceGraphContent() {
   }
 
   return (
-    <div className="h-full w-full bg-slate-900">
+    <div className="h-full w-full bg-background dark:bg-slate-900">
       <ChessAnalysisView
         {...analysisConfig}
         // Component visibility
@@ -515,7 +515,7 @@ function PerformanceGraphContent() {
       
       {/* Single Consolidated Loading Overlay */}
       {(isGenerating || (loading && (isSyncing || pendingAutoSync))) && (
-        <div className="absolute inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-50">
+        <div className="absolute inset-0 bg-background/95 dark:bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="text-center">
             <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500 mx-auto mb-6"></div>
             <p className="text-slate-200 text-lg font-medium">

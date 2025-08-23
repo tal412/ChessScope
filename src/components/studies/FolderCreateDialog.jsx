@@ -76,7 +76,7 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
           <Button 
             variant="outline" 
             size="sm"
-            className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white"
+            className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-600 hover:text-gray-900 dark:hover:text-white"
           >
             <FolderPlus className="w-4 h-4 mr-2" />
             New Folder
@@ -84,9 +84,9 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
         )}
       </DialogTrigger>
 
-      <DialogContent className="bg-slate-800 border-slate-700 max-w-md">
+      <DialogContent className="bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-slate-100 flex items-center gap-2">
+          <DialogTitle className="text-gray-900 dark:text-slate-100 flex items-center gap-2">
             <FolderPlus className="w-5 h-5" />
             Create New Folder
           </DialogTitle>
@@ -94,20 +94,20 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
         
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-slate-200 mb-2 block">
+            <label className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2 block">
               Folder Name
             </label>
             <Input
               value={folderName}
               onChange={(e) => setFolderName(e.target.value)}
-              className="bg-slate-700 border-slate-600 text-slate-100"
+              className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-900 dark:text-slate-100"
               placeholder="Enter folder name"
               autoFocus
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium text-slate-200 mb-2 block">
+            <label className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2 block">
               Icon
             </label>
             <div className="grid grid-cols-5 gap-2">
@@ -120,7 +120,7 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
                     "p-2 rounded-md border-2 transition-all hover:bg-slate-700",
                     selectedIcon === name 
                       ? "border-amber-500 bg-amber-500/20" 
-                      : "border-slate-600 bg-slate-800"
+                      : "border-gray-300 dark:border-slate-600 bg-gray-100 dark:bg-slate-800"
                   )}
                 >
                   <Icon className="w-4 h-4 mx-auto" style={{ color: selectedColor }} />
@@ -130,7 +130,7 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-slate-200 mb-2 block">
+            <label className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2 block">
               Color
             </label>
             <div className="grid grid-cols-5 gap-2">
@@ -142,8 +142,8 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
                   className={cn(
                     "w-8 h-8 rounded-md border-2 transition-all hover:scale-110",
                     selectedColor === color 
-                      ? "border-white scale-110" 
-                      : "border-slate-600"
+                      ? "border-gray-800 dark:border-white scale-110" 
+                      : "border-gray-300 dark:border-slate-600"
                   )}
                   style={{ backgroundColor: color }}
                 />
@@ -153,10 +153,10 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
 
           {/* Preview */}
           <div>
-            <label className="text-sm font-medium text-slate-200 mb-2 block">
+            <label className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2 block">
               Preview
             </label>
-            <div className="p-3 bg-slate-900 rounded-md border border-slate-700 flex items-center gap-3">
+            <div className="p-3 bg-gray-50 dark:bg-slate-900 rounded-md border border-gray-200 dark:border-slate-700 flex items-center gap-3">
               <div 
                 className="p-2 rounded-lg"
                 style={{ 
@@ -172,7 +172,7 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
                   }
                 )}
               </div>
-              <div className="text-slate-200 font-medium">
+              <div className="text-gray-700 dark:text-slate-200 font-medium">
                 {folderName || 'Folder Name'}
               </div>
             </div>
@@ -183,7 +183,7 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
           <Button
             variant="outline"
             onClick={handleCancel}
-            className="bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600"
+            className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600"
           >
             Cancel
           </Button>

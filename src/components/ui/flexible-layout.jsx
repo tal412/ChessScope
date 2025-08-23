@@ -60,7 +60,7 @@ export function AppBar({
 }) {
   return (
     <header className={cn(
-              "bg-slate-800/95 border-b border-slate-700/50 backdrop-blur-medium-optimized px-3 sm:px-4 py-3 flex-shrink-0 min-h-[3.5rem] max-h-[3.5rem]",
+      "bg-appbar border-b border-appbar-border px-3 sm:px-4 py-3 flex-shrink-0 min-h-[3.5rem] max-h-[3.5rem]",
       className
     )} {...props}>
       <div className="flex items-center justify-between gap-2 sm:gap-4 h-full max-w-full">
@@ -79,8 +79,8 @@ export function AppBar({
             <div className="flex items-center gap-2 min-w-0">
               {Icon && <Icon className="w-5 h-5 text-amber-500 flex-shrink-0" />}
               <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-slate-100 truncate">{title}</h1>
-                {subtitle && <p className="text-xs text-slate-400 truncate">{subtitle}</p>}
+                <h1 className="text-lg sm:text-xl font-bold text-appbar-foreground truncate">{title}</h1>
+                {subtitle && <p className="text-xs text-appbar-foreground opacity-60 truncate">{subtitle}</p>}
               </div>
             </div>
           )}
@@ -143,7 +143,7 @@ export function ComponentToggleButton({
       size={size}
       onClick={onClick}
       className={cn(
-        isActive ? 'bg-slate-600 hover:bg-slate-700 text-white' : 'border-slate-600 text-slate-300 hover:bg-slate-700/30',
+        isActive ? 'bg-accent hover:bg-accent/80 text-accent-foreground border-accent' : 'border-border text-muted-foreground hover:bg-accent/20 hover:text-foreground',
         className
       )}
       {...props}
@@ -217,7 +217,7 @@ export function FlexibleLayout({
         <>
           {rightControls}
           {toggleButtons.length > 0 && (
-            <div className="w-px h-6 bg-slate-600 mx-2" />
+            <div className="w-px h-6 bg-border mx-2" />
           )}
         </>
       )}
@@ -267,15 +267,15 @@ export function FlexibleLayout({
         
         {/* Empty State */}
         {visibleComponents.length === 0 && (
-          <div className="col-span-full row-span-full flex items-center justify-center bg-slate-900">
+          <div className="col-span-full row-span-full flex items-center justify-center bg-background">
             <div className="text-center">
-              <div className="w-16 h-16 text-slate-600 mx-auto mb-4">
+              <div className="w-16 h-16 text-muted-foreground mx-auto mb-4">
                 <svg viewBox="0 0 24 24" fill="currentColor" className="w-full h-full">
                   <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
                 </svg>
               </div>
-              <h3 className="text-xl font-bold text-slate-300 mb-2">All Components Hidden</h3>
-              <p className="text-slate-400 mb-4">Use the view controls to show components.</p>
+              <h3 className="text-xl font-bold text-foreground mb-2">All Components Hidden</h3>
+              <p className="text-muted-foreground mb-4">Use the view controls to show components.</p>
             </div>
           </div>
         )}
@@ -296,7 +296,7 @@ export function LayoutSection({
   return (
     <section 
       className={cn(
-        "h-full border-r border-slate-700/50 bg-slate-800/95 backdrop-blur-optimized overflow-hidden",
+        "h-full border-r border-border/50 overflow-hidden bg-white dark:bg-card",
         className
       )}
       {...props}
@@ -304,7 +304,7 @@ export function LayoutSection({
       <div className="flex flex-col h-full w-full min-w-0">
         {/* Section Header - only show if there are header controls */}
         {headerControls && (
-          <div className="p-3 border-b border-slate-700/50 bg-slate-700/30 flex-shrink-0">
+          <div className="p-3 border-b border-appbar-border bg-appbar-accent flex-shrink-0">
             <div className="flex items-center justify-center">
               {headerControls}
             </div>

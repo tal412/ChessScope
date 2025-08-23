@@ -101,6 +101,9 @@ class ChessPlatformService {
       // Save to localStorage (works offline)
       localStorage.setItem('chesscope_username', username);
       localStorage.setItem('chessScope_chessProfile', JSON.stringify(profile));
+      
+      // Trigger username changed event for route protection
+      window.dispatchEvent(new CustomEvent('usernameChanged'));
       this.currentProfile = profile;
 
       // Initialize graph database
@@ -355,6 +358,9 @@ class ChessPlatformService {
       
       // Store the platform-specific username in localStorage
       localStorage.setItem('chesscope_username', identifier);
+      
+      // Trigger username changed event for route protection
+      window.dispatchEvent(new CustomEvent('usernameChanged'));
 
       const stats = openingGraph.getOverallStats();
       const totalPositions = stats.white.totalPositions + stats.black.totalPositions;

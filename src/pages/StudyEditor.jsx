@@ -1292,11 +1292,9 @@ export default function OpeningEditor() {
       onView: isEditMode ? () => {
         // For new studies, ensure they're saved first
         if (!savedStudyId && name.trim()) {
-          // Navigate immediately with a temporary ID
-          const tempId = 'temp-' + Date.now();
-          navigate(`/studies-book/study/${tempId}`);
+          // Don't navigate immediately - wait for save to complete
           
-          // Save in background
+          // Save first, then navigate
           const username = localStorage.getItem('chesscope_username');
           
           const findInitialMove = (node) => {
@@ -1340,8 +1338,8 @@ export default function OpeningEditor() {
           UserStudy.create(openingData)
             .then((savedStudy) => {
               console.log('Study saved successfully:', savedStudy.id);
-              // Update URL to real study ID
-              window.history.replaceState(null, '', `/studies-book/study/${savedStudy.id}`);
+              // Navigate to view mode with the real study ID
+              navigate(`/studies-book/study/${savedStudy.id}`);
             })
             .catch(error => {
               console.error('Failed to save study:', error);
@@ -1349,12 +1347,17 @@ export default function OpeningEditor() {
               navigate(`/studies-book/editor/new`);
             });
             
-        } else if (savedStudyId) {
-          // Study already saved, navigate to view mode immediately
-          navigate(`/studies-book/study/${savedStudyId}`);
         } else {
-          // No name provided, can't save - do nothing or show error
-          console.warn('Cannot switch to view mode: study has no name');
+          // Since studies are created immediately when starting to edit,
+          // we should always have either savedStudyId or studyId
+          const idToUse = savedStudyId || studyId;
+          if (idToUse) {
+            navigate(`/studies-book/study/${idToUse}`);
+          } else {
+            // This shouldn't happen with immediate study creation, but handle gracefully
+            console.error('No study ID available for navigation');
+            alert('Unable to switch to view mode. Please try refreshing the page.');
+          }
         }
       } : null,
       onNavigateBack: handleNavigateBack,
@@ -1408,20 +1411,20 @@ export default function OpeningEditor() {
 
   if (loading) {
     return (
-      <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
+      <div className="h-screen w-full flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-12 h-12 text-amber-500 animate-spin mx-auto mb-4" />
-          <p className="text-slate-300">Loading study...</p>
+          <p className="text-foreground">Loading study...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full w-full bg-slate-900">
+    <div className="h-full w-full">
       {/* Error Alert */}
       {(error || conflictError) && (
-        <div className="absolute top-0 left-0 right-0 z-50 p-4 bg-slate-800 border-b border-slate-700">
+        <div className="absolute top-0 left-0 right-0 z-50 p-4 bg-card border-b border-border">
           <Alert className="bg-red-900/20 border-red-700">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription className="text-red-400">
@@ -1467,14 +1470,14 @@ export default function OpeningEditor() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteConfirmDialog} onOpenChange={setShowDeleteConfirmDialog}>
-        <AlertDialogContent className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50">
+        <AlertDialogContent className="bg-card/95 backdrop-blur-optimized border-border/50">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-xl text-white flex items-center gap-2">
+            <AlertDialogTitle className="text-xl text-card-foreground flex items-center gap-2">
               <AlertTriangle className="w-5 h-5 text-red-400" />
               Delete Move
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-400">
-              Are you sure you want to delete the move <span className="font-semibold text-white">{nodeToDelete?.san}</span>?
+            <AlertDialogDescription className="text-muted-foreground">
+              Are you sure you want to delete the move <span className="font-semibold text-foreground">{nodeToDelete?.san}</span>?
               <br />
               <span className="text-red-400 font-medium">This will also delete all moves that follow this move.</span>
             </AlertDialogDescription>
@@ -1482,7 +1485,7 @@ export default function OpeningEditor() {
           <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
             <AlertDialogCancel 
               onClick={handleCancelDelete}
-              className="border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+              className="border-border text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             >
               Cancel
             </AlertDialogCancel>

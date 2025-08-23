@@ -6,15 +6,17 @@ import StudyEditor from "./StudyEditor";
 import { useChessPlatform } from "@/contexts/ChessPlatformContext";
 import { Loader2, Shield, Crown, Heart, Code, DollarSign, Users, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useNavigate, useLocation } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { ProtectedRoute } from "@/components/route-protection/ProtectedRoute";
 
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 
 // Persistent background wrapper with performance optimizations
 function BackgroundWrapper({ children }) {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+        <div className="min-h-screen text-foreground">
             {children}
         </div>
     );
@@ -25,32 +27,27 @@ function SimplePlatformPrompt() {
     const navigate = useNavigate();
     const location = useLocation();
     const [isNavigating, setIsNavigating] = useState(false);
-    const [isReturning, setIsReturning] = useState(false);
     const [isVisible, setIsVisible] = useState(false);
     
-    // Initial entrance animation
+    // Simple entrance animation
     useEffect(() => {
-        setIsVisible(true);
-    }, []);
-    
-    // Check if we're returning from platform select page
-    useEffect(() => {
+        // Check if we're returning from platform page
         if (location.state?.returning) {
-            setIsReturning(true);
+            // When returning, start invisible and animate in after platform exit completes
             setIsVisible(false);
-            // For logout, start entrance animation very quickly to prevent black screen flash
-            const delay = location.state?.fromLogout ? 50 : 50;
-            setTimeout(() => {
-                setIsVisible(true);
-                setIsReturning(false);
-            }, delay);
+            const timer = setTimeout(() => setIsVisible(true), 100); // Shorter pause for snappy transition
+            return () => clearTimeout(timer);
+        } else {
+            // Normal entrance (first visit)
+            const timer = setTimeout(() => setIsVisible(true), 10);
+            return () => clearTimeout(timer);
         }
-    }, [location]);
+    }, [location.state?.returning]);
     
     const handleConnectClick = async (platform) => {
         setIsNavigating(true);
         
-        // Near-instant navigation for overlapping transitions
+        // Wait for CSS exit animation to complete
         setTimeout(() => {
             navigate('/platform-select', { 
                 state: { 
@@ -59,20 +56,27 @@ function SimplePlatformPrompt() {
                     skipPlatformSelection: true
                 }
             });
-        }, 50);
+        }, 150); // Match CSS animation duration exactly
     };
     
     return (
-        <div className="h-screen flex items-center justify-center">
+        <div className={`h-screen flex items-center justify-center transition-all duration-150 ease-out ${
+            isNavigating ? 'opacity-0 transform -translate-x-2' : 
+            isVisible ? 'opacity-100 transform translate-x-0' : 
+            'opacity-0 transform translate-x-2'
+        }`}>
+            {/* Theme Toggle Button - Fixed top right */}
+            <div className="absolute top-4 right-4 z-50">
+                <ThemeToggle 
+                    variant="outline" 
+                    className="shadow-lg border-border/50 backdrop-blur-sm bg-background/80 hover:bg-accent hover:text-accent-foreground"
+                />
+            </div>
+            
             <div className="container mx-auto px-4 h-full flex items-center">
                 <div className="grid lg:grid-cols-2 gap-12 items-center w-full">
                     {/* Left Side - Main Content */}
-                    <div className={`space-y-6 page-transition transition-all duration-150 ease-out ${
-                        isNavigating ? 'opacity-0 transform -translate-x-4' : 
-                        isReturning && !isVisible ? 'opacity-0 transform translate-x-4' :
-                        isVisible ? 'opacity-100 transform translate-x-0' : 
-                        'opacity-0 transform -translate-x-4'
-                    }`}>
+                    <div className="space-y-6">
                         {/* Header with App Logo */}
                         <div className="text-center">
                             <div className="flex items-center justify-center gap-4 mb-6">
@@ -85,7 +89,7 @@ function SimplePlatformPrompt() {
                                     </span>
                                 </h1>
                             </div>
-                            <p className="text-xl text-slate-300 mb-6">
+                            <p className="text-xl text-muted-foreground mb-6">
                                 Advanced chess game analysis and performance tracking for everyone
                             </p>
                         </div>
@@ -97,7 +101,7 @@ function SimplePlatformPrompt() {
                                 <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
                                     <DollarSign className="w-4 h-4 text-white" />
                                 </div>
-                                <span className="text-emerald-300 font-semibold">100% Free</span>
+                                <span className="text-emerald-400 font-semibold">100% Free</span>
                             </div>
 
                             {/* Open Source */}
@@ -105,7 +109,7 @@ function SimplePlatformPrompt() {
                                 <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
                                     <Code className="w-4 h-4 text-white" />
                                 </div>
-                                <span className="text-blue-300 font-semibold">Open Source</span>
+                                <span className="text-blue-400 font-semibold">Open Source</span>
                             </div>
 
                             {/* Community Driven */}
@@ -113,13 +117,13 @@ function SimplePlatformPrompt() {
                                 <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
                                     <Users className="w-4 h-4 text-white" />
                                 </div>
-                                <span className="text-purple-300 font-semibold">Community Driven</span>
+                                <span className="text-purple-400 font-semibold">Community Driven</span>
                             </div>
                         </div>
 
                         {/* Connect Buttons for Both Platforms */}
                         <div className="flex flex-col gap-4 items-center">
-                            <p className="text-slate-400 text-lg font-medium">Choose your chess platform:</p>
+                            <p className="text-muted-foreground text-lg font-medium">Choose your chess platform:</p>
                             
                             <div className="flex flex-col sm:flex-row gap-4 justify-center w-full max-w-2xl">
                                 {/* Chess.com Button */}
@@ -127,7 +131,7 @@ function SimplePlatformPrompt() {
                                     onClick={() => handleConnectClick('chess.com')}
                                     disabled={isNavigating}
                                     size="lg"
-                                    className="bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 text-white px-6 py-6 rounded-xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 group transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed flex-1"
+                                    className="bg-secondary hover:bg-secondary/80 disabled:bg-muted text-secondary-foreground px-6 py-6 rounded-xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 group transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed flex-1"
                                 >
                                     <div className="flex items-center gap-3">
                                         {isNavigating ? (
@@ -149,7 +153,7 @@ function SimplePlatformPrompt() {
                                     onClick={() => handleConnectClick('lichess')}
                                     disabled={isNavigating}
                                     size="lg"
-                                    className="bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 text-white px-6 py-6 rounded-xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 group transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed flex-1"
+                                    className="bg-secondary hover:bg-secondary/80 disabled:bg-muted text-secondary-foreground px-6 py-6 rounded-xl text-lg font-bold shadow-xl hover:shadow-2xl transition-all duration-300 group transform hover:scale-[1.02] disabled:transform-none disabled:cursor-not-allowed flex-1"
                                 >
                                     <div className="flex items-center gap-3">
                                         {isNavigating ? (
@@ -170,22 +174,17 @@ function SimplePlatformPrompt() {
                     </div>
 
                     {/* Right Side - Video Placeholder */}
-                    <div className={`flex items-center justify-center page-transition transition-all duration-150 ease-out ${
-                        isNavigating ? 'opacity-0 transform -translate-x-2' : 
-                        isReturning && !isVisible ? 'opacity-0 transform translate-x-2' :
-                        isVisible ? 'opacity-100 transform translate-x-0' : 
-                        'opacity-0 transform -translate-x-2'
-                    }`}>
+                    <div className="flex items-center justify-center">
                         <div className="relative w-full max-w-lg">
-                            <div className="aspect-video bg-slate-800 rounded-2xl border-2 border-slate-600 shadow-xl overflow-hidden">
+                            <div className="aspect-video bg-card rounded-2xl border-2 border-border shadow-xl overflow-hidden">
                                 <div className="absolute inset-0 flex items-center justify-center">
                                     <div className="text-center space-y-4">
                                         <div className="w-20 h-20 bg-amber-500 rounded-full flex items-center justify-center mx-auto shadow-lg">
                                             <Play className="w-8 h-8 text-white ml-1" />
                                         </div>
                                         <div>
-                                            <h3 className="text-xl font-bold text-white mb-2">See ChessScope in Action</h3>
-                                            <p className="text-slate-300">
+                                            <h3 className="text-xl font-bold text-card-foreground mb-2">See ChessScope in Action</h3>
+                                            <p className="text-muted-foreground">
                                                 Watch how ChessScope analyzes your games and helps improve your chess
                                             </p>
                                         </div>
@@ -210,59 +209,155 @@ function PagesContent() {
     const { isAuthenticated, isImporting } = useChessPlatform();
     const [isTransitioning, setIsTransitioning] = useState(false);
     const [showAuthenticated, setShowAuthenticated] = useState(false);
+    const [isExiting, setIsExiting] = useState(false);
+    const [waitingForPlatformExit, setWaitingForPlatformExit] = useState(false);
+    const [showBlankScreen, setShowBlankScreen] = useState(false);
+    const [justCompletedImport, setJustCompletedImport] = useState(false);
     
-    // Handle authentication transition
+    // Listen for platform page exit completion event
     useEffect(() => {
-        if (isAuthenticated && !showAuthenticated && !isTransitioning) {
-            // Start transition when user becomes authenticated
-            setIsTransitioning(true);
+        const handlePlatformExitComplete = () => {
+            const eventTime = performance.now();
+            console.log('🏠 [INDEX] platformPageExitComplete event received at', new Date().toLocaleTimeString());
+            console.log('🏠 [INDEX] waitingForPlatformExit:', waitingForPlatformExit);
             
-            // Much faster transition to avoid showing loading screen too long
+            if (waitingForPlatformExit) {
+                console.log('🏠 [INDEX] Starting blank screen phase');
+                
+                // Platform page exit animation is complete, show blank screen
+                setIsExiting(false);
+                setWaitingForPlatformExit(false);
+                setShowBlankScreen(true);
+                
+                // Use requestAnimationFrame to ensure blank screen renders before continuing
+                requestAnimationFrame(() => {
+                    console.log('🏠 [INDEX] Blank screen rendered, starting final pause');
+                    
+                    // After blank screen pause, show the authenticated view
+                    setTimeout(() => {
+                        const blankScreenEndTime = performance.now();
+                        console.log('🏠 [INDEX] Blank screen pause ended after', Math.round(blankScreenEndTime - eventTime), 'ms');
+                        console.log('🏠 [INDEX] Showing authenticated view');
+                        
+                        setShowBlankScreen(false);
+                        setShowAuthenticated(true);
+                        
+                        // Log the total time from import start to final view
+                        if (window.importFlowStartTime) {
+                            const totalTime = performance.now() - window.importFlowStartTime;
+                            console.log('🏆 [IMPORT-FLOW] TOTAL TIME from import start to authenticated view:', Math.round(totalTime), 'ms');
+                        }
+                        
+                        setTimeout(() => {
+                            console.log('🏠 [INDEX] Transition complete - setIsTransitioning(false)');
+                            setIsTransitioning(false);
+                        }, 100); // Small delay for entrance animation to start
+                    }, 1200); // Longer blank screen pause to make it very obvious
+                });
+            }
+        };
+
+        window.addEventListener('platformPageExitComplete', handlePlatformExitComplete);
+        return () => window.removeEventListener('platformPageExitComplete', handlePlatformExitComplete);
+    }, [waitingForPlatformExit]);
+
+    // Track when import completes (transitions from true to false)
+    const prevImporting = useRef(isImporting);
+    
+    useEffect(() => {
+        if (prevImporting.current === true && isImporting === false && isAuthenticated) {
+            console.log('📥 [INDEX] Import just completed! Setting justCompletedImport=true');
+            setJustCompletedImport(true);
+            
+            // Clear this flag after a short delay to prevent it from affecting future logic
             setTimeout(() => {
+                setJustCompletedImport(false);
+            }, 100);
+        }
+        
+        prevImporting.current = isImporting;
+    }, [isImporting, isAuthenticated]);
+
+    // Handle authentication transition with proper exit/enter animation
+    useEffect(() => {
+        console.log('🏠 [INDEX] Auth transition effect triggered:', {
+            isAuthenticated,
+            showAuthenticated,
+            isTransitioning,
+            isImporting,
+            justCompletedImport
+        });
+        
+        if (isAuthenticated && !showAuthenticated && !isTransitioning) {
+            // Check if user just completed import or is currently importing
+            if (isImporting || justCompletedImport) {
+                console.log('🏠 [INDEX] User authenticated from import completion - starting transition sequence');
+                // User just finished importing - start exit animation for platform page and wait for completion
+                setIsExiting(true);
+                setIsTransitioning(true);
+                setWaitingForPlatformExit(true);
+                // The actual transition will happen when we receive the 'platformPageExitComplete' event
+            } else {
+                console.log('🏠 [INDEX] User already authenticated (page refresh) - showing main app immediately');
+                // User is already authenticated (e.g., page refresh) - show main app immediately
                 setShowAuthenticated(true);
-                setTimeout(() => {
-                    setIsTransitioning(false);
-                }, 50); // Small delay for smoother transition start
-            }, 100); // Reduced from 280ms to 100ms for faster transition
+                setIsTransitioning(false);
+                setIsExiting(false);
+                setWaitingForPlatformExit(false);
+                setShowBlankScreen(false);
+            }
         } else if (!isAuthenticated && showAuthenticated) {
+            console.log('🏠 [INDEX] User logged out - resetting all states');
             // Reset when user logs out
             setShowAuthenticated(false);
             setIsTransitioning(false);
+            setIsExiting(false);
+            setWaitingForPlatformExit(false);
+            setShowBlankScreen(false);
         }
-    }, [isAuthenticated, showAuthenticated, isTransitioning]);
+    }, [isAuthenticated, showAuthenticated, isTransitioning, isImporting, justCompletedImport]);
     
     // Don't show global loading - InitialPlatformSelect handles its own loading with SettingsLoading
     
     // If authenticated but transitioning, just show the authenticated view
     // No need for loading overlay since Firebase handles it automatically
     
-    // If not authenticated, show platform prompt or platform select page
-    if (!isAuthenticated) {
+    // Show blank screen during pause
+    if (showBlankScreen) {
+        return <BackgroundWrapper />;
+    }
+    
+    // Show platform pages when not authenticated OR when exiting
+    if (!isAuthenticated || isExiting) {
         return (
             <BackgroundWrapper>
-                <Routes>
-                    <Route path="/platform-select" element={<InitialPlatformSelect isTransitioning={isTransitioning} />} />
-                    <Route path="*" element={<SimplePlatformPrompt />} />
-                </Routes>
+                <div className={`w-full h-full transition-all duration-200 ease-out ${
+                    isExiting ? 'opacity-0 transform -translate-x-2' : 'opacity-100 transform translate-x-0'
+                }`}>
+                    <Routes>
+                        <Route path="/platform-select" element={<InitialPlatformSelect isTransitioning={isTransitioning} />} />
+                        <Route path="*" element={<SimplePlatformPrompt />} />
+                    </Routes>
+                </div>
             </BackgroundWrapper>
         );
     }
     
     // If authenticated, show the main app with Layout wrapper
     return (
-        <div className={`transition-all duration-400 ease-in-out ${
-            showAuthenticated ? 'opacity-100 transform translate-y-0' : 'opacity-0 transform translate-y-2'
+        <div className={`w-full h-full transition-all duration-400 ease-out ${
+            showAuthenticated ? 'opacity-100 transform translate-x-0' : 'opacity-0 transform translate-x-4'
         }`}>
             <Routes>
                 <Route path="/" element={<Layout />}>
-                    <Route index element={<PerformanceGraph />} />
-                    <Route path="PerformanceGraph" element={<PerformanceGraph />} />
-                    <Route path="studies-book" element={<StudiesBook />} />
-                    <Route path="studies-book/editor/new" element={<StudyEditor />} />
-                    <Route path="studies-book/editor/:studyId" element={<StudyEditor />} />
-                    <Route path="studies-book/study/:studyId" element={<StudyEditor />} />
+                    <Route index element={<ProtectedRoute><PerformanceGraph /></ProtectedRoute>} />
+                    <Route path="PerformanceGraph" element={<ProtectedRoute><PerformanceGraph /></ProtectedRoute>} />
+                    <Route path="studies-book" element={<ProtectedRoute><StudiesBook /></ProtectedRoute>} />
+                    <Route path="studies-book/editor/new" element={<ProtectedRoute><StudyEditor /></ProtectedRoute>} />
+                    <Route path="studies-book/editor/:studyId" element={<ProtectedRoute><StudyEditor /></ProtectedRoute>} />
+                    <Route path="studies-book/study/:studyId" element={<ProtectedRoute><StudyEditor /></ProtectedRoute>} />
                     {/* Redirect authenticated users away from platform select */}
-                    <Route path="platform-select" element={<PerformanceGraph />} />
+                    <Route path="platform-select" element={<ProtectedRoute><PerformanceGraph /></ProtectedRoute>} />
                 </Route>
             </Routes>
         </div>

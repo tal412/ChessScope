@@ -426,17 +426,17 @@ const ClusterInsightsPanel = ({ clusterAnalysis, position = 'top-right' }) => {
 
   return (
     <div className={`fixed ${positionClasses[position]} z-50 max-w-md`}>
-              <Card className="bg-slate-800/95 border-slate-700 backdrop-blur-medium-optimized shadow-xl">
+              <Card className="bg-card/95 border-border backdrop-blur-medium-optimized shadow-xl">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-3">
             <Brain className="w-5 h-5 text-purple-400" />
-            <h3 className="text-lg font-bold text-white">AI Pattern Analysis</h3>
+            <h3 className="text-lg font-bold text-card-foreground">AI Pattern Analysis</h3>
           </div>
           
           {/* Overall insights */}
           <div className="space-y-1 mb-4">
             {clusterAnalysis.insights.slice(0, 2).map((insight, i) => (
-              <div key={i} className="text-xs text-slate-300">
+              <div key={i} className="text-xs text-muted-foreground">
                 {insight}
               </div>
             ))}
@@ -445,15 +445,15 @@ const ClusterInsightsPanel = ({ clusterAnalysis, position = 'top-right' }) => {
           {/* Cluster summary */}
           <div className="space-y-2">
             <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-400">Patterns Found:</span>
-              <Badge variant="secondary" className="bg-slate-700">
+              <span className="text-muted-foreground">Patterns Found:</span>
+              <Badge variant="secondary" className="bg-muted">
                 {clusterAnalysis.clusters.length}
               </Badge>
             </div>
             
             <div className="flex justify-between items-center text-sm">
-              <span className="text-slate-400">Positions Analyzed:</span>
-              <Badge variant="secondary" className="bg-slate-700">
+              <span className="text-muted-foreground">Positions Analyzed:</span>
+              <Badge variant="secondary" className="bg-muted">
                 {clusterAnalysis.metadata.totalNodes}
               </Badge>
             </div>
@@ -461,7 +461,7 @@ const ClusterInsightsPanel = ({ clusterAnalysis, position = 'top-right' }) => {
           
           {/* Top clusters */}
           <div className="mt-4 space-y-2">
-            <h4 className="text-sm font-semibold text-slate-300 flex items-center gap-2">
+            <h4 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
               <Target className="w-4 h-4" />
               Key Patterns
             </h4>
@@ -470,21 +470,21 @@ const ClusterInsightsPanel = ({ clusterAnalysis, position = 'top-right' }) => {
               .sort((a, b) => b.stats.totalGames - a.stats.totalGames)
               .slice(0, 3)
               .map((cluster, i) => (
-                <div key={cluster.id} className="flex items-center gap-3 p-2 rounded bg-slate-700/50">
+                <div key={cluster.id} className="flex items-center gap-3 p-2 rounded bg-muted/50">
                   <div className="flex items-center gap-2">
                     {getPerformanceIcon(cluster.stats.avgWinRate)}
-                    <span className="text-xs font-medium text-white">
+                    <span className="text-xs font-medium text-card-foreground">
                       {cluster.type === 'kmeans' && cluster.label ? cluster.label : `Pattern ${cluster.id + 1}`}
                     </span>
                   </div>
                   
-                  <div className="flex-1 text-xs text-slate-300">
+                  <div className="flex-1 text-xs text-muted-foreground">
                     {cluster.stats.avgWinRate.toFixed(0)}% • {cluster.stats.totalGames}g
                   </div>
                   
                   <Badge 
                     variant="outline" 
-                    className="text-xs border-slate-600"
+                    className="text-xs border-border"
                   >
                     {cluster.nodes.length} pos
                   </Badge>

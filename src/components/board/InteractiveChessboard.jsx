@@ -1309,14 +1309,14 @@ export default function InteractiveChessboard({
   return (
     <div ref={containerRef} className={`w-full h-full flex items-center justify-center ${className}`}>
       <Card 
-        className="bg-slate-800/95 border-slate-700/50 backdrop-blur-optimized w-full h-full flex flex-col"
+        className="bg-white dark:bg-card border-border/50 w-full h-full flex flex-col"
       >
         <CardHeader className="card-header pb-2 px-3 pt-3 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
               {/* Fixed height container for opening title - always reserves space for 2 lines */}
               <div className="h-14 flex items-start">
-                <CardTitle className="text-slate-200 text-lg leading-tight line-clamp-2" title={getFormattedOpeningName()}>
+                <CardTitle className="text-card-foreground text-lg leading-tight line-clamp-2" title={getFormattedOpeningName()}>
                   {getFormattedOpeningName()}
                 </CardTitle>
               </div>
@@ -1352,8 +1352,8 @@ export default function InteractiveChessboard({
                 disabled={isAnalyzing && !stockfishEnabled}
                 className={`transition-all duration-200 flex-shrink-0 ${
                   stockfishEnabled || isAnalyzing
-                    ? 'bg-white border-white text-slate-800 hover:bg-slate-100 hover:border-slate-200' // White/active when enabled
-                    : 'bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/60 hover:border-slate-500 hover:text-slate-200' // Default inactive state
+                    ? 'bg-primary border-primary text-primary-foreground hover:bg-primary/90 hover:border-primary/90' // Active when enabled
+                    : 'bg-secondary/50 border-border text-muted-foreground hover:bg-accent/60 hover:border-border hover:text-foreground' // Default inactive state
                 }`}
                 title={stockfishEnabled ? "Disable Stockfish analysis" : "Enable Stockfish analysis"}
               >
@@ -1456,21 +1456,21 @@ export default function InteractiveChessboard({
         <div className={`flex-shrink-0 px-2 py-1 h-8 flex items-center justify-center min-h-[32px] ${drawingMode ? 'invisible' : ''}`}>
           {stockfishEnabled ? (
             isAnalyzing ? (
-              <div className="flex items-center gap-2 text-slate-400 text-xs">
+              <div className="flex items-center gap-2 text-muted-foreground text-xs">
                 <Loader2 className="w-3 h-3 animate-spin" />
                 <span>Stockfish analyzing...</span>
               </div>
             ) : topMoves.length > 0 ? (
-              <div className="text-xs text-slate-400 text-center">
+              <div className="text-xs text-muted-foreground text-center">
                 Engine suggests: {topMoves.map((move, i) => 
-                  <span key={i} className="text-slate-300 font-mono">
+                  <span key={i} className="text-foreground font-mono">
                     {move.san}{typeof move.evaluation === 'number' ? ` (${move.evaluation > 0 ? '+' : ''}${move.evaluation.toFixed(1)})` : ''}
                     {i < topMoves.length - 1 ? ', ' : ''}
                   </span>
                 )}
               </div>
             ) : (
-              <div className="text-xs text-slate-500 opacity-50">
+              <div className="text-xs text-muted-foreground opacity-50">
                 Stockfish analysis enabled
               </div>
             )
@@ -1516,7 +1516,7 @@ export default function InteractiveChessboard({
                   className={
                     positionInOpenings.length > 0
                       ? "bg-amber-500/20 border-amber-500 text-amber-400 hover:bg-amber-500/30 hover:border-amber-400 hover:text-amber-300 transition-all duration-200"
-                      : "bg-slate-700/50 border-slate-600 text-slate-500 hover:bg-slate-700/70 hover:border-slate-500 cursor-pointer transition-all duration-200"
+                      : "bg-secondary/50 border-border text-muted-foreground hover:bg-accent/70 hover:border-border cursor-pointer transition-all duration-200"
                   }
                   title={
                     positionInOpenings.length > 0
@@ -1540,7 +1540,7 @@ export default function InteractiveChessboard({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="bg-slate-700/50 border-slate-600 text-slate-300 hover:bg-slate-600/60 hover:border-slate-500 hover:text-slate-200 transition-all duration-200"
+                  className="bg-secondary/50 border-border text-muted-foreground hover:bg-accent/60 hover:border-border hover:text-foreground transition-all duration-200"
                   title="Position information"
                 >
                   <Info className="w-4 h-4" />
@@ -1551,15 +1551,15 @@ export default function InteractiveChessboard({
         </div>
 
         {/* Move List or Drawing Mode UI - Fixed height container */}
-        <div data-move-list className="flex-shrink-0 bg-slate-900/50 rounded-lg p-2 h-[80px] overflow-y-auto">
+        <div data-move-list className="flex-shrink-0 bg-muted/50 rounded-lg p-2 h-[80px] overflow-y-auto">
           {drawingMode ? (
             /* Drawing Mode UI */
             <div className="h-full flex flex-col justify-center">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                <span className="text-xs font-medium text-slate-200">Drawing Mode Active</span>
+                <span className="text-xs font-medium text-foreground">Drawing Mode Active</span>
               </div>
-              <div className="text-xs text-slate-400">
+              <div className="text-xs text-muted-foreground">
                 <div className="mb-1">Right-click drag for arrows:</div>
                 <div className="flex items-center justify-between">
                   <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'green' ? 'bg-green-500/20' : ''}`}>
@@ -1584,7 +1584,7 @@ export default function InteractiveChessboard({
           ) : (
             /* Normal Move History */
             <>
-              <div className="text-xs text-slate-400 mb-1">Move History</div>
+              <div className="text-xs text-muted-foreground mb-1">Move History</div>
               {currentMoves.length > 0 ? (
                 <div className="grid grid-cols-3 gap-x-2 gap-y-1 text-xs">
                   {currentMoves.map((move, index) => {
@@ -1595,13 +1595,13 @@ export default function InteractiveChessboard({
                     return (
                       <div
                         key={index}
-                        className={`cursor-pointer hover:bg-slate-700/50 px-1 py-0.5 rounded text-center ${
-                          isCurrentMove ? 'bg-slate-700 text-white' : 'text-slate-300'
+                        className={`cursor-pointer hover:bg-accent/50 px-1 py-0.5 rounded text-center ${
+                          isCurrentMove ? 'bg-accent text-accent-foreground' : 'text-foreground'
                         }`}
                         onClick={() => navigateToMove(index + 1)}
                       >
                         {isWhiteMove && (
-                          <span className="text-slate-500 mr-1">{moveNumber}.</span>
+                          <span className="text-muted-foreground mr-1">{moveNumber}.</span>
                         )}
                         {move}
                       </div>
@@ -1609,7 +1609,7 @@ export default function InteractiveChessboard({
                   })}
                 </div>
               ) : (
-                <div className="text-xs text-slate-500 italic text-center py-2">
+                <div className="text-xs text-muted-foreground italic text-center py-2">
                   No moves played yet
                 </div>
               )}

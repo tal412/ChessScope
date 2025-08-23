@@ -11,17 +11,17 @@ export default function SyncingOverlay({
   if (!isVisible) return null;
 
   return (
-    <div className="absolute inset-0 bg-slate-900 flex items-center justify-center z-50">
+    <div className="absolute inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="text-center">
         <div className="relative mb-8">
-          <div className="animate-spin rounded-full h-20 w-20 border-4 border-slate-700 border-t-purple-500 mx-auto"></div>
+          <div className="animate-spin rounded-full h-20 w-20 border-4 border-border border-t-purple-500 mx-auto"></div>
           <div className="absolute inset-0 rounded-full bg-purple-500/10 blur-lg"></div>
         </div>
         <div className="space-y-3">
-          <h2 className="text-2xl font-bold text-slate-200">
+          <h2 className="text-2xl font-bold text-foreground">
             {title}
           </h2>
-          <p className="text-slate-400 text-base max-w-md mx-auto">
+          <p className="text-muted-foreground text-base max-w-md mx-auto">
             {subtitle}
           </p>
           <div className="flex items-center justify-center gap-2 mt-6">
@@ -35,15 +35,15 @@ export default function SyncingOverlay({
             <div className="mt-6 space-y-4">
               <div className="w-[28rem] max-w-2xl mx-auto space-y-3">
                 <div className="flex items-center justify-between text-sm">
-                  <span className="text-slate-300 font-medium flex-1 mr-4 whitespace-nowrap overflow-hidden text-ellipsis">
+                  <span className="text-foreground font-medium flex-1 mr-4 whitespace-nowrap overflow-hidden text-ellipsis">
                     {syncProgress >= 100 ? 'Finalizing...' : syncStatus || 'Updating Analysis...'}
                   </span>
-                  <span className="text-slate-400 flex-shrink-0">
+                  <span className="text-muted-foreground flex-shrink-0">
                     {Math.round(syncProgress || 0)}%
                   </span>
                 </div>
                 
-                <div className="w-full h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
                   <div 
                     className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full origin-left"
                     style={{ 
@@ -60,7 +60,7 @@ export default function SyncingOverlay({
           {/* Status text without progress bar */}
           {!showProgress && (
             <div className="mt-6">
-              <p className="text-slate-300 text-sm">
+              <p className="text-foreground text-sm">
                 {syncStatus || 'Processing...'}
               </p>
             </div>

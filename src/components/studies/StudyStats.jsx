@@ -13,7 +13,7 @@ export default function OpeningStats({ selectedPath, allNodes, color }) {
         </CardHeader>
         <CardContent>
           <p className="text-slate-400 text-center py-8">
-            Click on opening moves to see detailed statistics
+            Click on study moves to see detailed statistics
           </p>
         </CardContent>
       </Card>

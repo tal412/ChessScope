@@ -20,7 +20,7 @@ const MoveDetailsSection = ({
   return (
     <LayoutSection
       key="details"
-      className={`bg-slate-800 ${className}`}
+      className={`bg-card border-l-2 border-primary/20 ${className}`}
     >
       <div className="h-full">
         <MoveDetailsPanel

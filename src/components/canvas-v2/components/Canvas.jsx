@@ -94,17 +94,20 @@ function renderStudyNodeText(ctx, node, centerX, centerY) {
   ctx.textBaseline = 'middle';
   
   if (node.data?.isRoot) {
-    ctx.font = `bold ${RENDER_CONFIG.FONT_SIZES.ROOT_LABEL}px ${RENDER_CONFIG.FONT_FAMILY}`;
+    // Render "INITIAL" and "POSITION" on separate lines with smaller font
+    ctx.font = `bold 30px ${RENDER_CONFIG.FONT_FAMILY}`;
     ctx.fillStyle = textColor;
-    ctx.strokeText('START', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_LABEL_Y);
-    ctx.fillText('START', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_LABEL_Y);
     
-    if (node.data?.gameCount) {
-      ctx.font = `600 ${RENDER_CONFIG.FONT_SIZES.GAME_COUNT}px ${RENDER_CONFIG.FONT_FAMILY}`;
-      const gameCountText = `${node.data.gameCount} games`;
-      ctx.strokeText(gameCountText, centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_GAME_COUNT_Y);
-      ctx.fillText(gameCountText, centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_GAME_COUNT_Y);
-    }
+    // First line: "INITIAL" - using same offset as performance mode START
+    ctx.strokeText('INITIAL', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_LABEL_Y);
+    ctx.fillText('INITIAL', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_LABEL_Y);
+    
+    // Second line: "POSITION" - using same offset as performance mode game count
+    ctx.strokeText('POSITION', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_GAME_COUNT_Y);
+    ctx.fillText('POSITION', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_GAME_COUNT_Y);
+    
+    // Don't show game count in study mode for root node
+    // Game count doesn't make sense for study initial positions
   } else {
     ctx.font = `bold ${RENDER_CONFIG.FONT_SIZES.MOVE_LABEL}px ${RENDER_CONFIG.FONT_FAMILY}`;
     ctx.fillStyle = textColor;
@@ -444,6 +447,9 @@ export function Canvas({
   
   // Render edges
   const renderEdges = useCallback((ctx) => {
+    // Detect current theme by checking computed style of document root
+    const isDarkTheme = document.documentElement.classList.contains('dark');
+    
     graphData.edges.forEach(edge => {
       const sourceNode = graphData.nodes.find(n => n.id === edge.source);
       const targetNode = graphData.nodes.find(n => n.id === edge.target);
@@ -451,10 +457,14 @@ export function Canvas({
       if (!sourceNode || !targetNode) return;
       
       if (mode === 'study') {
-        // Study mode edge rendering
+        // Study mode edge rendering with theme-aware colors
         const isMainLine = edge.data?.isMainLine || false;
         
-        ctx.strokeStyle = isMainLine ? '#ffffff' : '#6b7280';
+        // Use theme-appropriate colors for main line
+        const mainLineColor = isDarkTheme ? '#ffffff' : '#000000';
+        const nonMainLineColor = isDarkTheme ? '#6b7280' : '#9ca3af';
+        
+        ctx.strokeStyle = isMainLine ? mainLineColor : nonMainLineColor;
         ctx.lineWidth = isMainLine ? 3 : 2;
         ctx.lineCap = 'round';
         ctx.globalAlpha = isMainLine ? 1 : 0.7;

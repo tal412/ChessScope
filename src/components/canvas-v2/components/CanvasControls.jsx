@@ -75,11 +75,11 @@ export function CanvasControls({
       <div className="absolute bottom-4 right-4 flex flex-col gap-2 z-20">
         {/* Combined Controls - Zoom, Clusters, Auto-zoom */}
         {enableOpeningClusters && onToggleOpeningClusters && (
-          <div className="flex gap-1 bg-slate-800/90 backdrop-blur-sm rounded-lg p-2 border border-slate-700/50">
+          <div className="flex gap-1 bg-card/90 backdrop-blur-sm rounded-lg p-2 border border-border/50">
             <Button
               size="sm"
               variant="ghost"
-              className="h-8 w-8 p-0 text-slate-300 hover:text-white hover:bg-slate-700"
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground hover:bg-accent"
               onClick={onZoomToAll}
               disabled={isInteractionBlocked}
               title="Fit to view"
@@ -90,7 +90,7 @@ export function CanvasControls({
             <Button
               size="sm"
               variant="ghost"
-              className={`h-8 w-8 p-0 ${showOpeningClusters ? 'text-green-400 hover:text-green-300' : 'text-slate-400 hover:text-slate-300'} hover:bg-slate-700`}
+              className={`h-8 w-8 p-0 ${showOpeningClusters ? 'text-green-400 hover:text-green-300' : 'text-muted-foreground hover:text-foreground'} hover:bg-accent`}
               onClick={onToggleOpeningClusters}
               disabled={isInteractionBlocked}
               title={showOpeningClusters ? "Hide opening clusters" : "Show opening clusters"}
@@ -103,7 +103,7 @@ export function CanvasControls({
               <Button
                 size="sm"
                 variant="ghost"
-                className={`h-8 w-8 p-0 ${showPositionClusters ? 'text-orange-400 hover:text-orange-300' : 'text-slate-400 hover:text-slate-300'} hover:bg-slate-700`}
+                className={`h-8 w-8 p-0 ${showPositionClusters ? 'text-orange-400 hover:text-orange-300' : 'text-muted-foreground hover:text-foreground'} hover:bg-accent`}
                 onClick={onTogglePositionClusters}
                 disabled={isInteractionBlocked}
                 title={showPositionClusters ? "Hide position clusters" : "Show position clusters"}
@@ -117,7 +117,7 @@ export function CanvasControls({
               <Button
                 size="sm"
                 variant="ghost"
-                className={`h-8 w-8 p-0 ${autoZoomOnClick ? 'text-blue-400 hover:text-blue-300' : 'text-slate-400 hover:text-slate-300'} hover:bg-slate-700`}
+                className={`h-8 w-8 p-0 ${autoZoomOnClick ? 'text-blue-400 hover:text-blue-300' : 'text-muted-foreground hover:text-foreground'} hover:bg-accent`}
                 onClick={onToggleAutoZoomOnClick}
                 disabled={isInteractionBlocked}
                 title={autoZoomOnClick ? "Disable auto-zoom on click" : "Enable auto-zoom on click"}
@@ -130,11 +130,11 @@ export function CanvasControls({
 
         {/* Performance Controls Toggle */}
         {mode === 'performance' && onShowPerformanceControls && (
-          <div className="bg-slate-800/90 backdrop-blur-sm rounded-lg p-2 border border-slate-700/50">
+          <div className="bg-card/90 backdrop-blur-sm rounded-lg p-2 border border-border/50">
             <Button
               size="sm"
               variant="ghost"
-              className={`h-8 w-8 p-0 ${showPerformanceControls ? 'text-blue-400 hover:text-blue-300' : 'text-slate-400 hover:text-slate-300'} hover:bg-slate-700`}
+              className={`h-8 w-8 p-0 ${showPerformanceControls ? 'text-blue-400 hover:text-blue-300' : 'text-muted-foreground hover:text-foreground'} hover:bg-accent`}
               onClick={() => onShowPerformanceControls(!showPerformanceControls)}
               disabled={isInteractionBlocked}
               title={showPerformanceControls ? "Hide performance controls" : "Show performance controls"}
@@ -147,14 +147,14 @@ export function CanvasControls({
 
       {/* Performance Controls Panel */}
       {mode === 'performance' && showPerformanceControls && (
-        <div className="absolute top-4 right-4 w-80 bg-slate-800/95 backdrop-blur-sm rounded-lg border border-slate-700/50 shadow-xl z-30">
+        <div className="absolute top-4 right-4 w-80 bg-card/95 backdrop-blur-sm rounded-lg border border-border/50 shadow-xl z-30">
           <div className="p-4 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-200">Performance Filters</h3>
+              <h3 className="text-sm font-semibold text-card-foreground">Performance Filters</h3>
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-6 w-6 p-0 text-slate-400 hover:text-slate-200"
+                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
                 onClick={() => onShowPerformanceControls(false)}
               >
                 ×
@@ -164,7 +164,7 @@ export function CanvasControls({
             {/* Max Depth Control */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-slate-300">Max Depth</label>
+                <label className="text-xs font-medium text-foreground">Max Depth</label>
                 <Badge variant="secondary" className="text-xs">
                   {maxDepth}
                 </Badge>
@@ -172,7 +172,7 @@ export function CanvasControls({
               <select
                 value={maxDepth}
                 onChange={(e) => onMaxDepthChange?.(parseInt(e.target.value))}
-                className={`w-full px-2 py-1 rounded ${(isGenerating || isInteractionBlocked) ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-slate-200'}`}
+                className={`w-full px-2 py-1 rounded ${(isGenerating || isInteractionBlocked) ? 'bg-muted border-border text-muted-foreground cursor-not-allowed' : 'bg-input border-border text-foreground'}`}
                 disabled={isGenerating || isInteractionBlocked || !onMaxDepthChange}
               >
                 {[5, 10, 15, 20, 25, 30].map(depth => (
@@ -184,7 +184,7 @@ export function CanvasControls({
             {/* Min Game Count Control */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-slate-300">Min Games</label>
+                <label className="text-xs font-medium text-foreground">Min Games</label>
                 <Badge variant="secondary" className="text-xs">
                   {tempMinGameCount}
                 </Badge>
@@ -204,7 +204,7 @@ export function CanvasControls({
             {/* Win Rate Filter */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-slate-300">Win Rate %</label>
+                <label className="text-xs font-medium text-foreground">Win Rate %</label>
                 <Badge variant="secondary" className="text-xs">
                   {tempWinRateFilter[0]}%-{tempWinRateFilter[1]}%
                 </Badge>
@@ -234,11 +234,11 @@ export function CanvasControls({
       {/* Context Menu Actions (if provided) */}
       {contextMenuActions && (
         <div className="absolute top-4 left-4 z-20">
-          <div className="bg-slate-800/90 backdrop-blur-sm rounded-lg p-2 border border-slate-700/50">
+          <div className="bg-card/90 backdrop-blur-sm rounded-lg p-2 border border-border/50">
             <Button
               size="sm"
               variant="ghost"
-              className="h-8 w-8 p-0 text-slate-400 hover:text-slate-200"
+              className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
               disabled={isInteractionBlocked}
               title="Right-click nodes for more options"
             >

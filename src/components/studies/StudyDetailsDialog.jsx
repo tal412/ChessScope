@@ -223,9 +223,9 @@ export default function StudyDetailsDialog({
       <DialogTrigger asChild>
         {children || triggerElement}
       </DialogTrigger>
-      <DialogContent className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50 text-slate-100 max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-optimized border-gray-200/50 dark:border-slate-700/50 text-gray-900 dark:text-slate-100 max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl text-white flex items-center gap-2">
+          <DialogTitle className="text-xl text-gray-900 dark:text-white flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-amber-500" />
             {title}
           </DialogTitle>
@@ -234,7 +234,7 @@ export default function StudyDetailsDialog({
         <div className="space-y-6 py-4">
           {/* Study Name */}
           <div className="space-y-2">
-            <Label className="text-slate-300">Study Name</Label>
+            <Label className="text-gray-700 dark:text-slate-300">Study Name</Label>
             <Input
               value={name}
               onChange={(e) => {
@@ -242,14 +242,14 @@ export default function StudyDetailsDialog({
                 if (error) setError('');
               }}
               placeholder="e.g. Italian Game - Giuoco Piano"
-              className="bg-slate-700 border-slate-600 text-slate-100 placeholder:text-slate-400"
+              className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-900 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-400"
               disabled={loading}
             />
           </div>
 
           {/* Color Selection */}
           <div className="space-y-3">
-            <Label className="text-slate-300">Playing Color</Label>
+            <Label className="text-gray-700 dark:text-slate-300">Playing Color</Label>
             <div className="flex gap-3">
               <button
                 type="button"
@@ -259,13 +259,13 @@ export default function StudyDetailsDialog({
                   "flex-1 h-12 px-4 rounded-md font-medium transition-all duration-200 flex items-center justify-center border",
                   color === 'white' 
                     ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600' 
-                    : 'bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700/50 hover:border-slate-500',
+                    : 'bg-transparent border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700/50 hover:border-gray-400 dark:hover:border-slate-500',
                   loading && 'opacity-50 cursor-not-allowed'
                 )}
               >
                 <Crown className={cn(
                   "w-5 h-5 mr-2",
-                  color === 'white' ? 'text-white' : 'text-amber-400'
+                  color === 'white' ? 'text-white' : 'text-amber-500'
                 )} />
                 White
               </button>
@@ -277,13 +277,13 @@ export default function StudyDetailsDialog({
                   "flex-1 h-12 px-4 rounded-md font-medium transition-all duration-200 flex items-center justify-center border",
                   color === 'black' 
                     ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600' 
-                    : 'bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700/50 hover:border-slate-500',
+                    : 'bg-transparent border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700/50 hover:border-gray-400 dark:hover:border-slate-500',
                   loading && 'opacity-50 cursor-not-allowed'
                 )}
               >
                 <Shield className={cn(
                   "w-5 h-5 mr-2",
-                  color === 'black' ? 'text-white' : 'text-slate-400'
+                  color === 'black' ? 'text-white' : 'text-gray-500 dark:text-slate-400'
                 )} />
                 Black
               </button>
@@ -292,7 +292,7 @@ export default function StudyDetailsDialog({
 
           {/* Starting Position */}
           <div className="space-y-3">
-            <Label className="text-slate-300">Starting Position</Label>
+            <Label className="text-gray-700 dark:text-slate-300">Starting Position</Label>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -306,7 +306,7 @@ export default function StudyDetailsDialog({
                   "flex-1 h-10 px-3 rounded-md text-sm font-medium transition-all duration-200 border",
                   startingMethod === 'standard' 
                     ? 'bg-amber-500 text-white border-amber-500' 
-                    : 'bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700/50',
+                    : 'bg-transparent border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700/50',
                 )}
               >
                 Standard
@@ -323,7 +323,7 @@ export default function StudyDetailsDialog({
                   "flex-1 h-10 px-3 rounded-md text-sm font-medium transition-all duration-200 border",
                   startingMethod === 'fen' 
                     ? 'bg-amber-500 text-white border-amber-500' 
-                    : 'bg-transparent border-slate-600 text-slate-300 hover:bg-slate-700/50',
+                    : 'bg-transparent border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700/50',
                 )}
               >
                 FEN
@@ -337,10 +337,10 @@ export default function StudyDetailsDialog({
                   onChange={(e) => handleFenChange(e.target.value)}
                   placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
                   className={cn(
-                    "bg-slate-700 text-slate-100 placeholder:text-slate-400 font-mono text-sm",
+                    "bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-400 font-mono text-sm",
                     fenError 
                       ? "border-red-500 focus:border-red-500 focus:ring-red-500" 
-                      : "border-slate-600"
+                      : "border-gray-300 dark:border-slate-600"
                   )}
                   disabled={loading}
                 />
@@ -350,7 +350,7 @@ export default function StudyDetailsDialog({
                     {fenError}
                   </p>
                 ) : (
-                  <p className="text-xs text-slate-400">Enter a FEN position to start your study from</p>
+                  <p className="text-xs text-gray-500 dark:text-slate-400">Enter a FEN position to start your study from</p>
                 )}
               </div>
             )}
@@ -360,11 +360,11 @@ export default function StudyDetailsDialog({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Label className="text-slate-300 flex items-center gap-2">
+                <Label className="text-gray-700 dark:text-slate-300 flex items-center gap-2">
                   <Tags className="w-4 h-4" />
                   Tags
                 </Label>
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-gray-500 dark:text-slate-500">
                   ({selectedTags.length}/{MAX_TAGS})
                 </span>
               </div>
@@ -377,8 +377,8 @@ export default function StudyDetailsDialog({
                 className={cn(
                   "h-6 text-xs transition-all",
                   (selectedTags.length >= MAX_TAGS && !showNewTagForm)
-                    ? "text-slate-500 cursor-not-allowed"
-                    : "text-slate-400 hover:text-slate-300"
+                    ? "text-gray-400 dark:text-slate-500 cursor-not-allowed"
+                    : "text-gray-600 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-300"
                 )}
                 title={(selectedTags.length >= MAX_TAGS && !showNewTagForm) ? "Maximum tags reached" : undefined}
               >
@@ -389,9 +389,9 @@ export default function StudyDetailsDialog({
 
             {/* New Tag Form */}
             {showNewTagForm && (
-              <div className="p-3 bg-slate-700/30 rounded-lg border border-slate-600 space-y-3">
+              <div className="p-3 bg-gray-100 dark:bg-slate-700/30 rounded-lg border border-gray-300 dark:border-slate-600 space-y-3">
                 {selectedTags.length >= MAX_TAGS && (
-                  <div className="p-2 bg-amber-900/20 border border-amber-700/50 rounded text-xs text-amber-400">
+                  <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded text-xs text-amber-700 dark:text-amber-400">
                     <span className="font-medium">Note:</span> You've reached the {MAX_TAGS} tag limit. 
                     New tags will be created but not automatically selected.
                   </div>
@@ -404,7 +404,7 @@ export default function StudyDetailsDialog({
                       setNewTagName(e.target.value);
                       setError('');
                     }}
-                    className="bg-slate-700 border-slate-600 text-slate-100 placeholder:text-slate-400"
+                    className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-900 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-400"
                     disabled={loading}
                   />
                   <div className="flex items-center gap-2">
@@ -458,7 +458,7 @@ export default function StudyDetailsDialog({
                         setError('');
                       }}
                       disabled={loading}
-                      className="text-slate-400"
+                      className="text-gray-600 dark:text-slate-400"
                     >
                       Cancel
                     </Button>
@@ -484,8 +484,8 @@ export default function StudyDetailsDialog({
                         isSelected 
                           ? 'border-current text-white' 
                           : canSelect
-                            ? 'border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300'
-                            : 'border-slate-700 text-slate-500'
+                            ? 'border-gray-300 dark:border-slate-600 text-gray-600 dark:text-slate-400 hover:border-gray-400 dark:hover:border-slate-500 hover:text-gray-800 dark:hover:text-slate-300'
+                            : 'border-gray-200 dark:border-slate-700 text-gray-400 dark:text-slate-500'
                       )}
                       style={{
                         backgroundColor: isSelected ? tag.color : 'transparent',
@@ -502,7 +502,7 @@ export default function StudyDetailsDialog({
               </div>
             )}
             
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-gray-500 dark:text-slate-400">
               Select up to {MAX_TAGS} tags to categorize your study, or create new ones
               {selectedTags.length >= MAX_TAGS && (
                 <span className="text-amber-400 ml-1">(Maximum reached)</span>
@@ -511,19 +511,19 @@ export default function StudyDetailsDialog({
           </div>
 
           {error && (
-            <div className="p-3 rounded-md bg-red-900/20 border border-red-700">
-              <p className="text-sm text-red-400">{error}</p>
+            <div className="p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700">
+              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
             </div>
           )}
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t border-slate-700">
+        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
           <Button
             variant="outline"
             onClick={handleCancel}
             disabled={loading}
-            className="flex-1 border-slate-600 text-slate-300 hover:bg-slate-700 hover:text-white"
+            className="flex-1 border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white"
           >
             Cancel
           </Button>
@@ -533,7 +533,7 @@ export default function StudyDetailsDialog({
             className={cn(
               "flex-1 text-white transition-all duration-200",
               loading || !name.trim() || fenError
-                ? "bg-transparent border border-slate-600 text-slate-500 cursor-not-allowed"
+                ? "bg-transparent border border-gray-300 dark:border-slate-600 text-gray-400 dark:text-slate-500 cursor-not-allowed"
                 : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
             )}
           >

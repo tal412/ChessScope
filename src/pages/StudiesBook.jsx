@@ -46,7 +46,7 @@ import {
   AlertTriangle,
   Mail
 } from 'lucide-react';
-import { userStudy, studyTag, studyTagsMapping, studyFolder } from '@/api/hybridEntities';
+import { userStudy as UserStudy, studyTag, studyTagsMapping, studyFolder } from '@/api/hybridEntities';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -213,7 +213,7 @@ export default function StudiesBook() {
         return;
       }
 
-      const userStudies = await userStudy.getByUsername(username);
+      const userStudies = await UserStudy.getByUsername(username);
       
       // Load tags for each study - optimized to reduce database calls
       const studiesWithTags = await Promise.all(
@@ -320,23 +320,54 @@ export default function StudiesBook() {
     return folder ? { name: folder.name, color: folder.color, icon: folder.icon } : null;
   };
 
-  // Handle creating a new study - now handled by the dialog
+  // Handle creating a new study - create in database immediately
   const handleCreateStudy = async (studyDetails) => {
-    const tagIds = studyDetails.selectedTags?.map(tag => tag.id).join(',') || '';
-    console.log('📋 StudiesBook: Creating study with details:', studyDetails);
-    console.log('📋 StudiesBook: Selected tags:', studyDetails.selectedTags);
-    console.log('📋 StudiesBook: Tag IDs string:', tagIds);
-    
-    const params = new URLSearchParams({
-      name: studyDetails.name,
-      color: studyDetails.color,
-      initialFen: studyDetails.initialFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',
-      tags: tagIds
-    });
-    
-    const url = `/studies-book/editor/new?${params.toString()}`;
-    console.log('📋 StudiesBook: Navigating to URL:', url);
-    navigate(url);
+    try {
+      const tagIds = studyDetails.selectedTags?.map(tag => tag.id).join(',') || '';
+      console.log('📋 StudiesBook: Creating study with details:', studyDetails);
+      console.log('📋 StudiesBook: Selected tags:', studyDetails.selectedTags);
+      console.log('📋 StudiesBook: Tag IDs string:', tagIds);
+      
+      const username = localStorage.getItem('chesscope_username');
+      const initialFen = studyDetails.initialFen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+      
+      // Create a basic move tree with just the initial position
+      const initialMoveTree = {
+        id: 'root',
+        san: null,
+        fen: initialFen,
+        isMainLine: true,
+        isInitialMove: true,
+        comment: '',
+        links: [],
+        arrows: [],
+        children: []
+      };
+
+      const openingData = {
+        username,
+        name: studyDetails.name.trim(),
+        color: studyDetails.color,
+        initial_fen: initialFen,
+        initial_view_fen: initialFen,
+        moveTree: initialMoveTree,
+        tags: tagIds
+      };
+      
+      console.log('📋 StudiesBook: Saving study to database...');
+      const savedStudy = await UserStudy.create(openingData);
+      console.log('📋 StudiesBook: Study saved with ID:', savedStudy.id);
+      
+      // Navigate to editor with the real study ID
+      navigate(`/studies-book/editor/${savedStudy.id}`);
+      
+      // Refresh studies list to show the new study
+      fetchStudies();
+      
+    } catch (error) {
+      console.error('📋 StudiesBook: Failed to create study:', error);
+      alert('Failed to create study. Please try again.');
+    }
   };
 
   // Handle study click - go to analysis view
@@ -363,7 +394,7 @@ export default function StudiesBook() {
     setDeleteStudy(null);
     
     // Background deletion - fire and forget
-    userStudy.delete(studyToDelete.id).catch(error => {
+    UserStudy.delete(studyToDelete.id).catch(error => {
       console.error('Background study deletion failed:', error);
       // Could add toast notification here if needed, but don't revert UI
       // The sync manager will handle conflicts if needed
@@ -492,7 +523,7 @@ export default function StudiesBook() {
     Promise.all([
       // Move studies out of folder in database
       ...folderStudies.map(study => 
-        userStudy.update(study.id, { folder_id: null })
+        UserStudy.update(study.id, { folder_id: null })
       ),
       // Delete folder from database
       studyFolder.delete(folder.id)
@@ -536,7 +567,7 @@ export default function StudiesBook() {
       );
       
       // Then update database in background
-      userStudy.update(study.id, { folder_id: folderId })
+      UserStudy.update(study.id, { folder_id: folderId })
         .then(() => {
           // Reload to ensure consistency (without loader)
           loadStudies();
@@ -632,8 +663,8 @@ export default function StudiesBook() {
           );
           
           // Then update database in background
-          console.log('Calling userStudy.update with:', { folder_id: folder.id });
-          userStudy.update(study.id, { folder_id: folder.id })
+          console.log('Calling UserStudy.update with:', { folder_id: folder.id });
+          UserStudy.update(study.id, { folder_id: folder.id })
             .then(() => {
               // Reload to ensure consistency (without loader)
               loadStudies();
@@ -689,7 +720,7 @@ export default function StudiesBook() {
                 folderId: study.folder_id
               }));
               
-              await userStudy.updatePositions(studyPositions);
+              await UserStudy.updatePositions(studyPositions);
               await loadStudies(); // Don't show loader for reordering
             }
           }
@@ -709,14 +740,14 @@ export default function StudiesBook() {
   // Show loading screen only when actually loading studies (not during authentication)
   if ((isAuthLoading && !isSigningIn && !firebaseUser) || (isLoadingStudies && firebaseUser)) {
     return (
-      <div className="h-screen w-full bg-slate-900 flex items-center justify-center">
+      <div className="h-screen w-full bg-background dark:bg-slate-900 flex items-center justify-center">
         <div className="text-center">
           <div className="relative mb-8">
-            <div className="animate-spin rounded-full h-20 w-20 border-4 border-slate-700 border-t-purple-500 mx-auto"></div>
+            <div className="animate-spin rounded-full h-20 w-20 border-4 border-border border-t-primary mx-auto"></div>
             <div className="absolute inset-0 rounded-full bg-purple-500/10 blur-lg"></div>
           </div>
           <div className="space-y-3">
-            <h2 className="text-2xl font-bold text-slate-200">
+            <h2 className="text-2xl font-bold text-foreground">
               Loading your studies
             </h2>
             <div className="flex items-center justify-center gap-2 mt-6">
@@ -733,7 +764,7 @@ export default function StudiesBook() {
   // Firebase Auth Prompt for Studies (show when not signed in, regardless of loading states)
   if (!firebaseUser) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col">
+      <div className="min-h-screen flex flex-col bg-background dark:bg-slate-900">
         <AppBar
           title="Studies Book"
           icon={BookOpen}
@@ -745,15 +776,15 @@ export default function StudiesBook() {
               
               {/* Authentication Method Selection */}
               {authMethod === null && (
-                <div className="bg-slate-800 border border-slate-700 rounded-xl p-8 space-y-6">
+                <div className="bg-card border border-border rounded-xl p-8 space-y-6">
                   <div className="space-y-4 text-center">
                     <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto">
-                      <BookOpen className="w-10 h-10 text-slate-900" />
+                      <BookOpen className="w-10 h-10 text-background" />
                     </div>
-                    <h2 className="text-2xl font-bold text-white">
+                    <h2 className="text-2xl font-bold text-card-foreground">
                       Sign in to Studies
                     </h2>
-                    <p className="text-slate-300 leading-relaxed">
+                    <p className="text-muted-foreground leading-relaxed">
                       Choose your preferred sign-in method to access your chess studies with cloud sync.
                     </p>
                   </div>
@@ -770,7 +801,7 @@ export default function StudiesBook() {
                       }}
                       disabled={isSigningIn}
                       size="lg"
-                      className="w-64 bg-white hover:bg-gray-50 text-gray-700 border border-gray-300 shadow-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-64 bg-background hover:bg-accent text-foreground border border-border shadow-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {isSigningIn ? (
                         <>
@@ -795,7 +826,7 @@ export default function StudiesBook() {
                       onClick={() => setAuthMethod('email')}
                       size="lg" 
                       variant="outline"
-                      className="w-64 border-slate-600 bg-slate-800 text-white hover:bg-slate-700"
+                      className="w-64 border-border bg-card text-card-foreground hover:bg-accent"
                     >
                       <Mail className="w-5 h-5 mr-3" />
                       Continue with Email
@@ -806,15 +837,15 @@ export default function StudiesBook() {
               
               {/* Email Authentication */}
               {authMethod === 'email' && (
-                <div className="bg-slate-800 border border-slate-700 rounded-xl p-8 space-y-6">
+                <div className="bg-card border border-border rounded-xl p-8 space-y-6">
                   <div className="space-y-4 text-center">
                     <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto">
-                      <BookOpen className="w-10 h-10 text-slate-900" />
+                      <BookOpen className="w-10 h-10 text-background" />
                     </div>
-                    <h2 className="text-2xl font-bold text-white">
+                    <h2 className="text-2xl font-bold text-card-foreground">
                       Email Authentication
                     </h2>
-                    <p className="text-slate-300 leading-relaxed">
+                    <p className="text-muted-foreground leading-relaxed">
                       Sign in or create an account using your email address.
                     </p>
                   </div>
@@ -830,8 +861,7 @@ export default function StudiesBook() {
                     <Button 
                       variant="ghost" 
                       onClick={() => setAuthMethod(null)}
-                      className="text-slate-400 hover:text-white"
-                    >
+                      className="text-muted-foreground hover:text-foreground">
                       ← Back to options
                     </Button>
                   </div>
@@ -845,7 +875,7 @@ export default function StudiesBook() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background dark:bg-slate-900">
 
       {/* Header using AppBar */}
       <AppBar
@@ -857,13 +887,13 @@ export default function StudiesBook() {
         icon={BookOpen}
         centerControls={
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <Input
               type="text"
               placeholder="Search studies..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 bg-slate-800 border-slate-700 text-slate-200"
+              className="pl-10 bg-input border-border text-foreground"
             />
           </div>
         }
@@ -874,7 +904,7 @@ export default function StudiesBook() {
                 variant="outline" 
                 size="sm" 
                 onClick={handleBackClick}
-                className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white"
+                className="bg-secondary border-border text-secondary-foreground hover:bg-accent hover:text-accent-foreground"
               >
                 ← Back
               </Button>
@@ -884,7 +914,7 @@ export default function StudiesBook() {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white"
+                  className="bg-secondary border-border text-secondary-foreground hover:bg-accent hover:text-accent-foreground"
                 >
                   <FolderPlus className="w-4 h-4 mr-2" />
                   New Folder
@@ -895,7 +925,7 @@ export default function StudiesBook() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white"
+                className="bg-secondary border-border text-secondary-foreground hover:bg-accent hover:text-accent-foreground"
               >
                 <Edit className="w-4 h-4 mr-2" />
                 Manage Tags
@@ -912,14 +942,14 @@ export default function StudiesBook() {
             </StudyDetailsDialog>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600 hover:text-white">
+                <Button variant="outline" size="sm" className="bg-secondary border-border text-secondary-foreground hover:bg-accent hover:text-accent-foreground">
                   <div className="flex items-center gap-2">
                     {filterColor === 'all' ? (
-                      <Filter className="w-4 h-4 text-slate-400" />
+                      <Filter className="w-4 h-4 text-muted-foreground" />
                     ) : filterColor === 'white' ? (
                       <Crown className="w-4 h-4 text-amber-400" />
                     ) : (
-                      <Shield className="w-4 h-4 text-slate-400" />
+                      <Shield className="w-4 h-4 text-muted-foreground" />
                     )}
                     <span className="hidden sm:inline">
                       {filterColor === 'all' ? 'All' : filterColor === 'white' ? 'White' : 'Black'}
@@ -927,26 +957,26 @@ export default function StudiesBook() {
                   </div>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-slate-800 border-slate-700">
+              <DropdownMenuContent align="end" className="bg-popover border-border">
                 <DropdownMenuItem 
                   onClick={() => setFilterColor('all')}
-                  className="text-slate-200 hover:text-white hover:bg-slate-700"
+                  className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
                 >
-                  <Filter className="w-4 h-4 mr-2 text-slate-400" />
+                  <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
                   All
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={() => setFilterColor('white')}
-                  className="text-slate-200 hover:text-white hover:bg-slate-700"
+                  className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
                 >
                   <Crown className="w-4 h-4 mr-2 text-amber-400" />
                   White
                 </DropdownMenuItem>
                 <DropdownMenuItem 
                   onClick={() => setFilterColor('black')}
-                  className="text-slate-200 hover:text-white hover:bg-slate-700"
+                  className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
                 >
-                  <Shield className="w-4 h-4 mr-2 text-slate-400" />
+                  <Shield className="w-4 h-4 mr-2 text-muted-foreground" />
                   Black
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -968,7 +998,7 @@ export default function StudiesBook() {
                   "cursor-pointer transition-all duration-200 border-2",
                   selectedTagIds.length === 0
                     ? 'bg-amber-500 border-amber-500 text-white'
-                    : 'border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300'
+                    : 'border-border text-muted-foreground hover:border-border hover:text-foreground'
                 )}
                 onClick={() => setSelectedTagIds([])}
               >
@@ -984,7 +1014,7 @@ export default function StudiesBook() {
                       "cursor-pointer transition-all duration-200 border-2",
                       isSelected 
                         ? 'border-current text-white' 
-                        : 'border-slate-600 text-slate-400 hover:border-slate-500 hover:text-slate-300'
+                        : 'border-border text-muted-foreground hover:border-border hover:text-foreground'
                     )}
                     style={{
                       backgroundColor: isSelected ? tag.color : 'transparent',
@@ -1009,15 +1039,15 @@ export default function StudiesBook() {
         {/* Empty State */}
         {displayedItems.length === 0 && (
           <div className="text-center py-16">
-            <BookOpen className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold text-slate-300 mb-2">
+            <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+            <h3 className="text-xl font-semibold text-foreground mb-2">
               {searchTerm || filterColor !== 'all' || selectedTagIds.length > 0
                 ? 'No items found' 
                 : selectedFolder !== null 
                   ? 'This folder is empty'
                   : 'No studies yet'}
             </h3>
-            <p className="text-slate-400 mb-6">
+            <p className="text-muted-foreground mb-6">
               {searchTerm || filterColor !== 'all' || selectedTagIds.length > 0
                 ? 'Try adjusting your search or filters'
                 : selectedFolder !== null
@@ -1037,7 +1067,7 @@ export default function StudiesBook() {
                   </Button>
                 </StudyDetailsDialog>
                 <FolderCreateDialog onCreateFolder={handleCreateFolder}>
-                  <Button variant="outline" className="border-slate-600 text-slate-300 hover:bg-slate-700">
+                  <Button variant="outline" className="border-border text-foreground hover:bg-accent">
                     <FolderPlus className="w-4 h-4 mr-2" />
                     Create Your First Folder
                   </Button>
@@ -1065,7 +1095,7 @@ export default function StudiesBook() {
                 // Filtering view: Show all matching studies with folder names
                 <div>
                   <div className="mb-4">
-                    <h3 className="text-sm font-medium text-slate-400">
+                    <h3 className="text-sm font-medium text-muted-foreground">
                       {selectedTagIds.length > 0 && searchTerm.trim() ? (
                         `Studies matching "${searchTerm}" with selected tags (${filteredStudies.length} found)`
                       ) : selectedTagIds.length > 0 ? (
@@ -1115,8 +1145,8 @@ export default function StudiesBook() {
                   {filteredStudies.filter(study => !study.folder_id || study.folder_id === null).length > 0 && (
                     <div>
                       {folders.length > 0 && (
-                        <div className="border-t border-slate-700 pt-6">
-                          <h3 className="text-sm font-medium text-slate-400 mb-4">Other Studies</h3>
+                        <div className="border-t border-border pt-6">
+                          <h3 className="text-sm font-medium text-muted-foreground mb-4">Other Studies</h3>
                         </div>
                       )}
                       <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
@@ -1180,15 +1210,15 @@ export default function StudiesBook() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteStudy} onOpenChange={() => setDeleteStudy(null)}>
-        <AlertDialogContent className="bg-slate-800 border-slate-700">
+        <AlertDialogContent className="bg-card border-border">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-slate-100">Delete Study</AlertDialogTitle>
-            <AlertDialogDescription className="text-slate-400">
+            <AlertDialogTitle className="text-card-foreground">Delete Study</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
               Are you sure you want to delete "{deleteStudy?.name}"? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600">
+            <AlertDialogCancel className="bg-secondary border-border text-secondary-foreground hover:bg-accent">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
