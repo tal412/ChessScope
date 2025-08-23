@@ -256,6 +256,13 @@ export function Canvas({
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
     
+    // Add white background in light mode for better clarity
+    const isDarkTheme = document.documentElement.classList.contains('dark');
+    if (!isDarkTheme) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+    }
+    
     // Save context and apply transform (translate first, then scale - order matters!)
     ctx.save();
     ctx.translate(transform.translateX, transform.translateY);

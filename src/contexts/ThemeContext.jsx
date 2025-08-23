@@ -15,9 +15,9 @@ export const ThemeProvider = ({ children }) => {
     // Apply theme immediately on initialization
     const root = document.documentElement
     
-    // Check localStorage first, then default to light
+    // Check localStorage first, then default to dark
     const savedTheme = localStorage.getItem('chess-scope-theme')
-    const initialTheme = savedTheme || 'light'
+    const initialTheme = savedTheme || 'dark'
     
     // Remove both classes first
     root.classList.remove('light', 'dark')
