@@ -3,12 +3,13 @@ import { Sun, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useTheme } from '@/contexts/ThemeContext'
 
-export const ThemeToggle = ({ className = "", variant = "ghost", size = "sm", sidebar = false, collapsed = false }) => {
+export const ThemeToggle = React.forwardRef(({ className = "", variant = "ghost", size = "sm", sidebar = false, collapsed = false }, ref) => {
   const { theme, toggleTheme } = useTheme()
 
   if (sidebar) {
     return (
       <Button
+        ref={ref}
         variant={variant}
         size={size}
         onClick={toggleTheme}
@@ -40,6 +41,7 @@ export const ThemeToggle = ({ className = "", variant = "ghost", size = "sm", si
 
   return (
     <Button
+      ref={ref}
       variant={variant}
       size={size}
       onClick={toggleTheme}
@@ -62,6 +64,8 @@ export const ThemeToggle = ({ className = "", variant = "ghost", size = "sm", si
       />
     </Button>
   )
-}
+})
+
+ThemeToggle.displayName = "ThemeToggle"
 
 export default ThemeToggle
