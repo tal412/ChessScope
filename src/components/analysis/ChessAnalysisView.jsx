@@ -4,8 +4,9 @@ import {
   LayoutSection
 } from '@/components/ui/flexible-layout';
 import { NavigationButtons, NavigationPresets } from '@/components/ui/navigation-buttons';
+import PanelHeader from '@/components/ui/panel-header';
 import { Button } from '@/components/ui/button';
-import { Menu, Grid3x3, Network, FileText } from 'lucide-react';
+import { Menu, Grid3x3, Network, FileText, Fish } from 'lucide-react';
 import InteractiveChessboard from '../board/InteractiveChessboard';
 import ChunkVisualization from './ChunkVisualization';
 import ChessCanvas from '../canvas-v2/ChessCanvas';
@@ -109,6 +110,7 @@ const ChessAnalysisView = ({
   const [movesDirectScrollFn, setMovesDirectScrollFn] = useState(null);
   const [movesCurrentPath, setMovesCurrentPath] = useState([]);
   const [movesHoveredMove, setMovesHoveredMove] = useState(null);
+  const [stockfishControls, setStockfishControls] = useState(null);
   
   // Load opening graph if not provided
   const [internalOpeningGraph, setInternalOpeningGraph] = useState(null);
@@ -731,36 +733,39 @@ const ChessAnalysisView = ({
           moves: (
             <LayoutSection
               key="moves"
-              className="bg-column-primary border-r-2 border-column-border"
+              className="bg-background dark:bg-zinc-900/70 border-r border-border/50 dark:border-zinc-700/50 shadow-sm"
               headerControls={
-                <div className="w-full">
-                  <NavigationButtons
-                    currentIndex={movesCurrentPath.length}
-                    totalCount={movesCurrentPath.length}
-                    onPrevious={handleMovesPrevious}
-                    onNext={handleMovesNext}
-                    onReset={handleMovesReset}
-                    onFlip={handleUniversalFlip}
-                    features={NavigationPresets.chessboard.features}
-                    labels={{
-                      ...NavigationPresets.chessboard.labels,
-                      previous: "Back one move",
-                      next: "Forward one move", 
-                      reset: "Reset to root position",
-                      flip: "Flip moves view"
-                    }}
-                    disabled={!effectiveOpeningGraph && mode === 'performance'}
-                    styling={{
-                      size: "sm",
-                      className: "w-full justify-between"
-                    }}
-                  />
-                </div>
+                <PanelHeader
+                  rightContent={
+                    <NavigationButtons
+                      currentIndex={movesCurrentPath.length}
+                      totalCount={movesCurrentPath.length}
+                      onPrevious={handleMovesPrevious}
+                      onNext={handleMovesNext}
+                      onReset={handleMovesReset}
+                      onFlip={handleUniversalFlip}
+                      features={NavigationPresets.chessboard.features}
+                      labels={{
+                        ...NavigationPresets.chessboard.labels,
+                        previous: "Back one move",
+                        next: "Forward one move",
+                        reset: "Reset to root position",
+                        flip: "Flip moves view"
+                      }}
+                      disabled={!effectiveOpeningGraph && mode === 'performance'}
+                      styling={{
+                        size: "sm",
+                        className: "w-full justify-between"
+                      }}
+                    />
+                  }
+                />
               }
+              noPadding={true}
             >
-              <div className="h-full w-full p-4">
+              <div className="h-full w-full flex flex-col">
                 {(effectiveOpeningGraph || mode === 'opening-editor') ? (
-                <div className="h-full w-full">
+                <div className="h-full w-full overflow-hidden">
                   <ChunkVisualization
                     openingGraph={effectiveOpeningGraph}
                     customMoveTree={moveTree}
@@ -779,14 +784,16 @@ const ChessAnalysisView = ({
                   />
                 </div>
               ) : (
-                <div className="flex items-center justify-center h-full">
-                  <div className="text-center p-4">
-                    <Menu className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-muted-foreground text-xs">
+                <div className="flex items-center justify-center h-full bg-muted/10">
+                  <div className="text-center p-6">
+                    <div className="rounded-full bg-muted/20 p-4 w-fit mx-auto mb-3">
+                      <Menu className="w-8 h-8 text-muted-foreground" />
+                    </div>
+                    <p className="text-muted-foreground text-sm font-medium">
                       {mode === 'opening-editor' ? "Study moves" : "Loading moves..."}
                     </p>
                     {mode === 'performance' && !effectiveOpeningGraph && (
-                      <p className="text-muted-foreground text-xs">Import games for stats</p>
+                      <p className="text-muted-foreground text-xs mt-1">Import games for stats</p>
                     )}
                   </div>
                 </div>
@@ -798,36 +805,50 @@ const ChessAnalysisView = ({
           board: (
             <LayoutSection
               key="board"
-              className="bg-column-secondary border-r-2 border-column-border"
+              className="bg-muted/20 dark:bg-zinc-800/50 border-r border-border/50 dark:border-zinc-700/50 shadow-sm"
+              headerControls={
+                <PanelHeader
+                  title={movesCurrentPath.length === 0 ? "Starting Position" : 
+                    effectiveOpeningGraph ? 
+                      (graphData.nodes.find(n => n.data?.moveSequence?.length === movesCurrentPath.length && 
+                        n.data?.moveSequence?.every((move, index) => move === movesCurrentPath[index]))?.data?.openingName || "Position") :
+                      "Position"}
+                  rightContent={stockfishControls}
+                />
+              }
               noPadding={true}
             >
-              <div className="h-full w-full">
-                <div className="h-full w-full flex items-center justify-center p-4">
-                              <InteractiveChessboard
-                currentMoves={chessboardSync.currentMoves}
-                onNewMove={handleChessboardMove}
-                onMoveSelect={handleChessboardMoveSelect}
-                isWhiteTree={selectedPlayer === 'white'}
-                onFlip={handleUniversalFlip}
-                hoveredMove={movesHoveredMove || hoveredMove}
-                customArrows={customArrows}
-                onArrowDraw={allowEditing ? onArrowDraw : null}
-                drawingMode={allowEditing ? drawingMode : false}
-                onDrawingModeChange={allowEditing ? onDrawingModeChange : null}
-                className="w-full max-w-none"
-                showPositionMessage={mode === 'performance' && graphData.nodes.length > 0}
-                showOpeningGraphMessage={mode !== 'performance' && !!effectiveOpeningGraph}
-                performanceGraphMessage={allowEditing ? "Position not in study graph. You can add new moves in edit mode" : "Position not in study graph"}
-                showOpeningSelector={mode === 'performance'}
-                openingGraph={effectiveOpeningGraph}
-                graphNodes={graphData.nodes}
-                readOnly={readOnly}
-                moveTree={moveTree}
-                mode={mode}
-                nodeOpeningsMap={nodeOpeningsMap}
-                positionStatus={getPositionStatus(chessboardSync.currentMoves)}
-                startingFen={moveTree?.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'}
-              />
+              <div className="h-full w-full relative overflow-hidden">
+                <div className="h-full w-full">
+                  <InteractiveChessboard
+                    currentMoves={chessboardSync.currentMoves}
+                    onNewMove={handleChessboardMove}
+                    onMoveSelect={handleChessboardMoveSelect}
+                    isWhiteTree={selectedPlayer === 'white'}
+                    onFlip={handleUniversalFlip}
+                    hoveredMove={movesHoveredMove || hoveredMove}
+                    customArrows={customArrows}
+                    onArrowDraw={allowEditing ? onArrowDraw : null}
+                    drawingMode={allowEditing ? drawingMode : false}
+                    onDrawingModeChange={allowEditing ? onDrawingModeChange : null}
+                    className="w-full max-w-none"
+                    showPositionMessage={mode === 'performance' && graphData.nodes.length > 0}
+                    showOpeningGraphMessage={mode !== 'performance' && !!effectiveOpeningGraph}
+                    performanceGraphMessage={allowEditing ? "Position not in study graph. You can add new moves in edit mode" : "Position not in study graph"}
+                    showOpeningSelector={mode === 'performance'}
+                    openingGraph={effectiveOpeningGraph}
+                    graphNodes={graphData.nodes}
+                    readOnly={readOnly}
+                    moveTree={moveTree}
+                    mode={mode}
+                    nodeOpeningsMap={nodeOpeningsMap}
+                    positionStatus={getPositionStatus(chessboardSync.currentMoves)}
+                    startingFen={moveTree?.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'}
+                    containerClassName="w-full h-full"
+                    boardClassName="w-full h-full"
+                    hideInternalNavigation={true}
+                    onStockfishControlsRequest={setStockfishControls}
+                  />
                 </div>
               </div>
             </LayoutSection>
@@ -836,7 +857,7 @@ const ChessAnalysisView = ({
           graph: (
             <LayoutSection
               key="graph"
-              className={`bg-column-tertiary border-r-2 border-column-border ${(!hasDetailsSection || !showDetails) ? 'border-r-0' : ''}`}
+              className={`bg-background/90 dark:bg-zinc-900/60 ${(!hasDetailsSection || !showDetails) ? '' : 'border-r border-border/50 dark:border-zinc-700/50 shadow-sm'}`}
               noPadding={true}
             >
               <div className="h-full w-full">

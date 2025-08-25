@@ -21,17 +21,17 @@ if (typeof window !== 'undefined') {
 // Responsive tree layout - no fixed dimensions
 
 const getPerformanceColor = (winRate) => {
-  if (winRate >= 70) return "border-green-500/80 hover:bg-green-500/10";
-  if (winRate >= 60) return "border-blue-500/80 hover:bg-blue-500/10";
-  if (winRate >= 50) return "border-yellow-500/80 hover:bg-yellow-500/10";
-  return "border-red-500/80 hover:bg-red-500/10";
+  if (winRate >= 70) return "border-green-500/80 hover:bg-green-500/10 dark:hover:bg-green-500/20";
+  if (winRate >= 60) return "border-blue-500/80 hover:bg-blue-500/10 dark:hover:bg-blue-500/20";
+  if (winRate >= 50) return "border-yellow-500/80 hover:bg-yellow-500/10 dark:hover:bg-yellow-500/20";
+  return "border-red-500/80 hover:bg-red-500/10 dark:hover:bg-red-500/20";
 };
 
 const getSelectedColor = (winRate) => {
-  if (winRate >= 70) return "bg-green-500/20 border-green-400";
-  if (winRate >= 60) return "bg-blue-500/20 border-blue-400";
-  if (winRate >= 50) return "bg-yellow-500/20 border-yellow-400";
-  return "bg-red-500/20 border-red-400";
+  if (winRate >= 70) return "bg-green-500/20 dark:bg-green-500/30 border-green-400";
+  if (winRate >= 60) return "bg-blue-500/20 dark:bg-blue-500/30 border-blue-400";
+  if (winRate >= 50) return "bg-yellow-500/20 dark:bg-yellow-500/30 border-yellow-400";
+  return "bg-red-500/20 dark:bg-red-500/30 border-red-400";
 };
 
 const getArrowColor = (winRate) => {
@@ -96,8 +96,8 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
   
   // Study mode styling (pink theme)
   const studyModeStyle = displayMode === 'study' ? {
-    base: 'bg-secondary/30 border-pink-500/60 hover:bg-pink-500/10',
-    selected: 'bg-pink-500/20 border-pink-400'
+    base: 'bg-muted/50 dark:bg-zinc-700/40 border-pink-500/60 hover:bg-pink-500/10 dark:hover:bg-pink-500/20',
+    selected: 'bg-pink-500/20 dark:bg-pink-500/30 border-pink-400'
   } : null;
   
   return (
@@ -109,7 +109,7 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
       className={`w-full text-left p-3 border-2 relative ${
         isSelected 
           ? (studyModeStyle ? studyModeStyle.selected : getSelectedColor(winRate))
-          : (studyModeStyle ? studyModeStyle.base : `bg-secondary/30 ${getPerformanceColor(winRate)}`)
+          : (studyModeStyle ? studyModeStyle.base : `bg-muted/50 dark:bg-zinc-700/40 ${getPerformanceColor(winRate)}`)
       }`}
     >
       {/* Percentage badge in top-right corner - only show in performance mode */}
@@ -170,13 +170,13 @@ const GraphChunk = ({ title, moves, onMoveSelect, selectedMove, depth, onMoveHov
 
   return (
     <div 
-      className="w-full h-full bg-card border border-border/50 overflow-hidden flex flex-col"
+      className="w-full h-full overflow-hidden flex flex-col bg-transparent"
     >
       {/* Header - Fixed height */}
-      <div className="bg-appbar-accent border-b border-appbar-border p-4 pb-3 flex-shrink-0" style={{ minHeight: '80px', maxHeight: '80px' }}>
-        <div className="text-card-foreground text-base flex items-center justify-between font-semibold leading-none tracking-tight">
-          <span>{title}</span>
-          <Badge variant="outline" className="text-xs bg-background/50 border-border text-muted-foreground">
+      <div className="bg-card/30 dark:bg-zinc-800/40 backdrop-blur-sm border-b border-border/20 dark:border-zinc-700/30 px-4 py-3 flex-shrink-0">
+        <div className="text-foreground text-sm flex items-center justify-between font-medium">
+          <span className="text-foreground/90">{title}</span>
+          <Badge variant="secondary" className="text-xs bg-muted/50 border-border/30 text-muted-foreground font-normal">
             {sortedMoves.length} moves
           </Badge>
         </div>

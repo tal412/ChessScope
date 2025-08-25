@@ -3,7 +3,9 @@ import Chessground from 'react-chessground';
 import 'react-chessground/dist/styles/chessground.css';
 import { Button } from '@/components/ui/button';
 import { NavigationButtons, NavigationPresets } from '@/components/ui/navigation-buttons';
+import PanelHeaderWrapper from '@/components/ui/panel-header-wrapper';
 import { ChevronLeft, ChevronRight, RotateCcw, GripVertical, ArrowUpDown, Info, Fish, Loader2, AlertTriangle, BookOpen } from 'lucide-react';
+import StockfishControls from './StockfishControls';
 import { Chess } from 'chess.js';
 import PositionInfoDialog from './PositionInfoDialog';
 import StudySelector from '../studies/StudySelector';
@@ -61,7 +63,13 @@ export default function InteractiveChessboard({
   mode = 'performance', // 'performance' | 'opening-editor' | 'opening-viewer'
   positionStatus = 'normal', // 'normal' | 'extended_game' | 'not_in_repertoire'
   nodeOpeningsMap = new Map(), // Pre-loaded FEN to openings mapping
-  startingFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' // Starting position FEN
+  startingFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', // Starting position FEN
+  containerClassName = "", // Additional class for the container
+  boardClassName = "", // Additional class for the board wrapper
+  hideInternalNavigation = false, // Hide the internal navigation controls
+  hideMovesHistory = false, // Hide the moves history section (separate from navigation)
+  useStyledHeader = false, // Use the styled header matching moves panel
+  onStockfishControlsRequest = null // Callback to provide Stockfish controls to external components
 }) {
   const containerRef = useRef(null);
   const isInternalMoveRef = useRef(false); // Track if move change is internal
@@ -758,9 +766,9 @@ export default function InteractiveChessboard({
           const rect = boardContainer.getBoundingClientRect();
           // Only update if container has meaningful dimensions
           if (rect.width > 0 && rect.height > 0) {
-            // Use 85% of the smaller dimension for the board size
-            const size = Math.min(rect.width, rect.height) * 0.85;
-            const newSize = Math.max(280, Math.min(600, size));
+            // Use 95% of the smaller dimension for the board size to fill more space
+            const size = Math.min(rect.width, rect.height) * 0.95;
+            const newSize = Math.max(320, Math.min(800, size));
             
             // Only update if size changed significantly to prevent excessive re-renders
             if (Math.abs(newSize - boardSize) > 5) {
@@ -1305,84 +1313,102 @@ export default function InteractiveChessboard({
     return 'green';
   };
 
+  // Function to get Stockfish controls component for external headers
+  const getStockfishControls = () => {
+    return (
+      <StockfishControls
+        stockfishEnabled={stockfishEnabled}
+        isAnalyzing={isAnalyzing}
+        onToggle={toggleStockfishAnalysis}
+        topMoves={topMoves}
+      />
+    );
+  };
+
+  // Provide Stockfish controls to external components when requested
+  useEffect(() => {
+    if (onStockfishControlsRequest) {
+      onStockfishControlsRequest(getStockfishControls());
+    }
+  }, [stockfishEnabled, isAnalyzing, topMoves, onStockfishControlsRequest]);
+
   return (
-    <div ref={containerRef} className={`w-full h-full flex items-center justify-center ${className}`}>
+    <div ref={containerRef} className={`w-full h-full ${containerClassName} ${className}`}>
       <div 
-        className="bg-card border border-border/50 w-full h-full flex flex-col"
+        className={`w-full h-full flex flex-col ${boardClassName}`}
       >
-        <div className="bg-appbar-accent border-b border-appbar-border pb-2 px-3 pt-3 flex-shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex-1 min-w-0">
-              {/* Fixed height container for opening title - always reserves space for 2 lines */}
-              <div className="h-14 flex items-start">
-                <div className="text-card-foreground text-lg leading-tight line-clamp-2 font-semibold leading-none tracking-tight" title={getFormattedOpeningName()}>
-                  {getFormattedOpeningName()}
+        {!hideInternalNavigation && !useStyledHeader && (
+            <div className="bg-card/30 dark:bg-zinc-800/40 backdrop-blur-sm border-b border-border/20 dark:border-zinc-700/30 pb-2 px-4 pt-3 flex-shrink-0">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 min-w-0">
+                  {/* Fixed height container for opening title - always reserves space for 2 lines */}
+                  <div className="h-14 flex items-start">
+                    <div className="text-card-foreground text-lg leading-tight line-clamp-2 font-semibold leading-none tracking-tight" title={getFormattedOpeningName()}>
+                      {getFormattedOpeningName()}
+                    </div>
+                  </div>
+                  {/* Reserved space for Position Status Indicator - prevents layout shifts */}
+                  <div className="h-8 flex flex-col justify-start">
+                    {positionStatus !== 'normal' && currentMoves.length > 0 && showPositionMessage && (
+                      <div className="flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-amber-400" />
+                        <span className="text-xs text-amber-400">
+                          {positionStatus === 'extended_game' 
+                            ? 'Extended beyond performance graph'
+                            : 'Position not in performance graph'
+                          }
+                        </span>
+                      </div>
+                    )}
+                    {!positionExistsInOpeningGraph && game.fen() !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' && showOpeningGraphMessage && (
+                      <div className="flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3 text-orange-400" />
+                        <span className="text-xs text-orange-400">{performanceGraphMessage}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-              {/* Reserved space for Position Status Indicator - prevents layout shifts */}
-              <div className="h-8 flex flex-col justify-start">
-                {positionStatus !== 'normal' && currentMoves.length > 0 && showPositionMessage && (
-                  <div className="flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3 text-amber-400" />
-                    <span className="text-xs text-amber-400">
-                      {positionStatus === 'extended_game' 
-                        ? 'Extended beyond performance graph'
-                        : 'Position not in performance graph'
-                      }
-                    </span>
-                  </div>
-                )}
-                {!positionExistsInOpeningGraph && game.fen() !== 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1' && showOpeningGraphMessage && (
-                  <div className="flex items-center gap-1">
-                    <AlertTriangle className="w-3 h-3 text-orange-400" />
-                    <span className="text-xs text-orange-400">{performanceGraphMessage}</span>
-                  </div>
+                {/* Stockfish Analysis Toggle Button - Top Right (hidden when drawing) */}
+                {!drawingMode && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={(e) => {
+                      toggleStockfishAnalysis();
+                    }}
+                    disabled={isAnalyzing && !stockfishEnabled}
+                    className={`transition-all duration-200 flex-shrink-0 ${
+                      stockfishEnabled || isAnalyzing
+                        ? 'bg-primary border-primary text-primary-foreground hover:bg-primary/90 hover:border-primary/90' // Active when enabled
+                        : 'bg-secondary/50 border-border text-muted-foreground hover:bg-accent/60 hover:border-border hover:text-foreground' // Default inactive state
+                    }`}
+                    title={stockfishEnabled ? "Disable Stockfish analysis" : "Enable Stockfish analysis"}
+                  >
+                    {isAnalyzing ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Fish className="w-4 h-4" />
+                    )}
+                  </Button>
                 )}
               </div>
             </div>
-            {/* Stockfish Analysis Toggle Button - Top Right (hidden when drawing) */}
-            {!drawingMode && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={(e) => {
-                  toggleStockfishAnalysis();
-                }}
-                disabled={isAnalyzing && !stockfishEnabled}
-                className={`transition-all duration-200 flex-shrink-0 ${
-                  stockfishEnabled || isAnalyzing
-                    ? 'bg-primary border-primary text-primary-foreground hover:bg-primary/90 hover:border-primary/90' // Active when enabled
-                    : 'bg-secondary/50 border-border text-muted-foreground hover:bg-accent/60 hover:border-border hover:text-foreground' // Default inactive state
-                }`}
-                title={stockfishEnabled ? "Disable Stockfish analysis" : "Enable Stockfish analysis"}
-              >
-                {isAnalyzing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Fish className="w-4 h-4" />
-                )}
-              </Button>
-            )}
-          </div>
-        </div>
-        <div className="flex-1 flex flex-col gap-2 min-h-0 p-3">
+        )}
+        <div className={`flex-1 flex flex-col min-h-0 ${hideInternalNavigation ? '' : 'p-4'}`}>
           {/* Chessboard using react-chessground */}
           <div 
             data-board-container 
             className="flex-1 flex items-center justify-center min-h-0 w-full"
             style={{ 
-              minHeight: '300px',
-              maxHeight: 'calc(100% - 140px)'
+              minHeight: '300px'
             }}
           >
             <div 
               style={{ 
                 width: boardSize, 
                 height: boardSize, 
-                minWidth: '280px',
-                minHeight: '280px',
-                maxWidth: '600px',
-                maxHeight: '600px'
+                minWidth: '320px',
+                minHeight: '320px'
               }}
               className="relative"
             >
@@ -1481,14 +1507,16 @@ export default function InteractiveChessboard({
         </div>
 
         {/* Move Navigation */}
-        <div data-nav-section className="flex-shrink-0 flex items-center justify-between gap-2">
-          {/* Left spacer for balance */}
-          <div className="w-8"></div>
-          
-          {/* Centered Navigation */}
-          <div className="flex-1 flex justify-center">
-            <div className="w-full max-w-sm">
-              <NavigationButtons
+        {!hideInternalNavigation && (
+        <div data-nav-section className="flex-shrink-0 bg-card/20 dark:bg-zinc-800/30 backdrop-blur-sm border-t border-border/20 dark:border-zinc-700/30 px-4 py-3">
+          <div className="flex items-center justify-between gap-2">
+            {/* Left spacer for balance */}
+            <div className="w-8"></div>
+            
+            {/* Centered Navigation */}
+            <div className="flex-1 flex justify-center">
+              <div className="w-full max-w-sm">
+                <NavigationButtons
                 currentIndex={currentMoveIndex}
                 totalCount={currentMoves.length}
                 onPrevious={handlePrevMove}
@@ -1501,11 +1529,11 @@ export default function InteractiveChessboard({
                 styling={{
                   className: "max-w-full"
                 }}
-              />
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Right side - Position Info Button and Book Icon */}
+            {/* Right side - Position Info Button and Book Icon */}
           <div className="flex items-center gap-1">
             {showStudySelector && (
               <StudySelector fen={game.fen()} openings={positionInOpenings}>
@@ -1546,75 +1574,93 @@ export default function InteractiveChessboard({
                 </Button>
               </PositionInfoDialog>
             )}
+            </div>
           </div>
         </div>
+        )}
 
-        {/* Move List or Drawing Mode UI - Fixed height container */}
-        <div data-move-list className="flex-shrink-0 bg-appbar-accent border-t border-appbar-border p-3 h-[80px] overflow-y-auto">
+        {/* Move List or Drawing Mode UI - Minimalist design */}
+        {!hideMovesHistory && (
+        <div data-move-list className="flex-shrink-0 bg-background/80 dark:bg-zinc-900/60 backdrop-blur-sm border-t border-border/20 dark:border-zinc-700/20 px-4 py-3 min-h-[80px] max-h-[100px] overflow-hidden">
           {drawingMode ? (
             /* Drawing Mode UI */
             <div className="h-full flex flex-col justify-center">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-2 h-2 bg-green-500 animate-pulse"></div>
+                <div className="w-2 h-2 bg-green-500 animate-pulse rounded-full"></div>
                 <span className="text-xs font-medium text-foreground">Drawing Mode Active</span>
               </div>
               <div className="text-xs text-muted-foreground">
                 <div className="mb-1">Right-click drag for arrows:</div>
                 <div className="flex items-center justify-between">
-                  <div className={`flex items-center gap-1 px-1 py-0.5 transition-colors ${getCurrentArrowColor() === 'green' ? 'bg-green-500/20' : ''}`}>
-                    <div className="w-2 h-0.5 bg-green-500"></div>
+                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'green' ? 'bg-green-500/10' : ''}`}>
+                    <div className="w-2 h-0.5 bg-green-500 rounded-full"></div>
                     <span className="text-xs">None</span>
                   </div>
-                  <div className={`flex items-center gap-1 px-1 py-0.5 transition-colors ${getCurrentArrowColor() === 'red' ? 'bg-red-500/20' : ''}`}>
-                    <div className="w-2 h-0.5 bg-red-500"></div>
+                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'red' ? 'bg-red-500/10' : ''}`}>
+                    <div className="w-2 h-0.5 bg-red-500 rounded-full"></div>
                     <span className="text-xs">SHIFT</span>
                   </div>
-                  <div className={`flex items-center gap-1 px-1 py-0.5 transition-colors ${getCurrentArrowColor() === 'blue' ? 'bg-blue-500/20' : ''}`}>
-                    <div className="w-2 h-0.5 bg-blue-500"></div>
+                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'blue' ? 'bg-blue-500/10' : ''}`}>
+                    <div className="w-2 h-0.5 bg-blue-500 rounded-full"></div>
                     <span className="text-xs">ALT/CMD</span>
                   </div>
-                  <div className={`flex items-center gap-1 px-1 py-0.5 transition-colors ${getCurrentArrowColor() === 'yellow' ? 'bg-yellow-500/20' : ''}`}>
-                    <div className="w-2 h-0.5 bg-yellow-500"></div>
+                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'yellow' ? 'bg-yellow-500/10' : ''}`}>
+                    <div className="w-2 h-0.5 bg-yellow-500 rounded-full"></div>
                     <span className="text-xs">SHIFT+ALT/CMD</span>
                   </div>
                 </div>
               </div>
             </div>
           ) : (
-            /* Normal Move History */
-            <>
-              <div className="text-xs text-muted-foreground mb-1">Move History</div>
+            /* Minimalist Move History */
+            <div className="h-full flex flex-col">
               {currentMoves.length > 0 ? (
-                <div className="grid grid-cols-3 gap-x-2 gap-y-1 text-xs">
-                  {currentMoves.map((move, index) => {
-                    const moveNumber = Math.floor(index / 2) + 1;
-                    const isWhiteMove = index % 2 === 0;
-                    const isCurrentMove = index === currentMoveIndex - 1;
-                    
-                    return (
-                      <div
-                        key={index}
-                        className={`cursor-pointer hover:bg-primary/10 px-2 py-1 text-center border border-transparent ${
-                          isCurrentMove ? 'bg-primary/20 text-foreground border-primary/30' : 'text-foreground hover:border-border'
-                        }`}
-                        onClick={() => navigateToMove(index + 1)}
-                      >
-                        {isWhiteMove && (
-                          <span className="text-muted-foreground mr-1">{moveNumber}.</span>
-                        )}
-                        {move}
-                      </div>
-                    );
-                  })}
+                <div className="flex-1 overflow-y-auto">
+                  <div className="flex flex-wrap items-center gap-x-1 gap-y-1 leading-relaxed">
+                    {currentMoves.map((move, index) => {
+                      const moveNumber = Math.floor(index / 2) + 1;
+                      const isWhiteMove = index % 2 === 0;
+                      const isCurrentMove = index === currentMoveIndex - 1;
+                      
+                      return (
+                        <React.Fragment key={index}>
+                          {isWhiteMove && (
+                            <span className="text-xs text-muted-foreground/70 font-mono select-none">
+                              {moveNumber}.
+                            </span>
+                          )}
+                          <button
+                            onClick={() => navigateToMove(index + 1)}
+                            className={`inline-flex items-center px-1.5 py-0.5 text-sm font-mono transition-all duration-200 hover:scale-105 ${
+                              isCurrentMove 
+                                ? 'text-primary font-semibold bg-primary/10 rounded-sm' 
+                                : 'text-foreground/80 hover:text-foreground hover:bg-muted/50 rounded-sm'
+                            }`}
+                          >
+                            {move}
+                          </button>
+                          {!isWhiteMove && index < currentMoves.length - 1 && (
+                            <span className="text-muted-foreground/40 select-none mx-0.5">•</span>
+                          )}
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
-                <div className="text-xs text-muted-foreground italic text-center py-2">
-                  No moves played yet
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="flex flex-col items-center gap-1 text-center">
+                    <div className="w-6 h-6 rounded-full bg-muted/30 flex items-center justify-center">
+                      <div className="w-2 h-2 rounded-full bg-muted-foreground/40"></div>
+                    </div>
+                    <span className="text-xs text-muted-foreground/60">No moves yet</span>
+                  </div>
                 </div>
               )}
-            </>
+            </div>
           )}
         </div>
+        )}
       </div>
     </div>
     </div>
