@@ -1421,7 +1421,7 @@ export default function OpeningEditor() {
   }
 
   return (
-    <div className="h-full w-full">
+    <div className="h-full w-full bg-background dark:bg-slate-900">
       {/* Error Alert */}
       {(error || conflictError) && (
         <div className="absolute top-0 left-0 right-0 z-50 p-4 bg-card border-b border-border">

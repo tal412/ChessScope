@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { CANVAS_CONFIG, RENDER_CONFIG, CLUSTER_CONFIG, SHADOW_CONFIG } from '../constants.js';
 import { getPerformanceColors, getStudyNodeColors, hexToRgba } from '../utils/colors.js';
 import { drawIcon, drawChainLinkIcon, createConvexHull } from '../utils/geometry.js';
@@ -208,6 +208,26 @@ export function Canvas({
 }) {
   const canvasRef = useRef(null);
   const contextRef = useRef(null);
+  const [isDarkTheme, setIsDarkTheme] = useState(false);
+  
+  // Track theme changes
+  useEffect(() => {
+    const checkTheme = () => {
+      setIsDarkTheme(document.documentElement.classList.contains('dark'));
+    };
+    
+    // Check initial theme
+    checkTheme();
+    
+    // Create observer for theme changes
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    
+    return () => observer.disconnect();
+  }, []);
   
   // Initialize canvas context
   useEffect(() => {
@@ -256,9 +276,13 @@ export function Canvas({
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
     
-    // Add white background in light mode for better clarity
-    const isDarkTheme = document.documentElement.classList.contains('dark');
-    if (!isDarkTheme) {
+    // Add appropriate background based on theme
+    if (isDarkTheme) {
+      // Dark mode background - matching slate-900 from performance graph
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, width, height);
+    } else {
+      // Light mode background
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, width, height);
     }
@@ -279,7 +303,7 @@ export function Canvas({
     
     // Restore context
     ctx.restore();
-  }, [transform, graphData.nodes, graphData.edges, currentNodeId, hoveredNodeId, hoveredNextMoveNodeId, selectedNodeId, mode, width, height, showOpeningClusters, showPositionClusters, openingClusters, positionClusters]);
+  }, [transform, graphData.nodes, graphData.edges, currentNodeId, hoveredNodeId, hoveredNextMoveNodeId, selectedNodeId, mode, width, height, showOpeningClusters, showPositionClusters, openingClusters, positionClusters, isDarkTheme]);
   
   // Render clusters
   const renderClusters = useCallback((ctx) => {
@@ -454,8 +478,7 @@ export function Canvas({
   
   // Render edges
   const renderEdges = useCallback((ctx) => {
-    // Detect current theme by checking computed style of document root
-    const isDarkTheme = document.documentElement.classList.contains('dark');
+    // Use theme state variable instead of checking DOM directly
     
     graphData.edges.forEach(edge => {
       const sourceNode = graphData.nodes.find(n => n.id === edge.source);
@@ -508,7 +531,7 @@ export function Canvas({
         ctx.globalAlpha = 1;
       }
     });
-  }, [graphData.nodes, graphData.edges, mode]);
+  }, [graphData.nodes, graphData.edges, mode, isDarkTheme]);
   
   // Render nodes
   const renderNodes = useCallback((ctx) => {
