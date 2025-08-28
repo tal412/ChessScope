@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Detection Test</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .info {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 10px 0;
+        }
+        .mobile { background: #ffe0e0; }
+        .desktop { background: #e0ffe0; }
+        button {
+            padding: 10px 20px;
+            margin: 10px 0;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        iframe {
+            width: 100%;
+            max-width: 400px;
+            height: 800px;
+            border: 2px solid #333;
+            border-radius: 20px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>ChessScope Mobile Detection Test</h1>
+    
+    <div class="info" id="detection-info">
+        <h3>Your Device Info:</h3>
+        <p>User Agent: <span id="user-agent"></span></p>
+        <p>Screen Width: <span id="screen-width"></span></p>
+        <p>Touch Support: <span id="touch-support"></span></p>
+        <p>Detection Result: <span id="detection-result"></span></p>
+    </div>
+
+    <div class="info">
+        <h3>Test Mobile View:</h3>
+        <p>The iframe below simulates a mobile viewport (400px width):</p>
+        <iframe src="http://localhost:5174/" title="Mobile Preview"></iframe>
+    </div>
+
+    <button onclick="testMobileUA()">Simulate Mobile User Agent</button>
+    <button onclick="testDesktopUA()">Simulate Desktop User Agent</button>
+
+    <script>
+        // Display current device info
+        document.getElementById('user-agent').textContent = navigator.userAgent;
+        document.getElementById('screen-width').textContent = window.innerWidth + 'px';
+        document.getElementById('touch-support').textContent = 'ontouchstart' in window || navigator.maxTouchPoints > 0 ? 'Yes' : 'No';
+
+        // Detection logic (same as in the React component)
+        function detectMobile() {
+            const userAgent = navigator.userAgent || navigator.vendor || window.opera;
+            const isMobileDevice = /android|webOS|iPhone|iPad|iPod|blackberry|iemobile|opera mini/i.test(userAgent.toLowerCase());
+            const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+            const isSmallScreen = window.innerWidth <= 768;
+            
+            const isMobile = isMobileDevice || (isTouchDevice && isSmallScreen);
+            
+            document.getElementById('detection-result').textContent = isMobile ? 'MOBILE' : 'DESKTOP';
+            document.getElementById('detection-info').className = 'info ' + (isMobile ? 'mobile' : 'desktop');
+            
+            return isMobile;
+        }
+
+        detectMobile();
+        window.addEventListener('resize', detectMobile);
+
+        // Test functions
+        function testMobileUA() {
+            alert('To test mobile user agent, use browser DevTools:\n\n' +
+                  '1. Open DevTools (F12)\n' +
+                  '2. Click Toggle Device Toolbar (Ctrl+Shift+M)\n' +
+                  '3. Select a mobile device\n' +
+                  '4. Refresh the page');
+        }
+
+        function testDesktopUA() {
+            alert('Currently showing desktop view. Close DevTools device mode if enabled.');
+        }
+    </script>
+</body>
+</html>

@@ -53,7 +53,7 @@ const MoveActionButton = ({
       </Button>
       
       {/* Enhanced tooltip with better positioning and styling - positioned below button */}
-      <div className="absolute right-0 top-full mt-3 px-3 py-2 bg-popover/95 backdrop-blur-sm border border-border/50 rounded-md text-xs text-popover-foreground whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 shadow-xl">
+      <div className="absolute right-0 top-full mt-3 px-3 py-2 bg-popover/95 backdrop-blur-sm border border-border/50 rounded-md text-xs text-popover-foreground whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-[100] shadow-xl">
         {readOnly ? (
           // View mode - just show the label
           isActive ? `✓ ${label.charAt(0).toUpperCase() + label.slice(1)}` : `Not ${label}`
@@ -222,47 +222,39 @@ export default function MoveDetailsPanel({
 
   return (
     <div className={cn("h-full flex flex-col", className)}>
-      {/* Move Header */}
-      <div className="bg-card border border-border flex-shrink-0 mb-4">
-        <div className="p-6 pb-3">
-          <div className="text-card-foreground text-lg flex items-center justify-between font-semibold leading-none tracking-tight">
-            <span>Move: {selectedNode.san}</span>
-            <div className="flex items-center gap-2">
-              {/* Main Line Button */}
-              <MoveActionButton
-                key={`main-line-${selectedNode.id}-${selectedNode.isMainLine}`}
-                icon={Star}
-                label="main line"
-                isActive={selectedNode.isMainLine}
-                onClick={handleSetAsMainLine}
-                disabled={false}  // Always allow clicking in edit mode to change main line
-                readOnly={readOnly}
-              />
+      {/* Move Header - matching ChunkVisualization style */}
+      <div className="bg-card/30 dark:bg-zinc-800/40 backdrop-blur-sm border-b border-border/20 dark:border-zinc-700/30 px-4 py-3 flex-shrink-0">
+        <div className="text-foreground text-sm flex items-center justify-between font-medium">
+          <span className="text-foreground/90">Move: {selectedNode.san}</span>
+          <div className="flex items-center gap-2">
+            {/* Main Line Button */}
+            <MoveActionButton
+              key={`main-line-${selectedNode.id}-${selectedNode.isMainLine}`}
+              icon={Star}
+              label="main line"
+              isActive={selectedNode.isMainLine}
+              onClick={handleSetAsMainLine}
+              disabled={false}  // Always allow clicking in edit mode to change main line
+              readOnly={readOnly}
+            />
 
-              {/* Initial Position Button */}
-              <MoveActionButton
-                key={`initial-move-${selectedNode.id}-${selectedNode.isInitialMove}`}
-                icon={Play}
-                label="initial position"
-                isActive={selectedNode.isInitialMove}
-                onClick={handleSetAsInitialPosition}
-                disabled={false}  // Always allow clicking in edit mode to change initial position
-                readOnly={readOnly}
-              />
-            </div>
+            {/* Initial Position Button */}
+            <MoveActionButton
+              key={`initial-move-${selectedNode.id}-${selectedNode.isInitialMove}`}
+              icon={Play}
+              label="initial position"
+              isActive={selectedNode.isInitialMove}
+              onClick={handleSetAsInitialPosition}
+              disabled={false}  // Always allow clicking in edit mode to change initial position
+              readOnly={readOnly}
+            />
           </div>
         </div>
       </div>
 
-      {/* Move Details */}
-      <div className="bg-card border border-border flex-1 flex flex-col min-h-0">
-        <div className="flex-shrink-0 pb-3 p-6">
-          <div className="text-card-foreground text-base flex items-center font-semibold leading-none tracking-tight">
-            <Info className="w-4 h-4 mr-2 text-amber-500" />
-            Move Details
-          </div>
-        </div>
-        <div className="flex-1 overflow-hidden flex flex-col space-y-4 p-6 pt-0">
+      {/* Move Details Content */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {/* Comment Section */}
           <div className="flex-1 flex flex-col min-h-0">
             <Label className="text-foreground flex-shrink-0 mb-2">
@@ -294,8 +286,8 @@ export default function MoveDetailsPanel({
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 {readOnly && (
-                  <Label className="text-slate-300 flex items-center">
-                    <Target className="w-4 h-4 mr-2" />
+                  <Label className="text-sm font-medium text-muted-foreground flex items-center">
+                    <Target className="w-3.5 h-3.5 mr-1.5" />
                     Arrows
                   </Label>
                 )}
@@ -306,12 +298,12 @@ export default function MoveDetailsPanel({
                     onClick={handleDrawingModeToggle}
                     disabled={selectedNode && selectedNode.san === 'Start'}
                     className={cn(
-                      "w-full transition-all duration-200 border hover:scale-[1.02] active:scale-[0.98]",
+                      "w-full transition-all duration-200",
                       selectedNode && selectedNode.san === 'Start'
-                        ? "opacity-50 cursor-not-allowed border-border text-muted-foreground bg-card/50"
+                        ? "opacity-50 cursor-not-allowed text-muted-foreground"
                         : drawingMode 
-                          ? "bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white border-emerald-500/50 shadow-lg shadow-emerald-500/25" 
-                          : "bg-secondary/50 border-border text-muted-foreground hover:bg-accent/70 hover:border-border hover:text-foreground"
+                          ? "bg-green-500/20 text-green-600 hover:bg-green-500/30 border border-green-500/50" 
+                          : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground"
                     )}
                     title={selectedNode && selectedNode.san === 'Start' ? "Cannot draw arrows on starting position" : undefined}
                   >
@@ -385,13 +377,13 @@ export default function MoveDetailsPanel({
                 <>
                   {linksValue && linksValue.length > 0 ? (
                     linksValue.map((link, index) => (
-                      <div key={index} className="bg-muted border border-border p-3">
+                      <div key={index} className="bg-muted/50 rounded-md p-2.5">
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
-                            <div className="text-foreground font-medium truncate">
+                            <div className="text-sm font-medium text-foreground truncate">
                               {link.title || 'Untitled Link'}
                             </div>
-                            <div className="text-muted-foreground text-sm truncate">
+                            <div className="text-xs text-muted-foreground truncate">
                               {link.url || 'No URL'}
                             </div>
                           </div>
@@ -400,9 +392,9 @@ export default function MoveDetailsPanel({
                               size="sm"
                               variant="ghost"
                               onClick={() => window.open(link.url, '_blank')}
-                              className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/20 flex-shrink-0 ml-2 rounded-md transition-all duration-200 hover:scale-110 active:scale-95"
+                              className="text-blue-500 hover:text-blue-400 hover:bg-blue-500/10 flex-shrink-0 ml-2 p-1 h-auto"
                             >
-                              <ExternalLink className="w-4 h-4" />
+                              <ExternalLink className="w-3.5 h-3.5" />
                             </Button>
                           )}
                         </div>
@@ -420,21 +412,21 @@ export default function MoveDetailsPanel({
                         value={link.title}
                         onChange={(e) => handleLinkChange(index, 'title', e.target.value)}
                         placeholder="Link title"
-                        className="bg-input border-border text-foreground flex-1"
+                        className="bg-background/50 border-input text-foreground text-sm flex-1 h-8"
                       />
                       <Input
                         value={link.url}
                         onChange={(e) => handleLinkChange(index, 'url', e.target.value)}
                         placeholder="URL"
-                        className="bg-input border-border text-foreground flex-1"
+                        className="bg-background/50 border-input text-foreground text-sm flex-1 h-8"
                       />
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => handleRemoveLink(index)}
-                        className="text-red-400 hover:text-red-200 hover:bg-red-500/20 flex-shrink-0 rounded-md transition-all duration-200 hover:scale-110 active:scale-95"
+                        className="text-red-500 hover:text-red-400 hover:bg-red-500/10 flex-shrink-0 h-8 w-8 p-0"
                       >
-                        <X className="w-4 h-4" />
+                        <X className="w-3.5 h-3.5" />
                       </Button>
                     </div>
                   ))}
@@ -442,9 +434,9 @@ export default function MoveDetailsPanel({
                     size="sm"
                     variant="ghost"
                     onClick={handleAddLink}
-                    className="w-full bg-secondary/50 border border-border text-muted-foreground hover:bg-accent/70 hover:border-border hover:text-foreground transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                    className="w-full bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground h-8"
                   >
-                    <Plus className="w-4 h-4 mr-2" />
+                    <Plus className="w-3.5 h-3.5 mr-1.5" />
                     Add Link
                   </Button>
                 </>
