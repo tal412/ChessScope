@@ -181,7 +181,7 @@ const ChessAnalysisView = ({
     // Reset to root position
     const rootNode = graphDataNodesRef.current.find(node => node.data.isRoot);
     if (rootNode && canvasRef.current) {
-      canvasRef.current.setCurrentNode(rootNode.id, rootNode.data.fen, 'color-change');
+      canvasRef.current.setCurrentNode(rootNode.id, rootNode.data.fen, 'color-change', { isRoot: true });
     }
     
     // Reset chessboard to starting position
@@ -372,7 +372,7 @@ const ChessAnalysisView = ({
     // Reset to root position and graph view (works in all modes)
     const rootNode = graphData.nodes.find(node => node.data.isRoot);
     if (rootNode && canvasRef.current) {
-      canvasRef.current.setCurrentNode(rootNode.id, rootNode.data.fen, 'reset');
+      canvasRef.current.setCurrentNode(rootNode.id, rootNode.data.fen, 'reset', { isRoot: true });
     }
   }, [chessboardSync, movesDirectScrollFn, onCurrentMovesChange, graphData.nodes, mode]);
   

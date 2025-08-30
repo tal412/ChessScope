@@ -369,7 +369,11 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
                         }`}
                         onClick={() => !isImporting && handleTimeControlClick(timeControl.id)}
                       >
-                        <div className="w-4 h-4 rounded border border-border bg-muted flex items-center justify-center pointer-events-none">
+                        <div className={`w-4 h-4 rounded border flex items-center justify-center pointer-events-none transition-all ${
+                          selectedTimeControls.includes(timeControl.id)
+                            ? 'bg-primary border-primary'
+                            : 'bg-background border-border'
+                        }`}>
                           {selectedTimeControls.includes(timeControl.id) && (
                             <svg className="w-3 h-3 text-primary-foreground" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />

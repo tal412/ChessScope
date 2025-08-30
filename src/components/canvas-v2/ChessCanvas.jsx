@@ -412,11 +412,16 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
     // Generate position clusters if we have a FEN
     
     // Generate position clusters and use them for auto-zoom
+    // Skip cluster creation for root nodes since they don't represent actual positions
     let newPositionClusters = [];
-    if (fen && enablePositionClusters && graphData.nodes.length > 0) {
+    if (fen && enablePositionClusters && graphData.nodes.length > 0 && !options.isRoot) {
       newPositionClusters = createPositionClusters(graphData.nodes, fen);
       setInternalPositionClusters(newPositionClusters);
       clusters.updatePositionClusters(newPositionClusters);
+    } else if (options.isRoot) {
+      // Clear position clusters when root node is selected
+      setInternalPositionClusters([]);
+      clusters.updatePositionClusters([]);
     }
     
     // Handle auto-zoom
@@ -513,7 +518,7 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
   // Canvas event handlers
   const handleNodeClick = useCallback((e, node) => {
     if (node) {
-      updateCurrentPosition(node.id, node.data.fen, 'click');
+      updateCurrentPosition(node.id, node.data.fen, 'click', { isRoot: node.data.isRoot });
     }
     
     if (onNodeClick) {
