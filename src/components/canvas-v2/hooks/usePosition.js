@@ -18,6 +18,7 @@ export function usePosition() {
    * @param {Object} options - Additional options
    */
   const updateCurrentPosition = useCallback((nodeId, fen, options = {}) => {
+    console.log('🔄 usePosition.updateCurrentPosition called with nodeId:', nodeId, 'fen:', fen?.substring(0, 20) + '...');
     setCurrentNodeId(nodeId);
     setCurrentFen(fen);
     
@@ -55,6 +56,7 @@ export function usePosition() {
    * @param {string} nodeId - Node ID to hover as next move
    */
   const setHoveredNextMoveNode = useCallback((nodeId) => {
+    console.log('🖱️  usePosition.setHoveredNextMoveNode called with nodeId:', nodeId);
     setHoveredNextMoveNodeId(nodeId);
   }, []);
   
@@ -62,6 +64,7 @@ export function usePosition() {
    * Clear hovered next move node
    */
   const clearHoveredNextMoveNode = useCallback(() => {
+    console.log('🖱️  usePosition.clearHoveredNextMoveNode called');
     setHoveredNextMoveNodeId(null);
   }, []);
   

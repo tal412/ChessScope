@@ -104,6 +104,9 @@ const ChessAnalysisView = ({
   className = "",
   ...additionalProps
 }) => {
+  // Debug: Log when graphData changes
+  console.log('📊 ChessAnalysisView received graphData with', graphData?.nodes?.length || 0, 'nodes');
+  
   // Initialize shared state
   const [layoutInfo, setLayoutInfo] = useState({});
   const [movesStats, setMovesStats] = useState(null);
@@ -386,15 +389,11 @@ const ChessAnalysisView = ({
   
   // Moves integration handlers
   const handleMovesCurrentMovesChange = useCallback((moves) => {
-    // Use setter function to access current state and prevent dependencies
-    setMovesCurrentPath(currentPath => {
-      // Only update if moves are actually different to prevent infinite loops
-      if (moves.length !== currentPath.length || 
-          moves.some((move, index) => move !== currentPath[index])) {
-        return [...moves];
-      }
-      return currentPath; // Return current state to prevent unnecessary re-renders
-    });
+    console.log('📝 handleMovesCurrentMovesChange called with moves:', moves);
+    
+    // IMMEDIATE UPDATE: Update movesCurrentPath synchronously first
+    setMovesCurrentPath([...moves]);
+    console.log('📝 Immediately updated movesCurrentPath to:', moves);
     
     // Check if moves are different from current chessboard state
     const currentMoves = chessboardSync.currentMoves || [];
@@ -414,9 +413,24 @@ const ChessAnalysisView = ({
         });
         
         if (targetNode && targetNode.data.fen && canvasRef.current) {
-          console.log('🎯 Found exact graph node for sequence:', targetNode.data.san);
+          console.log('🎯 Found exact graph node for sequence:', targetNode.data.san, 'nodeId:', targetNode.id);
           canvasRef.current.setCurrentNode(targetNode.id, targetNode.data.fen, 'click');
+          console.log('🎯 setCurrentNode called successfully');
         } else {
+          console.log('❌ No target node found for moves:', moves);
+          
+          // Debug: Show first few nodes to understand the structure
+          console.log('🔍 Total graph nodes count:', graphData.nodes.length);
+          console.log('🔍 Available graph nodes (first 5):');
+          graphData.nodes.slice(0, 5).forEach(node => {
+            console.log('  Node:', node.id, 'moveSequence:', node.data.moveSequence, 'san:', node.data.san);
+          });
+          console.log('🔍 Graph data structure:', {
+            nodesCount: graphData.nodes.length,
+            edgesCount: graphData.edges?.length || 0,
+            maxGameCount: graphData.maxGameCount
+          });
+          
           // Try to find the longest matching prefix in the graph
           let bestMatch = null;
           let bestMatchLength = 0;
@@ -478,38 +492,99 @@ const ChessAnalysisView = ({
         onCurrentNodeChange(moveTree);
       }
     }
-  }, [mode]); // Minimize dependencies to prevent infinite loops - use refs for stable access
+  }, [mode, graphData.nodes]); // Include graphData.nodes to ensure fresh reference
   
   const handleMovesDirectScroll = useCallback((scrollFn) => {
     setMovesDirectScrollFn(() => scrollFn);
   }, []);
   
-  const handleMovesMoveHover = useCallback((moveData) => {
-    setMovesHoveredMove(moveData);
+  // Store the current hovered move to re-process when state updates
+  const [currentHoveredMoveData, setCurrentHoveredMoveData] = useState(null);
+  
+  // Function to process hover highlighting
+  const processHoverHighlighting = useCallback((moveData) => {
+    if (!moveData || !moveData.san) return;
     
-    // Find corresponding node in graph for highlighting
-    if (moveData && moveData.san) {
-      const currentPath = chessboardSync.currentMoves || [];
-      const nextMovePath = [...currentPath, moveData.san];
-      
-      const hoveredNode = graphData.nodes.find(node => {
-        const nodeMoves = node.data.moveSequence || [];
-        return nodeMoves.length === nextMovePath.length && 
-               nodeMoves.every((move, index) => move === nextMovePath[index]);
-      });
-      
-      if (hoveredNode && canvasRef.current) {
-        canvasRef.current.setHoveredNextMoveNode(hoveredNode.id);
+    // PROPER APPROACH: Get current position from the most reliable source
+    let currentPath = [];
+    
+    // Strategy 1: Use canvas current node (most authoritative source)
+    if (canvasRef.current) {
+      const currentCanvasNodeId = canvasRef.current.getCurrentNode();
+      if (currentCanvasNodeId) {
+        const currentNode = graphData.nodes.find(node => node.id === currentCanvasNodeId);
+        if (currentNode && currentNode.data.moveSequence) {
+          currentPath = currentNode.data.moveSequence;
+          console.log('🎯 Using canvas-derived path:', currentPath);
+        }
       }
     }
+    
+    // Strategy 2: Use the most up-to-date state sources as fallback
+    if (currentPath.length === 0) {
+      currentPath = movesCurrentPath || chessboardSync.currentMoves || [];
+      console.log('🎯 Using state-derived path:', currentPath);
+    }
+    
+    const nextMovePath = [...currentPath, moveData.san];
+    console.log('🖱️  Current path:', currentPath, 'Next path:', nextMovePath);
+    
+    const hoveredNode = graphData.nodes.find(node => {
+      const nodeMoves = node.data.moveSequence || [];
+      return nodeMoves.length === nextMovePath.length && 
+             nodeMoves.every((move, index) => move === nextMovePath[index]);
+    });
+    
+    if (hoveredNode && canvasRef.current) {
+      console.log('🖱️  Found hovered node:', hoveredNode.id);
+      canvasRef.current.setHoveredNextMoveNode(hoveredNode.id);
+    } else {
+      console.log('🖱️  No hovered node found, clearing. Searched for path:', nextMovePath);
+      
+      // Debug: Show what nodes we have that might be close
+      if (nextMovePath.length > 0) {
+        const possibleNodes = graphData.nodes.filter(node => {
+          const nodeMoves = node.data.moveSequence || [];
+          return nodeMoves.length > 0 && nodeMoves[0] === nextMovePath[0]; // Same first move
+        }).slice(0, 3);
+        console.log('🔍 Similar nodes (same first move):', possibleNodes.map(n => ({
+          id: n.id, 
+          moveSequence: n.data.moveSequence, 
+          san: n.data.san
+        })));
+      }
+      
+      // Clear any existing hovered next move if no matching node is found
+      if (canvasRef.current) {
+        canvasRef.current.clearHoveredNextMoveNode();
+      }
+    }
+  }, [movesCurrentPath, chessboardSync, graphData.nodes, graphData]);
+  
+  // Re-process highlighting when movesCurrentPath changes (after move clicks)
+  useEffect(() => {
+    if (currentHoveredMoveData) {
+      console.log('🔄 Re-processing hover after state update for:', currentHoveredMoveData.san);
+      processHoverHighlighting(currentHoveredMoveData);
+    }
+  }, [movesCurrentPath, processHoverHighlighting]);
+  
+  const handleMovesMoveHover = useCallback((moveData) => {
+    console.log('🖱️  handleMovesMoveHover called with:', moveData?.san);
+    setMovesHoveredMove(moveData);
+    setCurrentHoveredMoveData(moveData);
+    
+    // Process highlighting immediately
+    processHoverHighlighting(moveData);
     
     if (onHoveredMoveChange) {
       onHoveredMoveChange(moveData);
     }
-  }, [chessboardSync, graphData.nodes, onHoveredMoveChange]);
+  }, [processHoverHighlighting, onHoveredMoveChange]);
   
   const handleMovesMoveHoverEnd = useCallback(() => {
     setMovesHoveredMove(null);
+    setCurrentHoveredMoveData(null); // Clear stored hover data
     
     if (canvasRef.current) {
       canvasRef.current.clearHoveredNextMoveNode();
@@ -535,7 +610,7 @@ const ChessAnalysisView = ({
     if ((mode === 'opening-editor' || mode === 'opening-viewer') && onNodeSelect) {
       onNodeSelect(node);
     }
-  }, [onNodeClick, chessboardSync, mode, onNodeSelect]);
+  }, [onNodeClick, chessboardSync, mode, onNodeSelect, graphData]);
   
   const handleCanvasNodeHover = useCallback((e, node) => {
     if (onNodeHover) {
@@ -571,11 +646,13 @@ const ChessAnalysisView = ({
       });
       
       if (targetNode && targetNode.data.fen && canvasRef.current) {
+        console.log('🎯 Setting current node in chessboard handler:', targetNode.id, 'for moves:', moves);
         canvasRef.current.setCurrentNode(targetNode.id, targetNode.data.fen, 'click');
       } else {
+        console.log('❌ No target node in chessboard handler for moves:', moves);
       }
     }
-  }, [chessboardSync, onCurrentMovesChange, graphData.nodes, mode]);
+  }, [chessboardSync, onCurrentMovesChange, graphData.nodes, mode, graphData]);
 
   const handleChessboardMove = useCallback((moves) => {
     console.log('🏁 handleChessboardMove called with moves:', moves, 'mode:', mode);
@@ -597,7 +674,7 @@ const ChessAnalysisView = ({
       // If no onNewMove handler, treat this as a move selection
       handleChessboardMoveSelect(moves);
     }
-  }, [onNewMove, handleChessboardMoveSelect, onCurrentMovesChange, mode]);
+  }, [onNewMove, handleChessboardMoveSelect, onCurrentMovesChange, mode, graphData]);
   
   // Sync moves with chessboard
   const prevChessboardMovesRef = useRef([]);
@@ -846,7 +923,6 @@ const ChessAnalysisView = ({
                     startingFen={moveTree?.fen || 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'}
                     containerClassName="w-full h-full"
                     boardClassName="w-full h-full"
-                    hideInternalNavigation={true}
                     onStockfishControlsRequest={setStockfishControls}
                   />
                 </div>

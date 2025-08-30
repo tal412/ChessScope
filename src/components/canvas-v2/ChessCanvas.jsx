@@ -405,6 +405,7 @@ export const ChessCanvas = forwardRef(function ChessCanvas({
 
   // Internal position update handler
   const updateCurrentPosition = useCallback((nodeId, fen, source = 'unknown', options = {}) => {
+    console.log('🎯 ChessCanvas.updateCurrentPosition called - nodeId:', nodeId, 'source:', source);
     setInternalCurrentNodeId(nodeId);
     setInternalCurrentPositionFen(fen);
     position.updateCurrentPosition(nodeId, fen);

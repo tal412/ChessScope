@@ -86,7 +86,10 @@ export const createPerformanceGraphConfig = ({
   icon: Target,
   
   // Data
-  graphData,
+  graphData: (() => {
+    console.log('📊 Config: graphData nodes count:', graphData?.nodes?.length || 0);
+    return graphData;
+  })(),
   openingGraph,
   nodeOpeningsMap,
   

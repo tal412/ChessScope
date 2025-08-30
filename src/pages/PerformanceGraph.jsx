@@ -145,6 +145,7 @@ function PerformanceGraphContent() {
   // Async graph generation
   useEffect(() => {
     const generateGraph = async () => {
+      console.log('📊 generateGraph called - loading:', loading, 'openingGraph exists:', !!openingGraph);
       if (loading || !openingGraph) {
         if (!openingGraph && !loading) {
           // Show default node for no data
@@ -175,8 +176,10 @@ function PerformanceGraphContent() {
         
       // Get root moves
         const rootMoves = openingGraph.getRootMoves(selectedPlayer === 'white');
+        console.log('📊 Performance graph generation - selectedPlayer:', selectedPlayer, 'rootMoves count:', rootMoves?.length || 0);
       
       if (!rootMoves || rootMoves.length === 0) {
+        console.log('❌ No root moves found, creating default node');
         const rootFen = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
         const defaultRootNode = {
           id: rootFen,
@@ -385,6 +388,14 @@ function PerformanceGraphContent() {
         edges: rawEdges, 
         maxGameCount 
       };
+      
+      console.log('📊 Final graph data created:', {
+        nodesCount: rawNodes.length,
+        edgesCount: rawEdges.length,
+        maxGameCount,
+        firstNode: rawNodes[0]?.id,
+        firstNodeData: rawNodes[0]?.data
+      });
       
       // Generate opening clusters using DFS for connected openings
       const openingClusters = createOpeningClusters(rawNodes);
