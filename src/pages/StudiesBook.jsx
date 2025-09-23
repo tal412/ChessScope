@@ -877,10 +877,10 @@ export default function StudiesBook() {
   return (
     <div className="min-h-screen flex flex-col bg-background dark:bg-slate-900">
 
-      {/* Header using AppBar */}
+      {/* Simplified Header using AppBar */}
       <AppBar
         title={
-          selectedFolder !== null 
+          selectedFolder !== null
             ? `Studies Book / ${getCurrentFolderName()}`
             : "Studies Book"
         }
@@ -898,143 +898,191 @@ export default function StudiesBook() {
           </div>
         }
         rightControls={
-          <>
-            {selectedFolder !== null && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleBackClick}
-                className="bg-secondary border-border text-secondary-foreground hover:bg-accent hover:text-accent-foreground"
-              >
-                ← Back
-              </Button>
-            )}
+          <div className="flex items-center gap-2">
             {selectedFolder === null && (
               <FolderCreateDialog onCreateFolder={handleCreateFolder}>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="bg-secondary border-border text-secondary-foreground hover:bg-accent hover:text-accent-foreground"
+                <Button
+                  size="sm"
+                  className="bg-gradient-to-r from-orange-400 to-amber-500 hover:from-orange-500 hover:to-amber-600 text-white"
                 >
                   <FolderPlus className="w-4 h-4 mr-2" />
                   New Folder
                 </Button>
               </FolderCreateDialog>
             )}
-            <TagManagementDialog onTagsChanged={handleTagsChanged}>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="bg-secondary border-border text-secondary-foreground hover:bg-accent hover:text-accent-foreground"
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                Manage Tags
-              </Button>
-            </TagManagementDialog>
             <StudyDetailsDialog onConfirm={handleCreateStudy}>
-              <Button 
+              <Button
                 size="sm"
                 className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Add Study
+                New Study
               </Button>
             </StudyDetailsDialog>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="bg-secondary border-border text-secondary-foreground hover:bg-accent hover:text-accent-foreground">
-                  <div className="flex items-center gap-2">
-                    {filterColor === 'all' ? (
-                      <Filter className="w-4 h-4 text-muted-foreground" />
-                    ) : filterColor === 'white' ? (
-                      <Crown className="w-4 h-4 text-amber-400" />
-                    ) : (
-                      <Shield className="w-4 h-4 text-muted-foreground" />
-                    )}
-                    <span className="hidden sm:inline">
-                      {filterColor === 'all' ? 'All' : filterColor === 'white' ? 'White' : 'Black'}
-                    </span>
-                  </div>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-popover border-border">
-                <DropdownMenuItem 
-                  onClick={() => setFilterColor('all')}
-                  className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
-                >
-                  <Filter className="w-4 h-4 mr-2 text-muted-foreground" />
-                  All
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => setFilterColor('white')}
-                  className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
-                >
-                  <Crown className="w-4 h-4 mr-2 text-amber-400" />
-                  White
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={() => setFilterColor('black')}
-                  className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
-                >
-                  <Shield className="w-4 h-4 mr-2 text-muted-foreground" />
-                  Black
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </>
+          </div>
         }
       />
 
       <div className="flex-1 p-6 pl-6 pr-12">
         <div className="w-full">
 
-        {/* Tag Filter */}
-        {availableTags.length > 0 && (
-          <div className="mb-6">
-            <div className="flex flex-wrap gap-2">
-              <Badge
-                variant="outline"
-                className={cn(
-                  "cursor-pointer transition-all duration-200 border-2",
-                  selectedTagIds.length === 0
-                    ? 'bg-amber-500 border-amber-500 text-white'
-                    : 'border-border text-muted-foreground hover:border-border hover:text-foreground'
-                )}
-                onClick={() => setSelectedTagIds([])}
-              >
-                All
-              </Badge>
-              {availableTags.map(tag => {
-                const isSelected = selectedTagIds.includes(tag.id);
-                return (
-                  <Badge
-                    key={tag.id}
-                    variant="outline"
-                    className={cn(
-                      "cursor-pointer transition-all duration-200 border-2",
-                      isSelected 
-                        ? 'border-current text-white' 
-                        : 'border-border text-muted-foreground hover:border-border hover:text-foreground'
-                    )}
-                    style={{
-                      backgroundColor: isSelected ? tag.color : 'transparent',
-                      borderColor: isSelected ? tag.color : undefined
-                    }}
-                    onClick={() => {
-                      setSelectedTagIds(prev => 
-                        prev.includes(tag.id) 
-                          ? prev.filter(id => id !== tag.id)
-                          : [...prev, tag.id]
-                      );
-                    }}
+        {/* In-page Toolbar with Filters and Management Actions */}
+        <div className="mb-6 pb-4 border-b border-border/50">
+          <div className="flex items-center justify-between">
+            {/* Left side: Filters */}
+            <div className="flex items-center gap-3">
+              {/* Color Filter Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 px-3 bg-background border-border text-foreground hover:bg-accent hover:text-accent-foreground">
+                    <div className="flex items-center gap-2">
+                      {filterColor === 'all' ? (
+                        <>
+                          <Filter className="w-4 h-4" />
+                          <span>All Colors</span>
+                        </>
+                      ) : filterColor === 'white' ? (
+                        <>
+                          <Crown className="w-4 h-4 text-amber-400" />
+                          <span>White</span>
+                        </>
+                      ) : (
+                        <>
+                          <Shield className="w-4 h-4" />
+                          <span>Black</span>
+                        </>
+                      )}
+                      <ChevronRight className="w-3 h-3 rotate-90 opacity-50" />
+                    </div>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="bg-popover border-border">
+                  <DropdownMenuItem
+                    onClick={() => setFilterColor('all')}
+                    className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
                   >
-                    {tag.name}
-                  </Badge>
-                );
-              })}
+                    <Filter className="w-4 h-4 mr-2" />
+                    All Colors
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setFilterColor('white')}
+                    className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
+                  >
+                    <Crown className="w-4 h-4 mr-2 text-amber-400" />
+                    White
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => setFilterColor('black')}
+                    className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
+                  >
+                    <Shield className="w-4 h-4 mr-2" />
+                    Black
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Tag Filter Dropdown */}
+              {availableTags.length > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9 px-3 bg-background border-border text-foreground hover:bg-accent hover:text-accent-foreground">
+                      <div className="flex items-center gap-2">
+                        <Filter className="w-4 h-4" />
+                        <span>
+                          {selectedTagIds.length === 0
+                            ? 'All Tags'
+                            : `${selectedTagIds.length} Tag${selectedTagIds.length > 1 ? 's' : ''}`}
+                        </span>
+                        <ChevronRight className="w-3 h-3 rotate-90 opacity-50" />
+                      </div>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="bg-popover border-border w-56 max-h-80 overflow-y-auto">
+                    <DropdownMenuItem
+                      onClick={() => setSelectedTagIds([])}
+                      className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span>All Tags</span>
+                        {selectedTagIds.length === 0 && <span className="text-xs">✓</span>}
+                      </div>
+                    </DropdownMenuItem>
+                    <div className="my-1 border-t border-border/50" />
+                    {availableTags.map(tag => {
+                      const isSelected = selectedTagIds.includes(tag.id);
+                      return (
+                        <DropdownMenuItem
+                          key={tag.id}
+                          onClick={() => {
+                            setSelectedTagIds(prev =>
+                              prev.includes(tag.id)
+                                ? prev.filter(id => id !== tag.id)
+                                : [...prev, tag.id]
+                            );
+                          }}
+                          className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <div className="flex items-center gap-2">
+                              <div
+                                className="w-3 h-3 rounded-full border border-border"
+                                style={{ backgroundColor: tag.color }}
+                              />
+                              <span>{tag.name}</span>
+                            </div>
+                            {isSelected && <span className="text-xs">✓</span>}
+                          </div>
+                        </DropdownMenuItem>
+                      );
+                    })}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+
+              {/* Back button when in folder */}
+              {selectedFolder !== null && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleBackClick}
+                  className="h-9 px-3 text-muted-foreground hover:text-foreground"
+                >
+                  <ChevronRight className="w-4 h-4 mr-1 rotate-180" />
+                  Back to all
+                </Button>
+              )}
+
+              {/* Active filters indicator */}
+              {(filterColor !== 'all' || selectedTagIds.length > 0) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setFilterColor('all');
+                    setSelectedTagIds([]);
+                  }}
+                  className="h-9 px-2 text-muted-foreground hover:text-foreground"
+                >
+                  Clear filters
+                </Button>
+              )}
+            </div>
+
+            {/* Right side: Management actions */}
+            <div className="flex items-center gap-2">
+              <TagManagementDialog onTagsChanged={handleTagsChanged}>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 px-3 text-muted-foreground hover:text-foreground hover:bg-accent"
+                >
+                  <Edit className="w-4 h-4 mr-2" />
+                  Manage Tags
+                </Button>
+              </TagManagementDialog>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Empty State */}
         {displayedItems.length === 0 && (
@@ -1126,7 +1174,7 @@ export default function StudiesBook() {
                   {/* Folders Section */}
                   {folders.length > 0 && (
                     <div>
-                      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4 items-start">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 items-start">
                         {folders.map((folder) => (
                           <DroppableFolderCard
                             key={`folder-${folder.id}`}
