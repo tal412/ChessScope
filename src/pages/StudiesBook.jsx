@@ -146,10 +146,23 @@ export default function StudiesBook() {
   const [isSigningIn, setIsSigningIn] = useState(false);
   const [isLoadingStudies, setIsLoadingStudies] = useState(true);
   const [authMethod, setAuthMethod] = useState(null); // null, 'google', 'email'
-  
+
   // Conflict state
   const [hasConflicts, setHasConflicts] = useState(false);
   const [conflictError, setConflictError] = useState(null);
+
+  // Filter sidebar state - persistent and starts expanded
+  const [isFilterSidebarOpen, setIsFilterSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem('chesscope-filter-sidebar-open');
+    return saved !== null ? JSON.parse(saved) : true; // Default to expanded
+  });
+
+  // Persist sidebar state to localStorage
+  const toggleFilterSidebar = () => {
+    const newState = !isFilterSidebarOpen;
+    setIsFilterSidebarOpen(newState);
+    localStorage.setItem('chesscope-filter-sidebar-open', JSON.stringify(newState));
+  };
   
   // Get folder from URL params
   const folderIdFromUrl = searchParams.get('folder');
@@ -877,7 +890,7 @@ export default function StudiesBook() {
   return (
     <div className="min-h-screen flex flex-col bg-background dark:bg-slate-900">
 
-      {/* Simplified Header using AppBar */}
+      {/* Clean AppBar */}
       <AppBar
         title={
           selectedFolder !== null
@@ -923,124 +936,16 @@ export default function StudiesBook() {
         }
       />
 
-      <div className="flex-1 p-6 pl-6 pr-12">
-        <div className="w-full">
-
-        {/* In-page Toolbar with Filters and Management Actions */}
-        <div className="mb-6 pb-4 border-b border-border/50">
-          <div className="flex items-center justify-between">
-            {/* Left side: Filters */}
-            <div className="flex items-center gap-3">
-              {/* Color Filter Dropdown */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-9 px-3 bg-background border-border text-foreground hover:bg-accent hover:text-accent-foreground">
-                    <div className="flex items-center gap-2">
-                      {filterColor === 'all' ? (
-                        <>
-                          <Filter className="w-4 h-4" />
-                          <span>All Colors</span>
-                        </>
-                      ) : filterColor === 'white' ? (
-                        <>
-                          <Crown className="w-4 h-4 text-amber-400" />
-                          <span>White</span>
-                        </>
-                      ) : (
-                        <>
-                          <Shield className="w-4 h-4" />
-                          <span>Black</span>
-                        </>
-                      )}
-                      <ChevronRight className="w-3 h-3 rotate-90 opacity-50" />
-                    </div>
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="bg-popover border-border">
-                  <DropdownMenuItem
-                    onClick={() => setFilterColor('all')}
-                    className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
-                  >
-                    <Filter className="w-4 h-4 mr-2" />
-                    All Colors
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setFilterColor('white')}
-                    className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
-                  >
-                    <Crown className="w-4 h-4 mr-2 text-amber-400" />
-                    White
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => setFilterColor('black')}
-                    className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
-                  >
-                    <Shield className="w-4 h-4 mr-2" />
-                    Black
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              {/* Tag Filter Dropdown */}
-              {availableTags.length > 0 && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="sm" className="h-9 px-3 bg-background border-border text-foreground hover:bg-accent hover:text-accent-foreground">
-                      <div className="flex items-center gap-2">
-                        <Filter className="w-4 h-4" />
-                        <span>
-                          {selectedTagIds.length === 0
-                            ? 'All Tags'
-                            : `${selectedTagIds.length} Tag${selectedTagIds.length > 1 ? 's' : ''}`}
-                        </span>
-                        <ChevronRight className="w-3 h-3 rotate-90 opacity-50" />
-                      </div>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start" className="bg-popover border-border w-56 max-h-80 overflow-y-auto">
-                    <DropdownMenuItem
-                      onClick={() => setSelectedTagIds([])}
-                      className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <span>All Tags</span>
-                        {selectedTagIds.length === 0 && <span className="text-xs">✓</span>}
-                      </div>
-                    </DropdownMenuItem>
-                    <div className="my-1 border-t border-border/50" />
-                    {availableTags.map(tag => {
-                      const isSelected = selectedTagIds.includes(tag.id);
-                      return (
-                        <DropdownMenuItem
-                          key={tag.id}
-                          onClick={() => {
-                            setSelectedTagIds(prev =>
-                              prev.includes(tag.id)
-                                ? prev.filter(id => id !== tag.id)
-                                : [...prev, tag.id]
-                            );
-                          }}
-                          className="text-popover-foreground hover:text-accent-foreground hover:bg-accent"
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex items-center gap-2">
-                              <div
-                                className="w-3 h-3 rounded-full border border-border"
-                                style={{ backgroundColor: tag.color }}
-                              />
-                              <span>{tag.name}</span>
-                            </div>
-                            {isSelected && <span className="text-xs">✓</span>}
-                          </div>
-                        </DropdownMenuItem>
-                      );
-                    })}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-
-              {/* Back button when in folder */}
-              {selectedFolder !== null && (
+      <div className="flex-1 flex overflow-hidden">
+        {/* Main Content */}
+        <div className={cn(
+          "flex-1 p-6 pl-6 transition-all duration-300 ease-in-out overflow-y-auto",
+          isFilterSidebarOpen ? "pr-6" : "pr-12"
+        )}>
+          <div className="w-full">
+            {/* Back Button - Inline when in folder */}
+            {selectedFolder !== null && (
+              <div className="mb-6">
                 <Button
                   variant="ghost"
                   size="sm"
@@ -1048,41 +953,10 @@ export default function StudiesBook() {
                   className="h-9 px-3 text-muted-foreground hover:text-foreground"
                 >
                   <ChevronRight className="w-4 h-4 mr-1 rotate-180" />
-                  Back to all
+                  Back to all studies
                 </Button>
-              )}
-
-              {/* Active filters indicator */}
-              {(filterColor !== 'all' || selectedTagIds.length > 0) && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setFilterColor('all');
-                    setSelectedTagIds([]);
-                  }}
-                  className="h-9 px-2 text-muted-foreground hover:text-foreground"
-                >
-                  Clear filters
-                </Button>
-              )}
-            </div>
-
-            {/* Right side: Management actions */}
-            <div className="flex items-center gap-2">
-              <TagManagementDialog onTagsChanged={handleTagsChanged}>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-9 px-3 text-muted-foreground hover:text-foreground hover:bg-accent"
-                >
-                  <Edit className="w-4 h-4 mr-2" />
-                  Manage Tags
-                </Button>
-              </TagManagementDialog>
-            </div>
-          </div>
-        </div>
+              </div>
+            )}
 
         {/* Empty State */}
         {displayedItems.length === 0 && (
@@ -1253,6 +1127,211 @@ export default function StudiesBook() {
             ) : null}
           </DragOverlay>
         </DndContext>
+          </div>
+        </div>
+
+        {/* Filter Sidebar */}
+        <div className={cn(
+          "bg-card border-l border-border transition-all duration-300 ease-in-out overflow-hidden flex flex-col",
+          isFilterSidebarOpen ? "w-72" : "w-12"
+        )}>
+          {/* Sidebar Header */}
+          <div className="p-3 border-b border-border flex-shrink-0">
+            <div className="flex items-center justify-between">
+              {isFilterSidebarOpen ? (
+                <>
+                  <h3 className="text-lg font-semibold text-card-foreground">Filter</h3>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={toggleFilterSidebar}
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                </>
+              ) : (
+                <div className="flex justify-center">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={toggleFilterSidebar}
+                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                  >
+                    <Filter className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Sidebar Content */}
+          {isFilterSidebarOpen && (
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="space-y-6">
+                {/* Clear All Filters */}
+                {(filterColor !== 'all' || selectedTagIds.length > 0) && (
+                  <div className="pb-2 border-b border-border">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setFilterColor('all');
+                        setSelectedTagIds([]);
+                      }}
+                      className="w-full"
+                    >
+                      Clear all filters
+                    </Button>
+                  </div>
+                )}
+
+                {/* Color Filtering */}
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-card-foreground">Color</h4>
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setFilterColor('all')}
+                      className={cn(
+                        "w-full text-left px-3 py-2 rounded-md text-sm transition-colors",
+                        filterColor === 'all'
+                          ? "bg-accent text-accent-foreground"
+                          : "text-foreground hover:bg-accent/50"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Filter className="w-4 h-4" />
+                          <span>All Colors</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">{studies.length}</span>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setFilterColor('white')}
+                      className={cn(
+                        "w-full text-left px-3 py-2 rounded-md text-sm transition-colors",
+                        filterColor === 'white'
+                          ? "bg-accent text-accent-foreground"
+                          : "text-foreground hover:bg-accent/50"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Crown className="w-4 h-4 text-amber-400" />
+                          <span>White</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {studies.filter(s => s.color === 'white').length}
+                        </span>
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setFilterColor('black')}
+                      className={cn(
+                        "w-full text-left px-3 py-2 rounded-md text-sm transition-colors",
+                        filterColor === 'black'
+                          ? "bg-accent text-accent-foreground"
+                          : "text-foreground hover:bg-accent/50"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Shield className="w-4 h-4" />
+                          <span>Black</span>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {studies.filter(s => s.color === 'black').length}
+                        </span>
+                      </div>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tags Filtering */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-card-foreground">Tags</h4>
+                    <TagManagementDialog onTagsChanged={handleTagsChanged}>
+                      <Button size="sm" variant="ghost" className="h-6 px-2 text-xs">
+                        <Edit className="w-3 h-3 mr-1" />
+                        Manage
+                      </Button>
+                    </TagManagementDialog>
+                  </div>
+                  <div className="space-y-2">
+                    {/* All Tags Option */}
+                    <button
+                      onClick={() => setSelectedTagIds([])}
+                      className={cn(
+                        "w-full text-left px-3 py-2 rounded-md text-sm transition-colors",
+                        selectedTagIds.length === 0
+                          ? "bg-accent text-accent-foreground"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">All Tags</span>
+                        <span className="text-xs">{studies.length}</span>
+                      </div>
+                    </button>
+
+                    {/* Individual Tags */}
+                    {availableTags.length > 0 ? (
+                      availableTags.map(tag => {
+                        const isSelected = selectedTagIds.includes(tag.id);
+                        const studyCount = studies.filter(study =>
+                          study.tags && study.tags.some(t => t.id === tag.id)
+                        ).length;
+
+                        return (
+                          <button
+                            key={tag.id}
+                            onClick={() => {
+                              setSelectedTagIds(prev =>
+                                prev.includes(tag.id)
+                                  ? prev.filter(id => id !== tag.id)
+                                  : [tag.id]
+                              );
+                            }}
+                            className={cn(
+                              "w-full text-left px-3 py-2 rounded-md text-sm transition-colors",
+                              isSelected
+                                ? "bg-accent text-accent-foreground"
+                                : "text-foreground hover:bg-accent/50"
+                            )}
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <div
+                                  className="w-3 h-3 rounded-full border border-border"
+                                  style={{ backgroundColor: tag.color }}
+                                />
+                                <span>{tag.name}</span>
+                              </div>
+                              <span className="text-xs text-muted-foreground">{studyCount}</span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div className="text-center py-4">
+                        <div className="text-muted-foreground text-sm">
+                          <p className="mb-2">No tags yet</p>
+                          <TagManagementDialog onTagsChanged={handleTagsChanged}>
+                            <Button size="sm" variant="outline">
+                              <Plus className="w-3 h-3 mr-2" />
+                              Create tag
+                            </Button>
+                          </TagManagementDialog>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
