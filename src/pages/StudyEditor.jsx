@@ -185,7 +185,6 @@ export default function OpeningEditor() {
   
   // Debug wrapper for setCurrentPath to track all changes
   const setCurrentPathDebug = (newPath) => {
-    console.log('[StudyEditor] setCurrentPath called with:', newPath, 'Stack:', new Error().stack.slice(0, 500));
     setCurrentPath(newPath);
   };
   const [treeVersion, setTreeVersion] = useState(0);
@@ -304,9 +303,7 @@ export default function OpeningEditor() {
   // Load existing opening
   const loadedOpeningIdRef = useRef(null);
   useEffect(() => {
-    console.log('[StudyEditor useEffect] studyId changed to:', studyId, 'isNewStudy:', isNewStudy);
     if (!isNewStudy && studyId && loadedOpeningIdRef.current !== studyId) {
-      console.log('[StudyEditor useEffect] Loading new study, calling loadOpening()');
       loadOpening();
     } else if (isNewStudy) {
       // Reset state for new opening
@@ -378,7 +375,6 @@ export default function OpeningEditor() {
             try {
               await studyTagsMapping.addTagToStudy(savedStudy.id, tagId);
             } catch (error) {
-              console.error('❌ StudyEditor: Error adding tag', tagId, 'to study:', error);
             }
           }
         } else {
@@ -404,7 +400,6 @@ export default function OpeningEditor() {
       }));
         
       } catch (error) {
-        console.error('Auto-save error:', error);
         
         // Check if error is due to conflicts
         if (error.message.includes('conflict')) {
@@ -421,11 +416,8 @@ export default function OpeningEditor() {
   triggerMoveBackupRef.current = useCallback(() => {
     // Trigger backup even for unsaved studies (they get saved automatically)
     if (!isViewMode && name.trim()) {
-      console.log('🔄 [StudyEditor] triggerMoveBackup: calling autoSave');
       // Actually save the data instead of just dispatching an event
       autoSave();
-    } else {
-      console.log('🚫 [StudyEditor] triggerMoveBackup: skipped', { isViewMode, name: name.trim() });
     }
   }, [isViewMode, name, autoSave]);
 
@@ -482,7 +474,6 @@ export default function OpeningEditor() {
         const rootMoves = openingGraph.getRootMoves(color === 'white');
         rootTotalGames = rootMoves ? rootMoves.reduce((sum, move) => sum + (move.gameCount || 0), 0) : 0;
       } catch (error) {
-        console.error('Error calculating root total games:', error);
         rootTotalGames = 0;
       }
       
@@ -545,17 +536,12 @@ export default function OpeningEditor() {
                     hasData: true
                   };
                   maxGameCount = Math.max(maxGameCount, performanceData.gameCount);
-                  console.log('✅ Found performance data for move:', moveSequence[moveSequence.length - 1], 
-                    'winRate:', performanceData.winRate, 'gameCount:', performanceData.gameCount);
                 } else {
-                  console.log('❌ No matching move found for:', moveSequence[moveSequence.length - 1], 'in moves:', moves.map(m => m.san));
                 }
               } else {
-                console.log('❌ No moves found for parent sequence:', parentSequence);
               }
             }
           } catch (error) {
-            console.error('Error getting performance data for node:', error);
           }
           
           enhancedNodes.push({
@@ -613,7 +599,6 @@ export default function OpeningEditor() {
   useEffect(() => {
     
     if (canvasMode === 'performance' && openingGraph && graphData.nodes.length > 0) {
-      console.log('🎨 Updating performance graph data due to color change - color:', color);
       navigateToPerformancePosition();
     }
   }, [color, canvasMode, openingGraph, graphData.nodes.length, navigateToPerformancePosition]);
@@ -637,7 +622,6 @@ export default function OpeningEditor() {
         const rootMoves = openingGraph.getRootMoves(color === 'white');
         rootTotalGames = rootMoves ? rootMoves.reduce((sum, move) => sum + (move.gameCount || 0), 0) : 0;
       } catch (error) {
-        console.error('Error calculating root total games:', error);
         rootTotalGames = 0;
       }
     }
@@ -849,17 +833,13 @@ export default function OpeningEditor() {
   const loadOpening = async () => {
     try {
       setLoading(true);
-      console.log('[StudyEditor] Starting loadOpening with studyId:', studyId);
       
       const opening = await UserStudy.getById(studyId);
-      console.log('[StudyEditor] Retrieved study:', opening);
       
       if (!opening) {
-        console.log('[StudyEditor] No study found, navigating back to studies-book');
         navigate('/studies-book');
         return;
       }
-      console.log('[StudyEditor] Setting study data - name:', opening.name, 'color:', opening.color, 'id:', opening.id);
       setName(opening.name);
       setColor(opening.color);
       setSavedOpeningId(opening.id);
@@ -888,11 +868,9 @@ export default function OpeningEditor() {
       if (opening.moveTree) {
         // Use the new consolidated move tree structure
         root = deserializeMoveTree(opening.moveTree);
-        console.log('[StudyEditor] Loaded move tree from study document');
       } else {
         // Fallback: create empty tree for studies without move tree data
         root = new MoveNode('Start', opening.initial_fen);
-        console.log('[StudyEditor] Created empty move tree - no moveTree data in study');
       }
       
       MoveNode.calculateMainLine(root);
@@ -913,7 +891,6 @@ export default function OpeningEditor() {
       
       // Only use initial move for navigation in view mode, not edit mode
       if (isViewMode && initialMoveNode) {
-        console.log('[StudyEditor] Found initial move node:', initialMoveNode.san, 'FEN:', initialMoveNode.fen);
         setCurrentNode(initialMoveNode);
         
         // Set the current path to the initial move
@@ -923,18 +900,15 @@ export default function OpeningEditor() {
           initialPath.unshift(current.san);
           current = current.parent;
         }
-        console.log('[StudyEditor] Setting initial path to:', initialPath);
         setCurrentPathDebug(initialPath);
       } else {
         // In edit mode or when no initial move is set, start at root
-        console.log('[StudyEditor] No initial move or in edit mode, starting at root');
         setCurrentNode(root);
         setCurrentPathDebug([]);
       }
       
       loadedOpeningIdRef.current = studyId;
       setHasLoaded(true); // Mark as loaded to prevent auto-save triggers
-      console.log('[StudyEditor] Successfully loaded study, setting hasLoaded=true');
       
       // Set initial saved state hash after loading
       setTimeout(() => {
@@ -944,16 +918,12 @@ export default function OpeningEditor() {
           selectedTagIds: [],
           treeVersion: 0
         });
-        console.log('[StudyEditor] Initial load completed');
       }, 100);
       
     } catch (error) {
-      console.error('[StudyEditor] Error loading study:', error);
-      console.error('[StudyEditor] Stack trace:', error.stack);
       navigate('/studies-book');
     } finally {
       setLoading(false);
-      console.log('[StudyEditor] loadOpening completed, loading set to false');
     }
   };
 
@@ -972,118 +942,114 @@ export default function OpeningEditor() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const handleNewMove = (newMoves) => {
-    console.log('🎯 handleNewMove called with:', {
-      newMoves,
-      isViewMode,
-      moveTreeChildren: moveTree?.children.length || 0,
-      currentNodeSan: currentNode?.san || 'null'
-    });
-    
+  // Handle new moves from the chessboard (potential tree modifications)
+  const handleNewMove = useCallback((newMoves) => {
+
     if (newMoves.length === 0) {
       setCurrentNode(moveTree);
       setCurrentPathDebug([]);
       return;
     }
-    
+
+    // Check if this is just navigation to an existing node
+    // by seeing if we can find a node with this exact move sequence
+    const targetNode = graphData.nodes.find(node => {
+      const nodeMoves = node.data.moveSequence || [];
+      return nodeMoves.length === newMoves.length &&
+             nodeMoves.every((move, index) => move === newMoves[index]);
+    });
+
+    if (targetNode) {
+      // This is pure navigation to an existing node - use efficient path
+      const treeNode = findNodeById(moveTree, targetNode.id);
+      if (treeNode) {
+        setCurrentNode(treeNode);
+        setCurrentPathDebug([...newMoves]);
+        return; // No tree modification needed
+      }
+    }
+
+    // This is a genuinely new move sequence - may need to modify tree
     // Start from root and traverse the entire move sequence
     let node = moveTree;
     let i = 0;
     let needsUpdate = false;
-    
-    console.log('🔍 Starting from root node:', node.san, 'at position:', node.fen);
-    
+
     // Traverse existing moves in the tree
-    console.log('🔍 Starting to traverse existing moves...');
     while (i < newMoves.length) {
       const move = newMoves[i];
       const existingChild = node.children.find(c => c.san === move);
-      
-      console.log(`🔍 Move ${i}: ${move}, existing child:`, existingChild?.san || 'none');
-      
+
       if (existingChild) {
         node = existingChild;
         i++;
       } else {
-        console.log(`🛑 No existing child for move: ${move}, breaking at index ${i}`);
         break;
       }
     }
-    
-    console.log('🔍 After traversal:', {
-      finalIndex: i,
-      totalMoves: newMoves.length,
-      needsNewMoves: i < newMoves.length,
-      isViewMode,
-      canAddMoves: i < newMoves.length && !isViewMode
-    });
-    
-    // Add any remaining moves to the tree
+
+    // Add any remaining moves to the tree (only in edit mode)
     if (i < newMoves.length && !isViewMode) {
-      console.log('✅ Adding new moves starting from index:', i);
       const chess = new Chess(node.fen);
-      
+
       while (i < newMoves.length) {
         const moveToAdd = newMoves[i];
-        
+
         const move = chess.move(moveToAdd);
         if (move) {
-          console.log(`✅ Successfully added move: ${move.san} (${moveToAdd})`);
           node = node.addChild(move.san, chess.fen());
           needsUpdate = true;
         } else {
-          console.log(`❌ Failed to add move: ${moveToAdd}`);
           break;
         }
         i++;
       }
     } else if (i < newMoves.length && isViewMode) {
-    } else {
-      console.log('✅ All moves already exist in tree');
-    }
-    
-    // In view mode, if we didn't find all moves in the tree, don't set currentNode
-    // This prevents the blink when navigating to moves not in the opening
-    if (isViewMode && i < newMoves.length) {
-      console.log('🚫 Not setting currentNode in view mode for moves not fully in tree');
+      // In view mode, if we didn't find all moves in the tree, don't update
       return; // Exit early without setting currentNode or currentPath
     }
-    
+
     setCurrentNode(node);
-    
-    // Calculate the full path from root to current node
-    const fullPath = [];
-    let pathNode = node;
-    while (pathNode && pathNode.parent) {
-      fullPath.unshift(pathNode.san);
-      pathNode = pathNode.parent;
-    }
-    setCurrentPathDebug(fullPath);
-    
-    
-    // Also notify the analysis view about the path change so ChunkVisualization stays in sync
-    if (fullPath.length !== currentPath.length || 
-        !fullPath.every((move, index) => move === currentPath[index])) {
-      // This will be handled by the ChessAnalysisView's handleMovesCurrentMovesChange
-    }
-    
-    // Always trigger save after any move operation (whether new moves were added or just navigation)
-    if (!isViewMode) {
+    setCurrentPathDebug([...newMoves]);
+
+    // Only trigger save if we actually modified the tree
+    if (needsUpdate && !isViewMode) {
       MoveNode.calculateMainLine(moveTree);
       setTreeVersion(v => v + 1);
       setTreeChangeVersion(v => v + 1);
       triggerMoveBackup();
     }
-  };
+  }, [moveTree, isViewMode, graphData.nodes, findNodeById, triggerMoveBackup]);
   
+  // Handle direct navigation to a node (for canvas clicks)
+  const handleNodeNavigation = useCallback((e, node) => {
+    // Use the pre-calculated move sequence from the node for efficient navigation
+    const moveSequence = node.data.moveSequence || [];
+
+    // Find the corresponding tree node
+    const treeNode = findNodeById(moveTree, node.id);
+    if (!treeNode) {
+      return; // Invalid node, ignore
+    }
+
+    // Update current node and path efficiently
+    setCurrentNode(treeNode);
+    setCurrentPathDebug([...moveSequence]);
+
+    // The ChessAnalysisView will handle syncing to chessboard automatically
+    // via its default behavior when we don't override onNodeClick
+  }, [moveTree, findNodeById]);
+
+  // Handle node selection for non-navigation purposes (e.g., from context menu)
   const handleNodeSelect = (node) => {
-    
-    // If this is a graph node (from canvas), convert it to tree node
+
+    // This is now only used for special selection cases, not navigation
+    // Navigation is handled by handleNodeNavigation
     if (node && node.data && !node.san) {
       const treeNode = findNodeById(moveTree, node.id);
       if (treeNode) {
         setCurrentNode(treeNode);
-        
+
         const path = [];
         let current = treeNode;
         while (current.parent) {
@@ -1091,16 +1057,13 @@ export default function OpeningEditor() {
           current = current.parent;
         }
         setCurrentPathDebug(path);
-      } else {
-        console.log('❌ Could not find tree node for graph node ID:', node.id);
-        // Don't set currentNode to invalid node - this prevents the blink
       }
     } else if (node) {
       // This is already a tree node - verify it's valid
       const isValidNode = findNodeById(moveTree, node.id);
       if (isValidNode) {
         setCurrentNode(node);
-        
+
         const path = [];
         let current = node;
         while (current && current.parent) {
@@ -1108,9 +1071,6 @@ export default function OpeningEditor() {
           current = current.parent;
         }
         setCurrentPathDebug(path);
-      } else {
-        console.log('❌ Invalid tree node, not setting currentNode');
-        // Don't set currentNode to invalid node - this prevents the blink
       }
     }
   };
@@ -1337,12 +1297,10 @@ export default function OpeningEditor() {
           // Create study in background
           UserStudy.create(openingData)
             .then((savedStudy) => {
-              console.log('Study saved successfully:', savedStudy.id);
               // Navigate to view mode with the real study ID
               navigate(`/studies-book/study/${savedStudy.id}`);
             })
             .catch(error => {
-              console.error('Failed to save study:', error);
               // Navigate back to editor on error
               navigate(`/studies-book/editor/new`);
             });
@@ -1355,7 +1313,6 @@ export default function OpeningEditor() {
             navigate(`/studies-book/study/${idToUse}`);
           } else {
             // This shouldn't happen with immediate study creation, but handle gracefully
-            console.error('No study ID available for navigation');
             alert('Unable to switch to view mode. Please try refreshing the page.');
           }
         }
@@ -1364,7 +1321,6 @@ export default function OpeningEditor() {
       studyId,
       selectedPlayer: color,
       onSelectedPlayerChange: (newColor) => {
-        console.log('🎨 Player color changed from', color, 'to', newColor);
         setColor(newColor);
       },
       graphData,
@@ -1452,7 +1408,9 @@ export default function OpeningEditor() {
           setCurrentPathDebug(newPath);
         }}
         onNewMove={handleNewMove}
-        // Node selection
+        // Node navigation - use efficient direct navigation
+        onNodeClick={handleNodeNavigation}
+        // Node selection (for non-navigation purposes)
         onCurrentNodeChange={(node) => {
           setCurrentNode(node);
         }}
