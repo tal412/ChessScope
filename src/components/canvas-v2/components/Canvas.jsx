@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { CANVAS_CONFIG, RENDER_CONFIG, CLUSTER_CONFIG, SHADOW_CONFIG } from '../constants.js';
 import { getPerformanceColors, getStudyNodeColors, hexToRgba } from '../utils/colors.js';
 import { drawIcon, drawChainLinkIcon, createConvexHull } from '../utils/geometry.js';
-import { getCanvasColor, isColorDark } from '@/utils/themeColors';
+import { getCanvasColor } from '@/utils/themeColors';
 
 /**
  * Render performance node text with proper fonts and positioning
@@ -10,20 +10,29 @@ import { getCanvasColor, isColorDark } from '@/utils/themeColors';
 function renderPerformanceNodeText(ctx, node, centerX, centerY) {
   const colors = getPerformanceColors(node.data || {});
   const textColor = colors.text;
-  const isMissingNode = node.data?.isMissing;
-  
-  // Theme-aware text strokes for better readability
-  if (isMissingNode) {
-    // Missing nodes use stronger stroke for visibility
-    ctx.strokeStyle = getCanvasColor('foreground', 1.0);
-    ctx.lineWidth = 4; // Thicker stroke for missing nodes
+  const nodeData = node.data || {};
+
+  // Determine stroke configuration based on performance level
+  let strokeConfig;
+  if (nodeData.isRoot) {
+    strokeConfig = RENDER_CONFIG.NODE_TEXT_STROKES.root;
+  } else if (nodeData.isMissing) {
+    strokeConfig = RENDER_CONFIG.NODE_TEXT_STROKES.missing;
+  } else if (nodeData.winRate >= 70) {
+    strokeConfig = RENDER_CONFIG.NODE_TEXT_STROKES.excellent;
+  } else if (nodeData.winRate >= 60) {
+    strokeConfig = RENDER_CONFIG.NODE_TEXT_STROKES.good;
+  } else if (nodeData.winRate >= 50) {
+    strokeConfig = RENDER_CONFIG.NODE_TEXT_STROKES.solid;
+  } else if (nodeData.winRate >= 40) {
+    strokeConfig = RENDER_CONFIG.NODE_TEXT_STROKES.challenging;
   } else {
-    const isDarkText = isColorDark(textColor);
-    ctx.strokeStyle = isDarkText
-      ? getCanvasColor('card', 0.8)          // Light stroke for dark text
-      : getCanvasColor('foreground', 0.8);   // Dark stroke for light text
-    ctx.lineWidth = isDarkText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
+    strokeConfig = RENDER_CONFIG.NODE_TEXT_STROKES.difficult;
   }
+
+  // Apply stroke configuration
+  ctx.strokeStyle = strokeConfig.stroke;
+  ctx.lineWidth = strokeConfig.width;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.textAlign = 'center';
@@ -86,13 +95,26 @@ function renderPerformanceNodeText(ctx, node, centerX, centerY) {
 function renderStudyNodeText(ctx, node, centerX, centerY) {
   const colors = getStudyNodeColors(node || {});
   const textColor = colors.text;
+  const nodeData = node.data || {};
 
-  // Theme-aware text strokes for better readability
-  const isDarkText = isColorDark(textColor);
-  ctx.strokeStyle = isDarkText
-    ? getCanvasColor('card', 0.8)          // Light stroke for dark text
-    : getCanvasColor('foreground', 0.8);   // Dark stroke for light text
-  ctx.lineWidth = isDarkText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
+  // Determine stroke configuration based on node type
+  let strokeConfig;
+  if (nodeData.isRoot || !nodeData.san || nodeData.san === 'Start') {
+    strokeConfig = RENDER_CONFIG.NODE_TEXT_STROKES.startNode;
+  } else if (nodeData.isMissing) {
+    strokeConfig = RENDER_CONFIG.NODE_TEXT_STROKES.missing;
+  } else {
+    // Determine if white or black move based on move sequence
+    const moveSequence = nodeData.moveSequence || [];
+    const isWhiteMove = moveSequence.length % 2 === 0;
+    strokeConfig = isWhiteMove
+      ? RENDER_CONFIG.NODE_TEXT_STROKES.whiteMove
+      : RENDER_CONFIG.NODE_TEXT_STROKES.blackMove;
+  }
+
+  // Apply stroke configuration
+  ctx.strokeStyle = strokeConfig.stroke;
+  ctx.lineWidth = strokeConfig.width;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.textAlign = 'center';

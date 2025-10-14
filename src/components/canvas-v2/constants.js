@@ -83,10 +83,54 @@ export const RENDER_CONFIG = {
     GAME_COUNT_DIVISOR: 25,
   },
 
-  // Text stroke
-  TEXT_STROKE_WIDTH: {
-    BLACK_TEXT: 2,
-    WHITE_TEXT: 3,
+  // Text stroke - Unified width with node-specific configs
+  TEXT_STROKE_WIDTH: 2, // Consistent width for all text
+
+  // Node-type specific stroke configurations
+  NODE_TEXT_STROKES: {
+    // Study mode strokes
+    startNode: {
+      stroke: 'rgba(0, 0, 0, 0.4)',  // Semi-transparent black on orange background
+      width: 2
+    },
+    whiteMove: {
+      stroke: 'rgba(0, 0, 0, 0.08)', // Very subtle black stroke on white background
+      width: 1
+    },
+    blackMove: {
+      stroke: 'rgba(255, 255, 255, 0.15)', // Subtle white stroke on near-black background
+      width: 2
+    },
+
+    // Performance mode strokes
+    excellent: {
+      stroke: 'rgba(0, 0, 0, 0.3)',  // Semi-transparent black on green
+      width: 2
+    },
+    good: {
+      stroke: 'rgba(0, 0, 0, 0.25)', // Semi-transparent black on blue
+      width: 2
+    },
+    solid: {
+      stroke: 'rgba(0, 0, 0, 0.4)',  // Semi-transparent black on orange
+      width: 2
+    },
+    challenging: {
+      stroke: 'rgba(0, 0, 0, 0.35)', // Semi-transparent black on yellow-orange
+      width: 2
+    },
+    difficult: {
+      stroke: 'rgba(255, 255, 255, 0.2)', // Subtle white on red
+      width: 2
+    },
+    missing: {
+      stroke: 'rgba(0, 0, 0, 0.2)',  // Subtle black on gray
+      width: 1.5
+    },
+    root: {
+      stroke: 'rgba(0, 0, 0, 0.4)',  // Same as solid (orange background)
+      width: 2
+    }
   },
 
   // Font sizes for different elements
