@@ -7,18 +7,19 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { PrimaryGradientButton } from '@/components/ui/gradient-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Tags, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Loader2, 
+import {
+  Tags,
+  Plus,
+  Edit,
+  Trash2,
   Save,
   X,
-  Palette
+  Palette,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { studyTag } from '@/api/hybridEntities';
@@ -293,23 +294,14 @@ export default function TagManagementDialog({
               </div>
             </div>
             
-            <Button
+            <PrimaryGradientButton
               onClick={handleCreateTag}
-              disabled={loading || !newTagName.trim()}
-              className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
+              disabled={!newTagName.trim()}
+              loading={loading}
             >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create Tag
-                </>
-              )}
-            </Button>
+              <Plus className="w-4 h-4 mr-2" />
+              Create Tag
+            </PrimaryGradientButton>
           </div>
 
           {/* Existing Tags */}

@@ -496,13 +496,13 @@ const CanvasGraph = ({
 
       {/* Initialization Loading Overlay */}
       {(canvasState.isInitializing || canvasState.positionedNodes.length === 0 || (!canvasState.isInitialPositioningComplete && canvasState.positionedNodes.length > 0) || dimensions.width === 0 || dimensions.height === 0 || !canvasState.transform || !canvasState.hasValidTransform) && !isGenerating && (
-        <div className="absolute inset-0 bg-slate-900 flex items-center justify-center z-20">
+        <div className="absolute inset-0 bg-background flex items-center justify-center z-20">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mb-4 mx-auto"></div>
-            <div className="text-slate-200 text-base font-medium">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-info mb-4 mx-auto"></div>
+            <div className="text-foreground text-base font-medium">
               Positioning Graph
             </div>
-            <div className="text-slate-400 text-sm">
+            <div className="text-muted-foreground text-sm">
               Setting up optimal view...
             </div>
           </div>
@@ -511,14 +511,14 @@ const CanvasGraph = ({
 
       {/* Autofit Loading Overlay */}
       {isAutoFitPending && !canvasState.isInitializing && canvasState.positionedNodes.length > 0 && (
-        <div className="absolute inset-0 bg-slate-900/20 backdrop-blur-[1px] flex items-center justify-center z-15 transition-opacity duration-200">
-          <div className="bg-slate-800/90 backdrop-blur-sm rounded-lg px-6 py-4 shadow-xl border border-slate-700/50">
+        <div className="absolute inset-0 bg-background/20 backdrop-blur-[1px] flex items-center justify-center z-15 transition-opacity duration-200">
+          <div className="bg-card/90 backdrop-blur-sm rounded-lg px-6 py-4 shadow-xl border border-border/50">
             <div className="flex items-center gap-3">
               <div className="relative">
-                <div className="animate-spin rounded-full h-8 w-8 border-2 border-slate-600"></div>
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-400 absolute inset-0"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-2 border-border"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-info absolute inset-0"></div>
               </div>
-              <div className="text-slate-200 text-sm font-medium">
+              <div className="text-foreground text-sm font-medium">
                 Adjusting view...
               </div>
             </div>

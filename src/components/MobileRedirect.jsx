@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Shield, Monitor, Play, ExternalLink, Smartphone, DollarSign, Code, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PrimaryGradientButton } from '@/components/ui/gradient-button';
+import { BrandIcon, BrandText } from '@/components/ui/brand-icon';
 
 export function MobileRedirect() {
   const [isMobile, setIsMobile] = useState(false);
@@ -40,13 +42,9 @@ export function MobileRedirect() {
       <div className="mobile-redirect-container min-h-screen flex flex-col items-center justify-center px-4 py-8">
         {/* Logo and Title */}
         <div className="flex flex-col items-center mb-6">
-          <div className="w-20 h-20 bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mb-4">
-            <Shield className="w-12 h-12 text-slate-900" />
-          </div>
+          <BrandIcon size="lg" className="mb-4" />
           <h1 className="text-3xl font-bold text-center">
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">
-              ChessScope
-            </span>
+            <BrandText />
           </h1>
           <p className="text-muted-foreground text-center mt-2 text-sm">
             Advanced chess game analysis and performance tracking
@@ -137,8 +135,8 @@ export function MobileRedirect() {
           </div>
 
           {/* CTA Button */}
-          <Button 
-            className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold"
+          <PrimaryGradientButton
+            className="w-full font-semibold"
             onClick={() => {
               // Option to copy link or share
               if (navigator.share) {
@@ -155,7 +153,7 @@ export function MobileRedirect() {
           >
             <ExternalLink className="w-4 h-4 mr-2" />
             Share to Desktop
-          </Button>
+          </PrimaryGradientButton>
         </div>
 
         {/* Desktop Reminder */}

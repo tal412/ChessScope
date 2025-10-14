@@ -123,9 +123,9 @@ export const RENDER_CONFIG = {
 // =============================================================================
 
 export const SHADOW_CONFIG = {
-  SELECTED_COLOR: 'rgba(236, 72, 153, 1.0)', // Pink glow
+  SELECTED_COLOR: 'rgba(59, 130, 246, 1.0)', // Blue glow for current position
   INITIAL_MOVE_COLOR: 'rgba(249, 115, 22, 1.0)', // Orange glow
-  HOVERED_NEXT_MOVE_COLOR: 'rgba(59, 130, 246, 1.0)', // Blue glow
+  HOVERED_NEXT_MOVE_COLOR: 'rgba(236, 72, 153, 1.0)', // Pink glow for hovered move
   BLUR: 20,
   INTENSE_BLUR: 25,
   LAYERS: 8,

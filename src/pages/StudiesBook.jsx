@@ -1,9 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { PrimaryGradientButton } from '@/components/ui/gradient-button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { AppBar } from '@/components/ui/flexible-layout';
+import EmptyState from '@/components/ui/empty-state';
+import Spinner from '@/components/ui/spinner';
+import BrandIcon from '@/components/ui/brand-icon';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -373,10 +377,10 @@ export default function StudiesBook() {
       
       // Navigate to editor with the real study ID
       navigate(`/studies-book/editor/${savedStudy.id}`);
-      
+
       // Refresh studies list to show the new study
-      fetchStudies();
-      
+      await loadStudies();
+
     } catch (error) {
       console.error('📋 StudiesBook: Failed to create study:', error);
       alert('Failed to create study. Please try again.');
@@ -753,10 +757,10 @@ export default function StudiesBook() {
   // Show loading screen only when actually loading studies (not during authentication)
   if ((isAuthLoading && !isSigningIn && !firebaseUser) || (isLoadingStudies && firebaseUser)) {
     return (
-      <div className="h-screen w-full bg-background dark:bg-slate-900 flex items-center justify-center">
+      <div className="h-screen w-full bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="relative mb-8">
-            <div className="animate-spin rounded-full h-20 w-20 border-4 border-border border-t-primary mx-auto"></div>
+            <Spinner size="xl" variant="circle" color="primary" center />
             <div className="absolute inset-0 rounded-full bg-purple-500/10 blur-lg"></div>
           </div>
           <div className="space-y-3">
@@ -777,7 +781,7 @@ export default function StudiesBook() {
   // Firebase Auth Prompt for Studies (show when not signed in, regardless of loading states)
   if (!firebaseUser) {
     return (
-      <div className="min-h-screen flex flex-col bg-background dark:bg-slate-900">
+      <div className="min-h-screen flex flex-col bg-background">
         <AppBar
           title="Studies Book"
           icon={BookOpen}
@@ -791,9 +795,7 @@ export default function StudiesBook() {
               {authMethod === null && (
                 <div className="bg-card border border-border rounded-xl p-8 space-y-6">
                   <div className="space-y-4 text-center">
-                    <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto">
-                      <BookOpen className="w-10 h-10 text-background" />
-                    </div>
+                    <BrandIcon icon={BookOpen} size="md" className="mx-auto" />
                     <h2 className="text-2xl font-bold text-card-foreground">
                       Sign in to Studies
                     </h2>
@@ -818,7 +820,7 @@ export default function StudiesBook() {
                     >
                       {isSigningIn ? (
                         <>
-                          <Loader2 className="w-5 h-5 mr-3 animate-spin" />
+                          <Spinner size="sm" className="mr-3" />
                           Signing in...
                         </>
                       ) : (
@@ -852,9 +854,7 @@ export default function StudiesBook() {
               {authMethod === 'email' && (
                 <div className="bg-card border border-border rounded-xl p-8 space-y-6">
                   <div className="space-y-4 text-center">
-                    <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center mx-auto">
-                      <BookOpen className="w-10 h-10 text-background" />
-                    </div>
+                    <BrandIcon icon={BookOpen} size="md" className="mx-auto" />
                     <h2 className="text-2xl font-bold text-card-foreground">
                       Email Authentication
                     </h2>
@@ -888,7 +888,7 @@ export default function StudiesBook() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col bg-background dark:bg-slate-900">
+    <div className="min-h-screen flex flex-col bg-background">
 
       {/* Clean AppBar */}
       <AppBar
@@ -924,13 +924,12 @@ export default function StudiesBook() {
               </FolderCreateDialog>
             )}
             <StudyDetailsDialog onConfirm={handleCreateStudy}>
-              <Button
+              <PrimaryGradientButton
                 size="sm"
-                className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white"
               >
                 <Plus className="w-4 h-4 mr-2" />
                 New Study
-              </Button>
+              </PrimaryGradientButton>
             </StudyDetailsDialog>
           </div>
         }
@@ -983,10 +982,10 @@ export default function StudiesBook() {
                   title="Create Your First Study"
                   confirmText="Create Study"
                 >
-                  <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white">
+                  <PrimaryGradientButton>
                     <Plus className="w-4 h-4 mr-2" />
                     Create Your First Study
-                  </Button>
+                  </PrimaryGradientButton>
                 </StudyDetailsDialog>
                 <FolderCreateDialog onCreateFolder={handleCreateFolder}>
                   <Button variant="outline" className="border-border text-foreground hover:bg-accent">

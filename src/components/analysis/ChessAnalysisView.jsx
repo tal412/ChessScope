@@ -104,8 +104,6 @@ const ChessAnalysisView = ({
   className = "",
   ...additionalProps
 }) => {
-  // Debug: Log when graphData changes
-  console.log('📊 ChessAnalysisView received graphData with', graphData?.nodes?.length || 0, 'nodes');
   
   // Initialize shared state
   const [layoutInfo, setLayoutInfo] = useState({});
@@ -316,7 +314,6 @@ const ChessAnalysisView = ({
       
       // Always call onCurrentMovesChange to ensure parent components update
       if (onCurrentMovesChange) {
-        console.log('🔙 Calling onCurrentMovesChange with newPath:', newPath);
         onCurrentMovesChange(newPath);
       }
       
@@ -355,15 +352,13 @@ const ChessAnalysisView = ({
   
   const handleMovesReset = useCallback(() => {
     const newPath = [];
-    console.log('🔄 handleMovesReset: resetting to empty path, mode:', mode);
-    
+
     // Always update the path and sync to chessboard first
     setMovesCurrentPath(newPath);
     chessboardSync.syncMovesToChessboard(newPath);
     
     // Always call onCurrentMovesChange to ensure parent components update
     if (onCurrentMovesChange) {
-      console.log('🔄 Calling onCurrentMovesChange with empty path');
       onCurrentMovesChange(newPath);
     }
     
@@ -389,11 +384,8 @@ const ChessAnalysisView = ({
   
   // Moves integration handlers
   const handleMovesCurrentMovesChange = useCallback((moves) => {
-    console.log('📝 handleMovesCurrentMovesChange called with moves:', moves);
-    
     // IMMEDIATE UPDATE: Update movesCurrentPath synchronously first
     setMovesCurrentPath([...moves]);
-    console.log('📝 Immediately updated movesCurrentPath to:', moves);
     
     // Check if moves are different from current chessboard state
     const currentMoves = chessboardSync.currentMoves || [];
@@ -413,23 +405,7 @@ const ChessAnalysisView = ({
         });
         
         if (targetNode && targetNode.data.fen && canvasRef.current) {
-          console.log('🎯 Found exact graph node for sequence:', targetNode.data.san, 'nodeId:', targetNode.id);
           canvasRef.current.setCurrentNode(targetNode.id, targetNode.data.fen, 'click');
-          console.log('🎯 setCurrentNode called successfully');
-        } else {
-          console.log('❌ No target node found for moves:', moves);
-          
-          // Debug: Show first few nodes to understand the structure
-          console.log('🔍 Total graph nodes count:', graphData.nodes.length);
-          console.log('🔍 Available graph nodes (first 5):');
-          graphData.nodes.slice(0, 5).forEach(node => {
-            console.log('  Node:', node.id, 'moveSequence:', node.data.moveSequence, 'san:', node.data.san);
-          });
-          console.log('🔍 Graph data structure:', {
-            nodesCount: graphData.nodes.length,
-            edgesCount: graphData.edges?.length || 0,
-            maxGameCount: graphData.maxGameCount
-          });
           
           // Try to find the longest matching prefix in the graph
           let bestMatch = null;
@@ -515,7 +491,6 @@ const ChessAnalysisView = ({
         const currentNode = graphData.nodes.find(node => node.id === currentCanvasNodeId);
         if (currentNode && currentNode.data.moveSequence) {
           currentPath = currentNode.data.moveSequence;
-          console.log('🎯 Using canvas-derived path:', currentPath);
         }
       }
     }
@@ -523,11 +498,9 @@ const ChessAnalysisView = ({
     // Strategy 2: Use the most up-to-date state sources as fallback
     if (currentPath.length === 0) {
       currentPath = movesCurrentPath || chessboardSync.currentMoves || [];
-      console.log('🎯 Using state-derived path:', currentPath);
     }
     
     const nextMovePath = [...currentPath, moveData.san];
-    console.log('🖱️  Current path:', currentPath, 'Next path:', nextMovePath);
     
     const hoveredNode = graphData.nodes.find(node => {
       const nodeMoves = node.data.moveSequence || [];
@@ -536,24 +509,8 @@ const ChessAnalysisView = ({
     });
     
     if (hoveredNode && canvasRef.current) {
-      console.log('🖱️  Found hovered node:', hoveredNode.id);
       canvasRef.current.setHoveredNextMoveNode(hoveredNode.id);
     } else {
-      console.log('🖱️  No hovered node found, clearing. Searched for path:', nextMovePath);
-      
-      // Debug: Show what nodes we have that might be close
-      if (nextMovePath.length > 0) {
-        const possibleNodes = graphData.nodes.filter(node => {
-          const nodeMoves = node.data.moveSequence || [];
-          return nodeMoves.length > 0 && nodeMoves[0] === nextMovePath[0]; // Same first move
-        }).slice(0, 3);
-        console.log('🔍 Similar nodes (same first move):', possibleNodes.map(n => ({
-          id: n.id, 
-          moveSequence: n.data.moveSequence, 
-          san: n.data.san
-        })));
-      }
-      
       // Clear any existing hovered next move if no matching node is found
       if (canvasRef.current) {
         canvasRef.current.clearHoveredNextMoveNode();
@@ -564,13 +521,11 @@ const ChessAnalysisView = ({
   // Re-process highlighting when movesCurrentPath changes (after move clicks)
   useEffect(() => {
     if (currentHoveredMoveData) {
-      console.log('🔄 Re-processing hover after state update for:', currentHoveredMoveData.san);
       processHoverHighlighting(currentHoveredMoveData);
     }
   }, [movesCurrentPath, processHoverHighlighting]);
   
   const handleMovesMoveHover = useCallback((moveData) => {
-    console.log('🖱️  handleMovesMoveHover called with:', moveData?.san);
     setMovesHoveredMove(moveData);
     setCurrentHoveredMoveData(moveData);
     
@@ -626,8 +581,6 @@ const ChessAnalysisView = ({
   
   // Chessboard handlers
   const handleChessboardMoveSelect = useCallback((moves) => {
-    console.log('🎯 handleChessboardMoveSelect called with moves:', moves);
-    
     // Always sync moves to chessboard and update current path - this should never fail
     chessboardSync.syncMovesToChessboard(moves);
     setMovesCurrentPath([...moves]);
@@ -646,31 +599,23 @@ const ChessAnalysisView = ({
       });
       
       if (targetNode && targetNode.data.fen && canvasRef.current) {
-        console.log('🎯 Setting current node in chessboard handler:', targetNode.id, 'for moves:', moves);
         canvasRef.current.setCurrentNode(targetNode.id, targetNode.data.fen, 'click');
-      } else {
-        console.log('❌ No target node in chessboard handler for moves:', moves);
       }
     }
   }, [chessboardSync, onCurrentMovesChange, graphData.nodes, mode, graphData]);
 
   const handleChessboardMove = useCallback((moves) => {
-    console.log('🏁 handleChessboardMove called with moves:', moves, 'mode:', mode);
-    
     // Always update the current path first to ensure navigation works for any sequence
     setMovesCurrentPath([...moves]);
-    
+
     if (onNewMove) {
-      console.log('🏁 Calling onNewMove with moves:', moves);
       onNewMove(moves);
       
       // For opening modes, also call onCurrentMovesChange to ensure consistency
       if ((mode === 'opening-editor' || mode === 'opening-viewer') && onCurrentMovesChange) {
-        console.log('🏁 Calling onCurrentMovesChange for opening mode with moves:', moves);
         onCurrentMovesChange(moves);
       }
     } else {
-      console.log('🏁 No onNewMove provided, treating as move selection');
       // If no onNewMove handler, treat this as a move selection
       handleChessboardMoveSelect(moves);
     }
@@ -746,7 +691,6 @@ const ChessAnalysisView = ({
       !currentMoves.every((move, index) => move === chessboardSync.currentMoves[index]);
     
     if (chessboardNeedsUpdate) {
-      console.log('[ChessAnalysisView] Syncing moves to chessboard:', currentMoves);
       chessboardSync.syncMovesToChessboard(currentMoves);
       setMovesCurrentPath([...currentMoves]);
       lastSyncedMovesRef.current = [...currentMoves];
@@ -946,7 +890,6 @@ const ChessAnalysisView = ({
                       variant="outline"
                       onClick={() => {
                         const newMode = canvasMode === 'study' ? 'performance' : 'study';
-                        console.log('🎯 Canvas mode toggle clicked: switching from', canvasMode, 'to', newMode);
                         onCanvasModeChange(newMode);
                       }}
                       className={`${canvasMode === 'performance' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-secondary border-border text-secondary-foreground hover:bg-accent'} group transition-all duration-100`}

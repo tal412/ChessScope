@@ -23,6 +23,8 @@ import { cn } from "@/lib/utils";
 import { SettingsLoading } from "@/components/ui/settings-loading";
 import SyncingOverlay from "@/components/ui/syncing-overlay";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import BrandIcon from "@/components/ui/brand-icon";
+import Spinner from "@/components/ui/spinner";
 
 function createPageUrl(name) {
   return `/${name}`;
@@ -258,13 +260,11 @@ export default function Layout() {
       }`}>
         <div className="flex h-full">
           {/* Sidebar */}
-          <div className={`bg-white dark:bg-slate-800 border-r border-sidebar-border h-full flex flex-col justify-between transition-[width] duration-300 relative z-20 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`} id="app-sidebar">
+          <div className={`bg-sidebar border-r border-sidebar-border h-full flex flex-col justify-between transition-[width] duration-300 relative z-20 ${isSidebarCollapsed ? 'w-20' : 'w-64'}`} id="app-sidebar">
             <div>
               <div className={`p-4 border-b border-sidebar-border ${isSidebarCollapsed ? 'h-[89px] flex items-center justify-center' : 'p-6'}`}>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gradient-to-r from-amber-400 to-orange-500 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <Shield className="w-6 h-6 text-background" />
-                  </div>
+                  <BrandIcon size="sm" />
                   {!isSidebarCollapsed && (
                     <div>
                       <h1 className="text-xl font-bold text-sidebar-foreground">ChessScope</h1>
@@ -400,7 +400,7 @@ export default function Layout() {
                       className={`border-sidebar-border text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-[transform] duration-200 ${isSidebarCollapsed ? 'px-3' : 'justify-start'}`}
                     >
                       {isSyncing ? (
-                        <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                        <Spinner size="sm" className="flex-shrink-0" />
                       ) : (
                         <RefreshCw className="w-4 h-4 flex-shrink-0" />
                       )}
@@ -477,7 +477,7 @@ export default function Layout() {
                       className={`border-sidebar-border text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-[transform] duration-200 ${isSidebarCollapsed ? 'px-3' : 'justify-start'}`}
                     >
                       {isLoggingOut ? (
-                        <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" />
+                        <Spinner size="sm" className="flex-shrink-0" />
                       ) : (
                         <LogOut className="w-4 h-4 flex-shrink-0" />
                       )}
@@ -881,7 +881,7 @@ export default function Layout() {
 
             {/* Validation */}
             {settingsError && (
-              <Alert className="bg-red-500/10 border-red-500/50">
+              <Alert className="status-error border">
                 <AlertCircle className="h-4 w-4 text-red-400" />
                 <AlertDescription className="text-red-300">
                   {settingsError}
@@ -925,11 +925,11 @@ export default function Layout() {
               <AlertDialogAction 
                 onClick={handleLogout}
                 disabled={isLoggingOut}
-                className="bg-red-600 hover:bg-red-700 text-white disabled:opacity-50"
+                className="bg-error hover:bg-error/90 text-error-foreground disabled:opacity-50"
               >
                 {isLoggingOut ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    <Spinner size="sm" className="mr-2" />
                     Logging out...
                   </>
                 ) : (

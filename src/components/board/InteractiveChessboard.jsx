@@ -1337,7 +1337,7 @@ export default function InteractiveChessboard({
         className={`w-full h-full flex flex-col ${boardClassName}`}
       >
         {!useStyledHeader && (
-            <div className="bg-card/30 dark:bg-zinc-800/40 backdrop-blur-sm border-b border-border/20 dark:border-zinc-700/30 pb-2 px-4 pt-3 flex-shrink-0">
+            <div className="bg-card/30 backdrop-blur-sm border-b border-border/20 pb-2 px-4 pt-3 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex-1 min-w-0">
                   {/* Fixed height container for opening title - always reserves space for 2 lines */}
@@ -1507,7 +1507,7 @@ export default function InteractiveChessboard({
 
         {/* Move Navigation */}
         {(
-        <div data-nav-section className="flex-shrink-0 bg-card/20 dark:bg-zinc-800/30 backdrop-blur-sm border-t border-border/20 dark:border-zinc-700/30 px-4 py-3">
+        <div data-nav-section className="flex-shrink-0 bg-card/20 backdrop-blur-sm border-t border-border/20 px-4 py-3">
           <div className="flex items-center justify-between gap-2">
             {/* Left spacer for balance */}
             <div className="w-8"></div>
@@ -1580,31 +1580,31 @@ export default function InteractiveChessboard({
 
         {/* Move List or Drawing Mode UI - Minimalist design */}
         {!hideMovesHistory && (
-        <div data-move-list className="flex-shrink-0 bg-background/80 dark:bg-zinc-900/60 backdrop-blur-sm border-t border-border/20 dark:border-zinc-700/20 px-4 py-3 min-h-[80px] max-h-[100px] overflow-hidden">
+        <div data-move-list className="flex-shrink-0 bg-background/80 backdrop-blur-sm border-t border-border/20 px-4 py-3 min-h-[80px] max-h-[100px] overflow-hidden">
           {drawingMode ? (
             /* Drawing Mode UI */
             <div className="h-full flex flex-col justify-center">
               <div className="flex items-center gap-2 mb-2">
-                <div className="w-2 h-2 bg-green-500 animate-pulse rounded-full"></div>
+                <div className="w-2 h-2 bg-success animate-pulse rounded-full"></div>
                 <span className="text-xs font-medium text-foreground">Drawing Mode Active</span>
               </div>
               <div className="text-xs text-muted-foreground">
                 <div className="mb-1">Right-click drag for arrows:</div>
                 <div className="flex items-center justify-between">
-                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'green' ? 'bg-green-500/10' : ''}`}>
-                    <div className="w-2 h-0.5 bg-green-500 rounded-full"></div>
+                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'green' ? 'bg-success/10' : ''}`}>
+                    <div className="w-2 h-0.5 bg-success rounded-full"></div>
                     <span className="text-xs">None</span>
                   </div>
-                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'red' ? 'bg-red-500/10' : ''}`}>
-                    <div className="w-2 h-0.5 bg-red-500 rounded-full"></div>
+                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'red' ? 'bg-error/10' : ''}`}>
+                    <div className="w-2 h-0.5 bg-error rounded-full"></div>
                     <span className="text-xs">SHIFT</span>
                   </div>
-                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'blue' ? 'bg-blue-500/10' : ''}`}>
-                    <div className="w-2 h-0.5 bg-blue-500 rounded-full"></div>
+                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'blue' ? 'bg-info/10' : ''}`}>
+                    <div className="w-2 h-0.5 bg-info rounded-full"></div>
                     <span className="text-xs">ALT/CMD</span>
                   </div>
-                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'yellow' ? 'bg-yellow-500/10' : ''}`}>
-                    <div className="w-2 h-0.5 bg-yellow-500 rounded-full"></div>
+                  <div className={`flex items-center gap-1 px-1 py-0.5 rounded transition-colors ${getCurrentArrowColor() === 'yellow' ? 'bg-warning/10' : ''}`}>
+                    <div className="w-2 h-0.5 bg-warning rounded-full"></div>
                     <span className="text-xs">SHIFT+ALT/CMD</span>
                   </div>
                 </div>

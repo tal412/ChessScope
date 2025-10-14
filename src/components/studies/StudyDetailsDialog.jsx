@@ -9,10 +9,11 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { PrimaryGradientButton, GreenGradientButton } from '@/components/ui/gradient-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Crown, Shield, Edit, Plus, Loader2, BookOpen, X, Tags } from 'lucide-react';
+import { Crown, Shield, Edit, Plus, BookOpen, X, Tags } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { studyTag } from '@/api/hybridEntities';
 
@@ -212,10 +213,10 @@ export default function StudyDetailsDialog({
   };
 
   const triggerElement = trigger || (
-    <Button className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white">
+    <PrimaryGradientButton>
       <Plus className="w-4 h-4 mr-2" />
       Add Study
-    </Button>
+    </PrimaryGradientButton>
   );
 
   return (
@@ -438,16 +439,16 @@ export default function StudyDetailsDialog({
                     </Badge>
                   </div>
                   <div className="flex gap-2">
-                    <Button
+                    <GreenGradientButton
                       type="button"
                       size="sm"
                       onClick={handleCreateNewTag}
-                      disabled={loading || !newTagName.trim()}
-                      className="bg-green-600 hover:bg-green-700 text-white"
+                      disabled={!newTagName.trim()}
+                      loading={loading}
                     >
                       <Plus className="w-3 h-3 mr-1" />
                       Create
-                    </Button>
+                    </GreenGradientButton>
                     <Button
                       type="button"
                       size="sm"
@@ -527,28 +528,15 @@ export default function StudyDetailsDialog({
           >
             Cancel
           </Button>
-          <Button
+          <PrimaryGradientButton
             onClick={handleConfirm}
-            disabled={loading || !name.trim() || fenError}
-            className={cn(
-              "flex-1 text-white transition-all duration-200",
-              loading || !name.trim() || fenError
-                ? "bg-transparent border border-gray-300 dark:border-slate-600 text-gray-400 dark:text-slate-500 cursor-not-allowed"
-                : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
-            )}
+            disabled={!name.trim() || fenError}
+            loading={loading}
+            className="flex-1"
           >
-            {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <ConfirmIcon className="w-4 h-4 mr-2" />
-                {confirmText}
-              </>
-            )}
-          </Button>
+            <ConfirmIcon className="w-4 h-4 mr-2" />
+            {loading ? 'Creating...' : confirmText}
+          </PrimaryGradientButton>
         </div>
       </DialogContent>
     </Dialog>

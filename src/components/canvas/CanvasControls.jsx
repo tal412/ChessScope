@@ -75,7 +75,7 @@ const CanvasControls = ({
               variant="outline" 
               size="sm" 
               onClick={onZoomToAll}
-              className="bg-slate-700 border-slate-600 text-slate-200 hover:bg-slate-600"
+              className="bg-card border-border text-card-foreground hover:bg-accent hover:text-accent-foreground"
               title="Fit graph to view"
               disabled={isGenerating || isCanvasInteractionBlocked()}
             >
@@ -90,7 +90,7 @@ const CanvasControls = ({
                 variant="outline" 
                 size="sm" 
                 onClick={onToggleOpeningClusters}
-                className={`${showOpeningClusters ? 'bg-purple-600 border-purple-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
+                className={`${showOpeningClusters ? 'bg-purple-600 border-purple-500' : 'bg-card border-border'} text-card-foreground group transition-all duration-100`}
                 title="Toggle Opening Clusters"
                 disabled={isCanvasInteractionBlocked()}
               >
@@ -104,7 +104,7 @@ const CanvasControls = ({
               variant="outline" 
               size="sm" 
               onClick={onTogglePositionClusters}
-              className={`${showPositionClusters ? 'bg-orange-600 border-orange-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
+              className={`${showPositionClusters ? 'bg-orange-600 border-orange-500' : 'bg-card border-border'} text-card-foreground group transition-all duration-100`}
               title="Toggle Position Clusters (Current Move)"
               disabled={isCanvasInteractionBlocked()}
             >
@@ -117,7 +117,7 @@ const CanvasControls = ({
               variant="outline" 
               size="sm" 
               onClick={onToggleAutoZoomOnClick}
-              className={`${autoZoomOnClick ? 'bg-blue-600 border-blue-500' : 'bg-slate-700 border-slate-600'} text-slate-200 group transition-all duration-100`}
+              className={`${autoZoomOnClick ? 'bg-info border-info' : 'bg-card border-border'} text-card-foreground group transition-all duration-100`}
               title="Auto Zoom on Click"
               disabled={isCanvasInteractionBlocked()}
             >
@@ -133,16 +133,16 @@ const CanvasControls = ({
         <div className="absolute bottom-4 right-4 space-y-4 max-w-sm pointer-events-auto z-[150]">
           {/* Controls Card - positioned above the button */}
           {showPerformanceControls && onShowPerformanceControls && (
-            <Card className="bg-slate-800/95 border-slate-700 backdrop-blur-medium-optimized shadow-xl pointer-events-auto">
+            <Card className="bg-card/95 border-border backdrop-blur-medium-optimized shadow-xl pointer-events-auto">
               <CardHeader className="pb-3">
-                <CardTitle className="text-slate-200 text-lg flex items-center gap-2">
+                <CardTitle className="text-card-foreground text-lg flex items-center gap-2">
                   <Target className="w-5 h-5" />
                   Controls
                   <Button 
                     variant="ghost" 
                     size="sm" 
                     onClick={() => onShowPerformanceControls(false)}
-                    className="ml-auto text-slate-400 hover:text-slate-200 hover:bg-slate-700/50 p-1"
+                    className="ml-auto text-muted-foreground hover:text-foreground hover:bg-accent p-1"
                     title="Hide controls"
                     disabled={isCanvasInteractionBlocked()}
                   >
@@ -155,11 +155,11 @@ const CanvasControls = ({
                 <div className="space-y-4">
                   {/* Max Depth */}
                   <div>
-                    <label className="text-slate-400 text-xs block mb-1">Max Depth</label>
+                    <label className="text-muted-foreground text-xs block mb-1">Max Depth</label>
                     <select 
                       value={maxDepth} 
                       onChange={(e) => onMaxDepthChange && onMaxDepthChange(Number(e.target.value))}
-                      className={`w-full px-2 py-1 rounded ${(isGenerating || isCanvasInteractionBlocked()) ? 'bg-slate-800 border-slate-700 text-slate-500 cursor-not-allowed' : 'bg-slate-700 border-slate-600 text-slate-200'}`}
+                      className={`w-full px-2 py-1 rounded ${(isGenerating || isCanvasInteractionBlocked()) ? 'bg-muted border-border text-muted-foreground cursor-not-allowed' : 'bg-secondary border-border text-secondary-foreground'}`}
                       disabled={isGenerating || isCanvasInteractionBlocked() || !onMaxDepthChange}
                     >
                       {[5, 10, 15, 20, 25, 30].map(d => (
@@ -169,12 +169,12 @@ const CanvasControls = ({
                   </div>
                   
                   {/* Min Games Slider */}
-                  <div className="space-y-3 bg-slate-700/30 p-3 rounded-lg border border-slate-600/50">
+                  <div className="space-y-3 bg-secondary/30 p-3 rounded-lg border border-border/50">
                     <div className="flex justify-between items-center">
-                      <label className="text-slate-200 text-xs font-medium">
+                      <label className="text-card-foreground text-xs font-medium">
                         Min Games Filter
                       </label>
-                      <span className="text-green-300 text-xs font-mono bg-slate-600/50 px-2 py-1 rounded">
+                      <span className="text-success text-xs font-mono bg-secondary/50 px-2 py-1 rounded">
                         {tempMinGameCount}+ games
                       </span>
                     </div>
@@ -187,32 +187,32 @@ const CanvasControls = ({
                         min={1}
                         max={25}
                         step={1}
-                        className="w-full pointer-events-auto [&_[role=slider]]:bg-green-500 [&_[role=slider]]:border-green-400 [&_[role=slider]]:shadow-lg [&_.bg-primary]:bg-gradient-to-r [&_.bg-primary]:from-green-500 [&_.bg-primary]:to-green-600 [&_.bg-slate-200]:bg-slate-600/80"
+                        className="w-full pointer-events-auto [&_[role=slider]]:bg-success [&_[role=slider]]:border-success [&_[role=slider]]:shadow-lg [&_.bg-primary]:bg-gradient-to-r [&_.bg-primary]:from-success [&_.bg-primary]:to-success [&_.bg-secondary]:bg-secondary/80"
                         disabled={isGenerating || isCanvasInteractionBlocked() || !onTempMinGameCountChange}
                       />
                       
                       <div className="flex justify-between text-xs">
-                        <span className="text-slate-400">1 game</span>
-                        <span className="text-slate-400">8 games</span>
-                        <span className="text-slate-400">17 games</span>
-                        <span className="text-slate-400">25 games</span>
+                        <span className="text-muted-foreground">1 game</span>
+                        <span className="text-muted-foreground">8 games</span>
+                        <span className="text-muted-foreground">17 games</span>
+                        <span className="text-muted-foreground">25 games</span>
                       </div>
                     </div>
                     
                     {/* Explanation */}
-                    <div className="text-xs text-slate-400 leading-relaxed">
+                    <div className="text-xs text-muted-foreground leading-relaxed">
                       Only shows moves with at least this many games.
                     </div>
                   </div>
                 </div>
 
                 {/* Controls Row 2 - Win Rate Range Filter */}
-                <div className="space-y-3 bg-slate-700/30 p-3 rounded-lg border border-slate-600/50">
+                <div className="space-y-3 bg-secondary/30 p-3 rounded-lg border border-border/50">
                   <div className="flex justify-between items-center">
-                    <label className="text-slate-200 text-xs font-medium">
+                    <label className="text-card-foreground text-xs font-medium">
                       Win Rate Range Filter
                     </label>
-                    <span className="text-blue-300 text-xs font-mono bg-slate-600/50 px-2 py-1 rounded">
+                    <span className="text-info text-xs font-mono bg-secondary/50 px-2 py-1 rounded">
                       {tempWinRateFilter[0]}% - {tempWinRateFilter[1]}%
                     </span>
                   </div>
@@ -225,25 +225,25 @@ const CanvasControls = ({
                         min={0}
                         max={100}
                         step={5}
-                        className="w-full [&_[role=slider]]:bg-blue-500 [&_[role=slider]]:border-blue-400 [&_[role=slider]]:shadow-lg [&_.bg-primary]:bg-gradient-to-r [&_.bg-primary]:from-blue-500 [&_.bg-primary]:to-blue-600 [&_.bg-slate-200]:bg-slate-600/80"
+                        className="w-full [&_[role=slider]]:bg-info [&_[role=slider]]:border-info [&_[role=slider]]:shadow-lg [&_.bg-primary]:bg-gradient-to-r [&_.bg-primary]:from-info [&_.bg-primary]:to-info [&_.bg-secondary]:bg-secondary/80"
                         disabled={isGenerating || isCanvasInteractionBlocked() || !onTempWinRateFilterChange}
                       />
                       {/* Performance zone indicators on the slider track */}
                       <div className="absolute top-2 left-0 right-0 flex justify-between pointer-events-none">
-                        <div className="w-px h-2 bg-red-400/60"></div>
+                        <div className="w-px h-2 bg-error/60"></div>
                         <div className="w-px h-2 bg-orange-400/60"></div>
-                        <div className="w-px h-2 bg-amber-400/60"></div>
+                        <div className="w-px h-2 bg-warning/60"></div>
                         <div className="w-px h-2 bg-cyan-400/60"></div>
-                        <div className="w-px h-2 bg-green-400/60"></div>
+                        <div className="w-px h-2 bg-success/60"></div>
                       </div>
                     </div>
                     
                     <div className="flex justify-between text-xs">
-                      <span className="text-red-300 font-medium">0%</span>
-                      <span className="text-orange-300 font-medium">25%</span>
-                      <span className="text-amber-300 font-medium">50%</span>
-                      <span className="text-cyan-300 font-medium">75%</span>
-                      <span className="text-green-300 font-medium">100%</span>
+                      <span className="text-error font-medium">0%</span>
+                      <span className="text-orange-400 font-medium">25%</span>
+                      <span className="text-warning font-medium">50%</span>
+                      <span className="text-cyan-400 font-medium">75%</span>
+                      <span className="text-success font-medium">100%</span>
                     </div>
                   </div>
                   
@@ -251,13 +251,13 @@ const CanvasControls = ({
                     size="sm" 
                     onClick={onApplyWinRateFilter}
                     disabled={isGenerating || isCanvasInteractionBlocked() || !onApplyWinRateFilter || (tempWinRateFilter[0] === winRateFilter[0] && tempWinRateFilter[1] === winRateFilter[1])}
-                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-slate-600 disabled:to-slate-700 disabled:cursor-not-allowed text-white font-medium shadow-lg transition-all duration-200"
+                    className="w-full bg-gradient-blue hover:bg-gradient-blue-hover disabled:from-muted disabled:to-muted disabled:cursor-not-allowed text-white font-medium shadow-lg transition-all duration-200"
                   >
                     Apply Filter ({tempWinRateFilter[0]}% - {tempWinRateFilter[1]}%)
                   </Button>
                   
                   {(winRateFilter[0] !== 0 || winRateFilter[1] !== 100) && (
-                    <div className="text-xs text-center bg-blue-500/20 text-blue-300 px-2 py-1 rounded border border-blue-500/30">
+                    <div className="text-xs text-center bg-info/20 text-info px-2 py-1 rounded border border-info/30">
                       Active Filter: {winRateFilter[0]}% - {winRateFilter[1]}%
                     </div>
                   )}
@@ -271,7 +271,7 @@ const CanvasControls = ({
             {!showPerformanceControls && onShowPerformanceControls && (
               <Button
                 onClick={() => onShowPerformanceControls(true)}
-                className="bg-slate-800/95 border border-slate-700 text-slate-200 hover:bg-slate-700/95 pointer-events-auto relative z-10 group transition-all duration-100"
+                className="bg-card/95 border border-border text-card-foreground hover:bg-accent hover:text-accent-foreground pointer-events-auto relative z-10 group transition-all duration-100"
                 size="sm"
                 style={{ pointerEvents: 'auto' }}
                 title="Show Controls"
@@ -288,14 +288,14 @@ const CanvasControls = ({
       {/* Zoom indicator with keyboard shortcut */}
       {shouldShowControls && transform && (
         <div className="absolute bottom-4 left-4 pointer-events-auto">
-          <div className="bg-slate-800/90 border border-slate-700 text-slate-200 px-3 py-2 rounded text-xs backdrop-blur-sm shadow-lg group transition-all duration-100">
+          <div className="bg-card/90 border border-border text-card-foreground px-3 py-2 rounded text-xs backdrop-blur-sm shadow-lg group transition-all duration-100">
             <div className="flex items-center gap-2">
               <ZoomIn className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
               <span>{Math.round(transform.scale * 100)}%</span>
-              <span className="text-slate-500 hidden group-hover:inline transition-opacity duration-100">
-                <kbd className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 font-mono text-xs">R</kbd>
+              <span className="text-muted-foreground hidden group-hover:inline transition-opacity duration-100">
+                <kbd className="px-1 py-0.5 bg-secondary border border-border rounded text-secondary-foreground font-mono text-xs">R</kbd>
                 <span className="mx-1">or</span>
-                <span className="px-1 py-0.5 bg-slate-700 border border-slate-600 rounded text-slate-300 text-xs">MMB</span>
+                <span className="px-1 py-0.5 bg-secondary border border-border rounded text-secondary-foreground text-xs">MMB</span>
                 <span className="mx-1">–</span>
                 Fit
               </span>

@@ -177,9 +177,6 @@ class FirestoreService {
       if ('position' in studyData) updateData.position = studyData.position;
       if ('moveTree' in studyData) updateData.moveTree = studyData.moveTree || null;
 
-      console.log('FirestoreService.updateStudy - Input data:', studyData);
-      console.log('FirestoreService.updateStudy - Mapped data:', updateData);
-
       await updateDoc(studyDocRef, updateData);
       
       // Return the updated document
@@ -221,26 +218,17 @@ class FirestoreService {
 
   async getStudyById(studyId) {
     try {
-      console.log('[FirestoreService.getStudyById] Called with studyId:', studyId, 'type:', typeof studyId);
-      console.log('[FirestoreService.getStudyById] Current user ID:', this.currentUserId);
-      
       const studyIdString = String(studyId);
-      console.log('[FirestoreService.getStudyById] Converted studyId to string:', studyIdString);
-      
+
       const studyRef = await this.getUserDoc('user_studies', studyIdString);
-      console.log('[FirestoreService.getStudyById] Created document reference');
-      
+
       const snapshot = await getDoc(studyRef);
-      console.log('[FirestoreService.getStudyById] Document exists?', snapshot.exists());
-      
+
       if (snapshot.exists()) {
         const data = snapshot.data();
-        console.log('[FirestoreService.getStudyById] Document data:', data);
         const result = { id: snapshot.id, ...data };
-        console.log('[FirestoreService.getStudyById] Returning result:', result);
         return result;
       }
-      console.log('[FirestoreService.getStudyById] Document not found, returning null');
       return null;
     } catch (error) {
       console.error('[FirestoreService.getStudyById] Error getting study by ID:', error);

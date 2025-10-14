@@ -218,11 +218,8 @@ function PagesContent() {
     useEffect(() => {
         const handlePlatformExitComplete = () => {
             const eventTime = performance.now();
-            console.log('🏠 [INDEX] platformPageExitComplete event received at', new Date().toLocaleTimeString());
-            console.log('🏠 [INDEX] waitingForPlatformExit:', waitingForPlatformExit);
             
             if (waitingForPlatformExit) {
-                console.log('🏠 [INDEX] Starting blank screen phase');
                 
                 // Platform page exit animation is complete, show blank screen
                 setIsExiting(false);
@@ -231,13 +228,10 @@ function PagesContent() {
                 
                 // Use requestAnimationFrame to ensure blank screen renders before continuing
                 requestAnimationFrame(() => {
-                    console.log('🏠 [INDEX] Blank screen rendered, starting final pause');
                     
                     // After blank screen pause, show the authenticated view
                     setTimeout(() => {
                         const blankScreenEndTime = performance.now();
-                        console.log('🏠 [INDEX] Blank screen pause ended after', Math.round(blankScreenEndTime - eventTime), 'ms');
-                        console.log('🏠 [INDEX] Showing authenticated view');
                         
                         setShowBlankScreen(false);
                         setShowAuthenticated(true);
@@ -245,11 +239,9 @@ function PagesContent() {
                         // Log the total time from import start to final view
                         if (window.importFlowStartTime) {
                             const totalTime = performance.now() - window.importFlowStartTime;
-                            console.log('🏆 [IMPORT-FLOW] TOTAL TIME from import start to authenticated view:', Math.round(totalTime), 'ms');
                         }
                         
                         setTimeout(() => {
-                            console.log('🏠 [INDEX] Transition complete - setIsTransitioning(false)');
                             setIsTransitioning(false);
                         }, 100); // Small delay for entrance animation to start
                     }, 1200); // Longer blank screen pause to make it very obvious
@@ -266,7 +258,6 @@ function PagesContent() {
     
     useEffect(() => {
         if (prevImporting.current === true && isImporting === false && isAuthenticated) {
-            console.log('📥 [INDEX] Import just completed! Setting justCompletedImport=true');
             setJustCompletedImport(true);
             
             // Clear this flag after a short delay to prevent it from affecting future logic
@@ -280,25 +271,16 @@ function PagesContent() {
 
     // Handle authentication transition with proper exit/enter animation
     useEffect(() => {
-        console.log('🏠 [INDEX] Auth transition effect triggered:', {
-            isAuthenticated,
-            showAuthenticated,
-            isTransitioning,
-            isImporting,
-            justCompletedImport
-        });
         
         if (isAuthenticated && !showAuthenticated && !isTransitioning) {
             // Check if user just completed import or is currently importing
             if (isImporting || justCompletedImport) {
-                console.log('🏠 [INDEX] User authenticated from import completion - starting transition sequence');
                 // User just finished importing - start exit animation for platform page and wait for completion
                 setIsExiting(true);
                 setIsTransitioning(true);
                 setWaitingForPlatformExit(true);
                 // The actual transition will happen when we receive the 'platformPageExitComplete' event
             } else {
-                console.log('🏠 [INDEX] User already authenticated (page refresh) - showing main app immediately');
                 // User is already authenticated (e.g., page refresh) - show main app immediately
                 setShowAuthenticated(true);
                 setIsTransitioning(false);
@@ -307,7 +289,6 @@ function PagesContent() {
                 setShowBlankScreen(false);
             }
         } else if (!isAuthenticated && showAuthenticated) {
-            console.log('🏠 [INDEX] User logged out - resetting all states');
             // Reset when user logs out
             setShowAuthenticated(false);
             setIsTransitioning(false);

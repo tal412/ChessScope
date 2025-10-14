@@ -110,20 +110,12 @@ export class UserStudy extends HybridModel {
   }
 
   async getById(id) {
-    console.log('[UserStudy.getById] Called with id:', id, 'type:', typeof id);
-    console.log('[UserStudy.getById] Is Google signed in?', isGoogleSignedIn());
-    
     if (isGoogleSignedIn()) {
-      console.log('[UserStudy.getById] Using Firestore backend');
       const result = await firestoreService.getStudyById(id);
-      console.log('[UserStudy.getById] Firestore result:', result);
       const transformed = result ? this.transformFromFirestore(result) : null;
-      console.log('[UserStudy.getById] Transformed result:', transformed);
       return transformed;
     } else {
-      console.log('[UserStudy.getById] Using local storage backend');
       const result = await this.localModel.getById(id);
-      console.log('[UserStudy.getById] Local storage result:', result);
       return result;
     }
   }
@@ -178,17 +170,12 @@ export class UserStudy extends HybridModel {
   }
 
   async update(id, data) {
-    console.log('UserStudy.update called with:', { id, data });
     if (isGoogleSignedIn()) {
-      console.log('Using Firestore backend');
       const transformedData = this.transformToFirestore(data);
-      console.log('Transformed data for Firestore:', transformedData);
       const result = await firestoreService.updateStudy(id, transformedData);
       const finalResult = this.transformFromFirestore(result);
-      console.log('UserStudy.update result:', finalResult);
       return finalResult;
     } else {
-      console.log('Using local storage backend');
       return await this.localModel.update(id, data);
     }
   }

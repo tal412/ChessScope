@@ -121,6 +121,14 @@ button:focus-visible {
     --column-secondary: 210 20% 95%;
     --column-tertiary: 220 15% 93%;
     --column-border: 210 15% 88%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 98%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 98%;
+    --error: 0 72% 51%;
+    --error-foreground: 0 0% 98%;
   }
   
   .light {
@@ -167,10 +175,18 @@ button:focus-visible {
     --column-secondary: 210 20% 95%;
     --column-tertiary: 220 15% 93%;
     --column-border: 210 15% 88%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 98%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 98%;
+    --info: 217 91% 60%;
+    --info-foreground: 0 0% 98%;
+    --error: 0 72% 51%;
+    --error-foreground: 0 0% 98%;
   }
   
   .dark {
-    --background: 0 0% 3.9%;
+    --background: 217 33% 17%;
     --foreground: 0 0% 98%;
     --card: 217 33% 17%;
     --card-foreground: 0 0% 98%;
@@ -211,6 +227,14 @@ button:focus-visible {
     --column-secondary: 220 25% 8%;
     --column-tertiary: 220 30% 12%;
     --column-border: 220 25% 15%;
+    --success: 142 71% 45%;
+    --success-foreground: 0 0% 3.9%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 3.9%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 3.9%;
+    --error: 0 72% 51%;
+    --error-foreground: 0 0% 98%;
   }
 }
 
@@ -232,9 +256,9 @@ button:focus-visible {
     background: linear-gradient(to bottom right, #f1f5f9, #e2e8f0, #f1f5f9) !important;
   }
   
-  /* Dark theme background - darker than cards and sidebar for better separation */
+  /* Dark theme background - blueish dark gradient for better visual comfort */
   .dark html, .dark body, .dark #root {
-    background: linear-gradient(to bottom right, #020617, #0f172a, #020617) !important;
+    background: linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a) !important;
   }
   
   /* Only apply overflow hidden to the main app layout, not landing page */
