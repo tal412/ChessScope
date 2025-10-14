@@ -2,6 +2,7 @@
 // This provides the same API as firestoreEntities but stores data locally
 
 import { normalizeFen } from '../utils/chessUtils.js';
+import { TAG_COLORS } from '../constants/colors.js';
 
 // Helper to generate unique IDs
 const generateId = () => `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -236,12 +237,12 @@ export class LocalStudyTag extends BaseLocalModel {
 
   async createDefault() {
     const defaultTags = [
-      { name: 'Opening', color: '#22c55e' },
-      { name: 'Middlegame', color: '#3b82f6' },
-      { name: 'Endgame', color: '#f59e0b' },
-      { name: 'Tactics', color: '#ef4444' },
-      { name: 'Strategy', color: '#8b5cf6' },
-      { name: 'Defense', color: '#06b6d4' }
+      { name: 'Opening', color: TAG_COLORS[2].value },      // Green
+      { name: 'Middlegame', color: TAG_COLORS[1].value },   // Blue
+      { name: 'Endgame', color: TAG_COLORS[3].value },      // Amber
+      { name: 'Tactics', color: TAG_COLORS[1].value },      // Red
+      { name: 'Strategy', color: TAG_COLORS[4].value },     // Purple
+      { name: 'Defense', color: TAG_COLORS[5].value }       // Cyan
     ];
 
     const existingTags = await this.getAll();

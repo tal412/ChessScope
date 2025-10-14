@@ -1,21 +1,22 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { 
-  RENDER_CONFIG, 
-  CANVAS_CONFIG, 
-  OPENING_CLUSTER_COLORS, 
+import {
+  RENDER_CONFIG,
+  CANVAS_CONFIG,
+  OPENING_CLUSTER_COLORS,
   POSITION_CLUSTER_COLORS,
   SHADOW_CONFIG,
   CLUSTER_CONFIG
 } from '../constants.js';
-import { 
-  getPerformanceData, 
-  getOpeningNodeColor, 
-  createConvexHull, 
+import {
+  getPerformanceData,
+  getOpeningNodeColor,
+  createConvexHull,
   createSmoothPath,
   hexToRgb,
   drawIcon,
   drawChainLinkIcon
 } from '../utils.js';
+import { getCanvasColor, isColorDark } from '@/utils/themeColors';
 
 /**
  * Hook for managing canvas rendering
@@ -195,8 +196,8 @@ export const useCanvasRendering = ({
         if (mode === 'opening') {
           // Opening mode edge rendering
           const isMainLine = source.data.isMainLine && target.data.isMainLine;
-          
-          ctx.strokeStyle = isMainLine ? '#8b5cf6' : '#64748b';
+
+          ctx.strokeStyle = isMainLine ? getCanvasColor('cluster1') : getCanvasColor('mutedForeground');
           ctx.lineWidth = isMainLine ? 3 : 2;
           ctx.lineCap = 'round';
           ctx.globalAlpha = isMainLine ? 1 : 0.7;
@@ -333,8 +334,8 @@ export const useCanvasRendering = ({
       ctx.beginPath();
       ctx.roundRect(x, y, node.width, node.height, CLUSTER_CONFIG.CORNER_RADIUS);
       ctx.fill();
-      
-      ctx.strokeStyle = '#f97316'; // Orange-500
+
+      ctx.strokeStyle = getCanvasColor('warning'); // Orange for initial move
       ctx.lineWidth = 6;
       ctx.stroke();
       
@@ -408,11 +409,13 @@ export const useCanvasRendering = ({
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     const textColor = nodeColor.text;
-    
-    // Text stroke for better readability
-    const isBlackText = textColor === '#000000' || textColor === '#000';
-    ctx.strokeStyle = isBlackText ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
-    ctx.lineWidth = isBlackText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
+
+    // Text stroke for better readability - theme-aware
+    const isDarkText = isColorDark(textColor);
+    ctx.strokeStyle = isDarkText
+      ? getCanvasColor('card', 0.8)          // Light stroke for dark text
+      : getCanvasColor('foreground', 0.8);   // Dark stroke for light text
+    ctx.lineWidth = isDarkText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
 
@@ -443,18 +446,21 @@ export const useCanvasRendering = ({
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.shadowBlur = 0;
-    
+
     const textColor = perfData.text;
-    const isBlackText = textColor === '#000000' || textColor === '#000';
+    const isDarkText = isColorDark(textColor);
     const isMissingNode = node.data.isMissing;
-    
-    // Special handling for missing nodes - stronger black stroke for better visibility
+
+    // Theme-aware text strokes for better readability
     if (isMissingNode) {
-      ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)'; // Fully opaque black stroke
+      // Missing nodes use stronger stroke for visibility
+      ctx.strokeStyle = getCanvasColor('foreground', 1.0);
       ctx.lineWidth = 4; // Thicker stroke for missing nodes
     } else {
-      ctx.strokeStyle = isBlackText ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
-      ctx.lineWidth = isBlackText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
+      ctx.strokeStyle = isDarkText
+        ? getCanvasColor('card', 0.8)          // Light stroke for dark text
+        : getCanvasColor('foreground', 0.8);   // Dark stroke for light text
+      ctx.lineWidth = isDarkText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
     }
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
@@ -515,14 +521,14 @@ export const useCanvasRendering = ({
     uniqueColors.forEach((color, index) => {
       ctx.save();
       ctx.fillStyle = color;
-      ctx.strokeStyle = '#ffffff';
+      ctx.strokeStyle = getCanvasColor('card');
       ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.arc(circleX, circleY, circleSize / 2, 0, 2 * Math.PI);
       ctx.fill();
       ctx.stroke();
       ctx.restore();
-      
+
       circleX += circleSpacing;
     });
   }, []);
@@ -543,7 +549,9 @@ export const useCanvasRendering = ({
     const iconY = centerY + RENDER_CONFIG.OFFSETS.ANNOTATION_Y;
     
     const nodeBackgroundColor = nodeColor.bg;
-    const iconColor = nodeBackgroundColor === '#ffffff' ? '#000000' : '#ffffff';
+    const cardColor = getCanvasColor('card');
+    const foregroundColor = getCanvasColor('foreground');
+    const iconColor = nodeBackgroundColor === cardColor ? foregroundColor : cardColor;
     
     ctx.shadowBlur = 0;
     ctx.shadowOffsetX = 0;

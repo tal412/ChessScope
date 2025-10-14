@@ -86,11 +86,11 @@ const CanvasControls = ({
 
             {/* Show opening cluster controls only when clustering is enabled */}
             {enableOpeningClusters && (
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={onToggleOpeningClusters}
-                className={`${showOpeningClusters ? 'bg-purple-600 border-purple-500' : 'bg-card border-border'} text-card-foreground group transition-all duration-100`}
+                className={`${showOpeningClusters ? 'bg-primary border-primary' : 'bg-card border-border'} text-card-foreground group transition-all duration-100`}
                 title="Toggle Opening Clusters"
                 disabled={isCanvasInteractionBlocked()}
               >
@@ -100,11 +100,11 @@ const CanvasControls = ({
             )}
 
             {/* Show position cluster controls in both modes */}
-            <Button 
-              variant="outline" 
-              size="sm" 
+            <Button
+              variant="outline"
+              size="sm"
               onClick={onTogglePositionClusters}
-              className={`${showPositionClusters ? 'bg-orange-600 border-orange-500' : 'bg-card border-border'} text-card-foreground group transition-all duration-100`}
+              className={`${showPositionClusters ? 'bg-warning border-warning' : 'bg-card border-border'} text-card-foreground group transition-all duration-100`}
               title="Toggle Position Clusters (Current Move)"
               disabled={isCanvasInteractionBlocked()}
             >
@@ -231,18 +231,18 @@ const CanvasControls = ({
                       {/* Performance zone indicators on the slider track */}
                       <div className="absolute top-2 left-0 right-0 flex justify-between pointer-events-none">
                         <div className="w-px h-2 bg-error/60"></div>
-                        <div className="w-px h-2 bg-orange-400/60"></div>
+                        <div className="w-px h-2 bg-[hsl(var(--canvas-bad))]/60"></div>
                         <div className="w-px h-2 bg-warning/60"></div>
-                        <div className="w-px h-2 bg-cyan-400/60"></div>
+                        <div className="w-px h-2 bg-[hsl(var(--canvas-good))]/60"></div>
                         <div className="w-px h-2 bg-success/60"></div>
                       </div>
                     </div>
-                    
+
                     <div className="flex justify-between text-xs">
                       <span className="text-error font-medium">0%</span>
-                      <span className="text-orange-400 font-medium">25%</span>
+                      <span className="text-[hsl(var(--canvas-bad))] font-medium">25%</span>
                       <span className="text-warning font-medium">50%</span>
-                      <span className="text-cyan-400 font-medium">75%</span>
+                      <span className="text-[hsl(var(--canvas-good))] font-medium">75%</span>
                       <span className="text-success font-medium">100%</span>
                     </div>
                   </div>
@@ -306,10 +306,10 @@ const CanvasControls = ({
 
       {/* Context menu indicator - only show when context menu actions are available and not in performance mode */}
       {shouldShowControls && contextMenuActions && contextMenuActions.length > 0 && mode !== 'performance' && (
-        <div className="absolute bottom-4 right-4 bg-gradient-to-r from-amber-900/30 to-orange-900/30 border border-amber-500/50 text-amber-200 px-3 py-2 rounded text-xs pointer-events-none backdrop-blur-sm shadow-lg">
+        <div className="absolute bottom-4 right-4 bg-warning/10 border border-warning/50 text-warning px-3 py-2 rounded text-xs pointer-events-none backdrop-blur-sm shadow-lg">
           <div className="flex items-center gap-2">
-            <span className="text-amber-300">
-              <span className="px-1 py-0.5 bg-amber-700/50 border border-amber-500/50 rounded text-amber-100 text-xs">Right&nbsp;Click</span>
+            <span className="text-warning">
+              <span className="px-1 py-0.5 bg-warning/30 border border-warning/50 rounded text-warning text-xs">Right&nbsp;Click</span>
               <span className="mx-1">–</span>
               Delete Move
             </span>

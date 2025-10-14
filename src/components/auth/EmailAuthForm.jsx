@@ -138,40 +138,40 @@ const EmailAuthForm = ({ onSuccess }) => {
     return (
       <div className="space-y-4">
         <div className="text-center">
-          <h3 className="text-lg font-semibold text-white mb-2">Reset Password</h3>
-          <p className="text-sm text-gray-400">
+          <h3 className="text-lg font-semibold text-foreground mb-2">Reset Password</h3>
+          <p className="text-sm text-muted-foreground">
             Enter your email address and we'll send you a link to reset your password.
           </p>
         </div>
         
         <form onSubmit={handlePasswordReset} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="reset-email" className="text-white">Email</Label>
+            <Label htmlFor="reset-email" className="text-foreground">Email</Label>
             <div className="relative">
-              <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
               <Input
                 id="reset-email"
                 type="email"
                 value={resetEmail}
                 onChange={(e) => setResetEmail(e.target.value)}
                 placeholder="your@email.com"
-                className="pl-10 bg-slate-800 border-slate-700 text-white placeholder:text-gray-500"
+                className="pl-10 bg-input border-input text-foreground placeholder:text-muted-foreground"
                 disabled={isResetting}
               />
             </div>
           </div>
           
           {error && (
-            <Alert className="bg-red-900/20 border-red-800">
-              <AlertCircle className="h-4 w-4 text-red-500" />
-              <AlertDescription className="text-red-400">{error}</AlertDescription>
+            <Alert className="bg-destructive/10 border-destructive">
+              <AlertCircle className="h-4 w-4 text-destructive" />
+              <AlertDescription className="text-destructive">{error}</AlertDescription>
             </Alert>
           )}
-          
+
           {success && (
-            <Alert className="bg-green-900/20 border-green-800">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-              <AlertDescription className="text-green-400">{success}</AlertDescription>
+            <Alert className="bg-success/10 border-success">
+              <CheckCircle className="h-4 w-4 text-success" />
+              <AlertDescription className="text-success">{success}</AlertDescription>
             </Alert>
           )}
           
@@ -180,14 +180,14 @@ const EmailAuthForm = ({ onSuccess }) => {
               type="button"
               variant="outline"
               onClick={() => setShowForgotPassword(false)}
-              className="flex-1 bg-transparent border-slate-700 text-white hover:bg-slate-800"
+              className="flex-1"
               disabled={isResetting}
             >
               Back to Sign In
             </Button>
             <Button
               type="submit"
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white"
+              className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
               disabled={isResetting}
             >
               {isResetting ? (
@@ -208,11 +208,11 @@ const EmailAuthForm = ({ onSuccess }) => {
   return (
     <div className="w-full max-w-sm mx-auto space-y-4">
       <Tabs value={activeTab} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-2 bg-slate-800">
-          <TabsTrigger value="signin" className="data-[state=active]:bg-slate-700">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="signin">
             Sign In
           </TabsTrigger>
-          <TabsTrigger value="signup" className="data-[state=active]:bg-slate-700">
+          <TabsTrigger value="signup">
             Sign Up
           </TabsTrigger>
         </TabsList>
@@ -220,32 +220,32 @@ const EmailAuthForm = ({ onSuccess }) => {
         <TabsContent value="signin" className="space-y-4">
           <form onSubmit={handleSignIn} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="signin-email" className="text-white">Email</Label>
+              <Label htmlFor="signin-email" className="text-foreground">Email</Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="signin-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
-                  className="pl-10 bg-slate-800 border-slate-700 text-white placeholder:text-gray-500"
+                  className="pl-10 bg-input border-input text-foreground placeholder:text-muted-foreground"
                   disabled={isSigningIn}
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="signin-password" className="text-white">Password</Label>
+              <Label htmlFor="signin-password" className="text-foreground">Password</Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="signin-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="pl-10 bg-slate-800 border-slate-700 text-white placeholder:text-gray-500"
+                  className="pl-10 bg-input border-input text-foreground placeholder:text-muted-foreground"
                   disabled={isSigningIn}
                 />
               </div>
@@ -255,23 +255,23 @@ const EmailAuthForm = ({ onSuccess }) => {
               <button
                 type="button"
                 onClick={() => setShowForgotPassword(true)}
-                className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
+                className="text-sm text-primary hover:text-primary/90 transition-colors"
               >
                 Forgot password?
               </button>
             </div>
             
             {error && (
-              <Alert className="bg-red-900/20 border-red-800">
-                <AlertCircle className="h-4 w-4 text-red-500" />
-                <AlertDescription className="text-red-400">{error}</AlertDescription>
+              <Alert className="bg-destructive/10 border-destructive">
+                <AlertCircle className="h-4 w-4 text-destructive" />
+                <AlertDescription className="text-destructive">{error}</AlertDescription>
               </Alert>
             )}
-            
+
             {success && (
-              <Alert className="bg-green-900/20 border-green-800">
-                <CheckCircle className="h-4 w-4 text-green-500" />
-                <AlertDescription className="text-green-400">{success}</AlertDescription>
+              <Alert className="bg-success/10 border-success">
+                <CheckCircle className="h-4 w-4 text-success" />
+                <AlertDescription className="text-success">{success}</AlertDescription>
               </Alert>
             )}
             
@@ -279,7 +279,7 @@ const EmailAuthForm = ({ onSuccess }) => {
               <Button
                 type="submit"
                 size="lg"
-                className="bg-blue-600 hover:bg-blue-700 text-white w-64"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground w-64"
                 disabled={isSigningIn}
               >
               {isSigningIn ? (
@@ -301,75 +301,75 @@ const EmailAuthForm = ({ onSuccess }) => {
         <TabsContent value="signup" className="space-y-4">
           <form onSubmit={handleSignUp} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="signup-name" className="text-white">
-                Display Name <span className="text-gray-500">(optional)</span>
+              <Label htmlFor="signup-name" className="text-foreground">
+                Display Name <span className="text-muted-foreground">(optional)</span>
               </Label>
               <div className="relative">
-                <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="signup-name"
                   type="text"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
                   placeholder="Your Name"
-                  className="pl-10 bg-slate-800 border-slate-700 text-white placeholder:text-gray-500"
+                  className="pl-10 bg-input border-input text-foreground placeholder:text-muted-foreground"
                   disabled={isSigningUp}
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="signup-email" className="text-white">
-                Email <span className="text-red-500">*</span>
+              <Label htmlFor="signup-email" className="text-foreground">
+                Email <span className="text-destructive">*</span>
               </Label>
               <div className="relative">
-                <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="signup-email"
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="your@email.com"
-                  className="pl-10 bg-slate-800 border-slate-700 text-white placeholder:text-gray-500"
+                  className="pl-10 bg-input border-input text-foreground placeholder:text-muted-foreground"
                   disabled={isSigningUp}
                   required
                 />
               </div>
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="signup-password" className="text-white">
-                Password <span className="text-red-500">*</span>
+              <Label htmlFor="signup-password" className="text-foreground">
+                Password <span className="text-destructive">*</span>
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="signup-password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="pl-10 bg-slate-800 border-slate-700 text-white placeholder:text-gray-500"
+                  className="pl-10 bg-input border-input text-foreground placeholder:text-muted-foreground"
                   disabled={isSigningUp}
                   required
                 />
               </div>
-              <p className="text-xs text-gray-500">Must be at least 6 characters</p>
+              <p className="text-xs text-muted-foreground">Must be at least 6 characters</p>
             </div>
-            
+
             <div className="space-y-2">
-              <Label htmlFor="signup-confirm" className="text-white">
-                Confirm Password <span className="text-red-500">*</span>
+              <Label htmlFor="signup-confirm" className="text-foreground">
+                Confirm Password <span className="text-destructive">*</span>
               </Label>
               <div className="relative">
-                <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="signup-confirm"
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="pl-10 bg-slate-800 border-slate-700 text-white placeholder:text-gray-500"
+                  className="pl-10 bg-input border-input text-foreground placeholder:text-muted-foreground"
                   disabled={isSigningUp}
                   required
                 />
@@ -377,16 +377,16 @@ const EmailAuthForm = ({ onSuccess }) => {
             </div>
             
             {error && (
-              <Alert className="bg-red-900/20 border-red-800">
-                <AlertCircle className="h-4 w-4 text-red-500" />
-                <AlertDescription className="text-red-400">{error}</AlertDescription>
+              <Alert className="bg-destructive/10 border-destructive">
+                <AlertCircle className="h-4 w-4 text-destructive" />
+                <AlertDescription className="text-destructive">{error}</AlertDescription>
               </Alert>
             )}
-            
+
             {success && (
-              <Alert className="bg-green-900/20 border-green-800">
-                <CheckCircle className="h-4 w-4 text-green-500" />
-                <AlertDescription className="text-green-400">{success}</AlertDescription>
+              <Alert className="bg-success/10 border-success">
+                <CheckCircle className="h-4 w-4 text-success" />
+                <AlertDescription className="text-success">{success}</AlertDescription>
               </Alert>
             )}
             
@@ -394,7 +394,7 @@ const EmailAuthForm = ({ onSuccess }) => {
               <Button
                 type="submit"
                 size="lg"
-                className="bg-green-600 hover:bg-green-700 text-white w-64"
+                className="bg-success hover:bg-success/90 text-primary-foreground w-64"
                 disabled={isSigningUp}
               >
               {isSigningUp ? (

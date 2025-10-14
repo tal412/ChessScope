@@ -69,7 +69,7 @@ export function ContextMenu({
   return (
     <div
       ref={contextMenuRef}
-      className="absolute bg-slate-800 border border-slate-600 rounded-lg shadow-xl z-50 py-1 min-w-[160px]"
+      className="absolute bg-card border border-border rounded-lg shadow-xl z-50 py-1 min-w-[160px]"
       style={{
         left: Math.min(contextMenu.x, dimensions.width - CANVAS_CONFIG.CONTEXT_MENU_OFFSET),
         top: Math.min(contextMenu.y, dimensions.height - (contextMenuActions.length * CANVAS_CONFIG.CONTEXT_MENU_ITEM_HEIGHT + CANVAS_CONFIG.CONTEXT_MENU_PADDING)),
@@ -77,16 +77,16 @@ export function ContextMenu({
     >
       {contextMenuActions.map((action, index) => {
         const isDisabled = action.disabled ? action.disabled(contextMenu.node) : false;
-        
+
         return (
           <button
             key={index}
             onClick={() => !isDisabled && onActionClick(action, contextMenu.node)}
             disabled={isDisabled}
             className={`w-full px-3 py-2 text-left text-sm flex items-center gap-2 transition-colors ${
-              isDisabled 
-                ? 'text-slate-500 cursor-not-allowed' 
-                : 'text-slate-200 hover:bg-slate-700 hover:text-white'
+              isDisabled
+                ? 'text-muted-foreground cursor-not-allowed'
+                : 'text-foreground hover:bg-accent hover:text-accent-foreground'
             }`}
           >
             {action.icon && <action.icon className="w-4 h-4" />}

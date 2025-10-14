@@ -266,8 +266,8 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
         <div className="w-full max-w-7xl">
           <div className="text-center mb-12">
             <div className="flex items-center justify-center mb-6">
-              <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center">
-                <Shield className="w-8 h-8 text-background" />
+              <div className="w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center">
+                <Shield className="w-8 h-8 text-primary-foreground" />
               </div>
             </div>
             <h1 className="text-4xl font-bold text-foreground mb-3">Connect Your {selectedPlatform === 'lichess' ? 'Lichess' : 'Chess.com'} Account</h1>
@@ -282,8 +282,8 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
               <Card className="bg-card border-border">
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
-                      <User className="w-5 h-5 text-white" />
+                    <div className="w-10 h-10 bg-info rounded-lg flex items-center justify-center">
+                      <User className="w-5 h-5 text-info-foreground" />
                     </div>
                     <div>
                       <CardTitle className="text-xl text-card-foreground">Connect Account</CardTitle>
@@ -321,7 +321,7 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
                   
                   <div className="bg-muted/30 p-4 rounded-lg border border-border/50">
                     <div className="flex items-start gap-3">
-                      <Shield className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                      <Shield className="w-5 h-5 text-success mt-0.5 flex-shrink-0" />
                       <div className="text-sm">
                         <p className="text-foreground font-medium mb-1">Secure & Private</p>
                         <p className="text-muted-foreground">
@@ -337,8 +337,8 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
               <Card className="bg-card border-border">
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
-                      <Settings className="w-5 h-5 text-white" />
+                    <div className="w-10 h-10 bg-[hsl(var(--cluster-1))] rounded-lg flex items-center justify-center">
+                      <Settings className="w-5 h-5 text-primary-foreground" />
                     </div>
                     <div>
                       <CardTitle className="text-xl text-card-foreground">Time Controls</CardTitle>
@@ -396,8 +396,8 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
               <Card className="bg-card border-border">
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
-                      <Globe className="w-5 h-5 text-white" />
+                    <div className="w-10 h-10 bg-success rounded-lg flex items-center justify-center">
+                      <Globe className="w-5 h-5 text-success-foreground" />
                     </div>
                     <div>
                       <CardTitle className="text-xl text-card-foreground">Import Settings</CardTitle>
@@ -465,7 +465,7 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
                                 variant="outline"
                                 className={cn(
                                   "w-full justify-start text-left font-normal bg-input border-border text-foreground hover:bg-muted",
-                                  !customDateRange.to && "text-slate-400"
+                                  !customDateRange.to && "text-muted-foreground"
                                 )}
                                 disabled={isImporting}
                               >
@@ -543,7 +543,7 @@ export default function InitialPlatformSelect({ isTransitioning = false }) {
                 {/* Fixed error area below button */}
                 <div className="h-6 flex items-center justify-center w-full">
                   {error && (
-                    <div className="flex items-center gap-1.5 text-red-400 text-sm animate-in slide-in-from-bottom-1 duration-200">
+                    <div className="flex items-center gap-1.5 text-destructive text-sm animate-in slide-in-from-bottom-1 duration-200">
                       <AlertCircle className="h-4 w-4 flex-shrink-0" />
                       <span>{error}</span>
                     </div>

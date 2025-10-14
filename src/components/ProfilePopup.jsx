@@ -45,49 +45,49 @@ const ProfilePopup = ({ isOpen, onOpenChange }) => {
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-slate-800/95 backdrop-blur-optimized border-slate-700/50 text-white max-w-3xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-card/95 backdrop-blur-optimized border-border text-card-foreground max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">Profile</DialogTitle>
-          <DialogDescription className="text-slate-400">
+          <DialogDescription className="text-muted-foreground">
             Manage your chess account connection.
           </DialogDescription>
         </DialogHeader>
 
         <div className="max-w-2xl mx-auto py-6">
           {/* Chess Account Info */}
-          <Card className="bg-slate-700/30 border-slate-600/50">
+          <Card className="bg-muted/30 border-border">
             <CardHeader className="pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-amber-600 rounded-lg flex items-center justify-center">
-                  <User className="w-5 h-5 text-white flex-shrink-0" />
+                <div className="w-10 h-10 bg-warning rounded-lg flex items-center justify-center">
+                  <User className="w-5 h-5 text-primary-foreground flex-shrink-0" />
                 </div>
                 <div>
-                  <CardTitle className="text-lg text-white">Chess Account</CardTitle>
-                  <p className="text-slate-400 text-sm">Connected platform account</p>
+                  <CardTitle className="text-lg text-foreground">Chess Account</CardTitle>
+                  <p className="text-muted-foreground text-sm">Connected platform account</p>
                 </div>
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               {user && (
                 <>
-                  <div className="flex items-center gap-3 p-3 bg-slate-600/30 rounded-lg border border-slate-600/50">
+                  <div className="flex items-center gap-3 p-3 bg-secondary/30 rounded-lg border border-border">
                     <div className="w-8 h-8 flex items-center justify-center">
                       {user.platform === 'lichess' ? (
-                        <img 
-                          src="/Lichess_Logo_2019.svg.png" 
-                          alt="Lichess" 
-                          className="w-6 h-6" 
+                        <img
+                          src="/Lichess_Logo_2019.svg.png"
+                          alt="Lichess"
+                          className="w-6 h-6"
                         />
                       ) : (
-                        <img 
-                          src="/chesscom_logo_pawn.svg" 
-                          alt="Chess.com" 
-                          className="w-6 h-6" 
+                        <img
+                          src="/chesscom_logo_pawn.svg"
+                          alt="Chess.com"
+                          className="w-6 h-6"
                         />
                       )}
                     </div>
                     <div className="flex-1">
-                      <p className="font-medium text-white">
+                      <p className="font-medium text-foreground">
                         {user.username || user.chessComUsername}
                       </p>
                       <div className="flex items-center gap-2">
@@ -100,19 +100,19 @@ const ProfilePopup = ({ isOpen, onOpenChange }) => {
 
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-400">Total Games:</span>
-                      <span className="text-white font-medium">{user.gameCount || 0}</span>
+                      <span className="text-muted-foreground">Total Games:</span>
+                      <span className="text-foreground font-medium">{user.gameCount || 0}</span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-slate-400">Last Game:</span>
-                      <span className="text-white font-medium">
+                      <span className="text-muted-foreground">Last Game:</span>
+                      <span className="text-foreground font-medium">
                         {formatLastOnline(user.lastGameTime || (user.platformUser || user.chessComUser)?.lastOnline)}
                       </span>
                     </div>
                     {user.lastSync && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-slate-400">Last Sync:</span>
-                        <span className="text-white font-medium">
+                        <span className="text-muted-foreground">Last Sync:</span>
+                        <span className="text-foreground font-medium">
                           {new Date(user.lastSync).toLocaleString()}
                         </span>
                       </div>

@@ -1,15 +1,16 @@
 import React, { useMemo } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Target, 
-  TrendingUp, 
-  TrendingDown, 
+import {
+  Target,
+  TrendingUp,
+  TrendingDown,
   BarChart3,
   Brain,
   Layers,
   Zap
 } from 'lucide-react';
+import { getCanvasColor } from '@/utils/themeColors';
 
 // Convex Hull algorithm (Graham Scan)
 const convexHull = (points) => {
@@ -133,42 +134,42 @@ const createSmoothPath = (points, padding = 50) => {
   return path;
 };
 
-// Color based on performance - ENHANCED VIBRANT COLORS (DBSCAN)
+// Color based on performance - Theme-aware (DBSCAN)
 const getDBSCANClusterColor = (avgWinRate) => {
-  if (avgWinRate >= 70) return '#10b981'; // Emerald - Good (more vibrant green)
-  if (avgWinRate >= 60) return '#06b6d4'; // Cyan - Decent (changed from lime to cyan for better contrast)
-  if (avgWinRate >= 50) return '#f59e0b'; // Amber - Average (more vibrant yellow/amber)
-  if (avgWinRate >= 40) return '#f97316'; // Orange - Below Average (kept vibrant orange)
-  return '#dc2626'; // Red - Poor (more vivid red)
+  if (avgWinRate >= 70) return getCanvasColor('canvasExcellent'); // Emerald - Good
+  if (avgWinRate >= 60) return getCanvasColor('canvasGood'); // Cyan - Decent
+  if (avgWinRate >= 50) return getCanvasColor('canvasSolid'); // Amber - Average
+  if (avgWinRate >= 40) return getCanvasColor('canvasChallenging'); // Orange - Below Average
+  return getCanvasColor('canvasDifficult'); // Red - Poor
 };
 
-// K-means specific colors based on cluster type
+// K-means specific colors based on cluster type - Theme-aware
 const getKMeansClusterColor = (clusterLabel, avgWinRate) => {
   // Predefined colors for common cluster types
   switch (clusterLabel) {
     case 'Win-Focused':
-      return '#10b981'; // Emerald green for win-focused positions
+      return getCanvasColor('canvasExcellent'); // Emerald green for win-focused positions
     case 'Loss-Prone':
-      return '#dc2626'; // Red for loss-prone positions
+      return getCanvasColor('canvasDifficult'); // Red for loss-prone positions
     case 'Draw-Heavy':
-      return '#8b5cf6'; // Purple for draw-heavy positions
+      return getCanvasColor('cluster1'); // Purple for draw-heavy positions
     case 'Strong':
-      return '#10b981'; // Emerald green for strong positions
+      return getCanvasColor('canvasExcellent'); // Emerald green for strong positions
     case 'Weak':
-      return '#dc2626'; // Red for weak positions
+      return getCanvasColor('canvasDifficult'); // Red for weak positions
     default:
       // Dynamic colors based on performance for k > 3
-      if (clusterLabel.includes('Excellence')) return '#10b981'; // Emerald
-      if (clusterLabel.includes('Strong')) return '#06b6d4'; // Cyan
-      if (clusterLabel.includes('Average')) return '#f59e0b'; // Amber
-      if (clusterLabel.includes('Weak')) return '#dc2626'; // Red
-      
+      if (clusterLabel.includes('Excellence')) return getCanvasColor('canvasExcellent'); // Emerald
+      if (clusterLabel.includes('Strong')) return getCanvasColor('canvasGood'); // Cyan
+      if (clusterLabel.includes('Average')) return getCanvasColor('canvasSolid'); // Amber
+      if (clusterLabel.includes('Weak')) return getCanvasColor('canvasDifficult'); // Red
+
       // Fallback: performance-based coloring
-      if (avgWinRate >= 70) return '#10b981'; // Emerald
-      if (avgWinRate >= 60) return '#06b6d4'; // Cyan
-      if (avgWinRate >= 50) return '#f59e0b'; // Amber
-      if (avgWinRate >= 40) return '#f97316'; // Orange
-      return '#dc2626'; // Red
+      if (avgWinRate >= 70) return getCanvasColor('canvasExcellent'); // Emerald
+      if (avgWinRate >= 60) return getCanvasColor('canvasGood'); // Cyan
+      if (avgWinRate >= 50) return getCanvasColor('canvasSolid'); // Amber
+      if (avgWinRate >= 40) return getCanvasColor('canvasChallenging'); // Orange
+      return getCanvasColor('canvasDifficult'); // Red
   }
 };
 
@@ -181,43 +182,43 @@ const getClusterColor = (cluster) => {
   }
 };
 
-// Add secondary colors for enhanced effects
+// Add secondary colors for enhanced effects - Theme-aware with reduced opacity
 const getClusterSecondaryColor = (cluster) => {
   const primaryColor = getClusterColor(cluster);
-  
+
   if (cluster.type === 'kmeans') {
     switch (cluster.label) {
       case 'Win-Focused':
-        return '#065f46'; // Darker emerald
+        return getCanvasColor('canvasExcellent', 0.7); // Darker emerald via opacity
       case 'Loss-Prone':
-        return '#991b1b'; // Darker red
+        return getCanvasColor('canvasDifficult', 0.7); // Darker red via opacity
       case 'Draw-Heavy':
-        return '#5b21b6'; // Darker purple
+        return getCanvasColor('cluster1', 0.7); // Darker purple via opacity
       case 'Strong':
-        return '#065f46'; // Darker emerald
+        return getCanvasColor('canvasExcellent', 0.7); // Darker emerald via opacity
       case 'Weak':
-        return '#991b1b'; // Darker red
+        return getCanvasColor('canvasDifficult', 0.7); // Darker red via opacity
       default:
         // Dynamic secondary colors
-        if (cluster.label.includes('Excellence')) return '#065f46'; // Darker emerald
-        if (cluster.label.includes('Strong')) return '#164e63'; // Darker cyan
-        if (cluster.label.includes('Average')) return '#92400e'; // Darker amber
-        if (cluster.label.includes('Weak')) return '#991b1b'; // Darker red
-        
+        if (cluster.label.includes('Excellence')) return getCanvasColor('canvasExcellent', 0.7); // Darker emerald
+        if (cluster.label.includes('Strong')) return getCanvasColor('canvasGood', 0.7); // Darker cyan
+        if (cluster.label.includes('Average')) return getCanvasColor('canvasSolid', 0.7); // Darker amber
+        if (cluster.label.includes('Weak')) return getCanvasColor('canvasDifficult', 0.7); // Darker red
+
         // Fallback based on performance
-        if (cluster.stats.avgWinRate >= 70) return '#065f46';
-        if (cluster.stats.avgWinRate >= 60) return '#164e63';
-        if (cluster.stats.avgWinRate >= 50) return '#92400e';
-        if (cluster.stats.avgWinRate >= 40) return '#9a3412';
-        return '#991b1b';
+        if (cluster.stats.avgWinRate >= 70) return getCanvasColor('canvasExcellent', 0.7);
+        if (cluster.stats.avgWinRate >= 60) return getCanvasColor('canvasGood', 0.7);
+        if (cluster.stats.avgWinRate >= 50) return getCanvasColor('canvasSolid', 0.7);
+        if (cluster.stats.avgWinRate >= 40) return getCanvasColor('canvasChallenging', 0.7);
+        return getCanvasColor('canvasDifficult', 0.7);
     }
   } else {
     // DBSCAN secondary colors
-    if (cluster.stats.avgWinRate >= 70) return '#065f46'; // Darker emerald
-    if (cluster.stats.avgWinRate >= 60) return '#164e63'; // Darker cyan  
-    if (cluster.stats.avgWinRate >= 50) return '#92400e'; // Darker amber
-    if (cluster.stats.avgWinRate >= 40) return '#9a3412'; // Darker orange
-    return '#991b1b'; // Darker red
+    if (cluster.stats.avgWinRate >= 70) return getCanvasColor('canvasExcellent', 0.7); // Darker emerald
+    if (cluster.stats.avgWinRate >= 60) return getCanvasColor('canvasGood', 0.7); // Darker cyan
+    if (cluster.stats.avgWinRate >= 50) return getCanvasColor('canvasSolid', 0.7); // Darker amber
+    if (cluster.stats.avgWinRate >= 40) return getCanvasColor('canvasChallenging', 0.7); // Darker orange
+    return getCanvasColor('canvasDifficult', 0.7); // Darker red
   }
 };
 
@@ -419,9 +420,9 @@ const ClusterInsightsPanel = ({ clusterAnalysis, position = 'top-right' }) => {
   };
 
   const getPerformanceIcon = (avgWinRate) => {
-    if (avgWinRate >= 70) return <TrendingUp className="w-4 h-4 text-green-400" />;
-    if (avgWinRate >= 50) return <BarChart3 className="w-4 h-4 text-yellow-400" />;
-    return <TrendingDown className="w-4 h-4 text-red-400" />;
+    if (avgWinRate >= 70) return <TrendingUp className="w-4 h-4 text-[hsl(var(--canvas-excellent))]" />;
+    if (avgWinRate >= 50) return <BarChart3 className="w-4 h-4 text-[hsl(var(--canvas-solid))]" />;
+    return <TrendingDown className="w-4 h-4 text-[hsl(var(--canvas-difficult))]" />;
   };
 
   return (
@@ -429,7 +430,7 @@ const ClusterInsightsPanel = ({ clusterAnalysis, position = 'top-right' }) => {
               <Card className="bg-card/95 border-border backdrop-blur-medium-optimized shadow-xl">
         <CardContent className="p-4">
           <div className="flex items-center gap-2 mb-3">
-            <Brain className="w-5 h-5 text-purple-400" />
+            <Brain className="w-5 h-5 text-[hsl(var(--cluster-1))]" />
             <h3 className="text-lg font-bold text-card-foreground">AI Pattern Analysis</h3>
           </div>
           
@@ -574,7 +575,7 @@ const ClusterOverlay = ({
                 y1={y1}
                 x2={x2}
                 y2={y2}
-                stroke="#64748b"
+                stroke={getCanvasColor('mutedForeground')}
                 strokeWidth={2.5 * viewport.zoom}
                 strokeOpacity={overlayOpacity * 0.7}
                 strokeDasharray={`${6 * viewport.zoom},${4 * viewport.zoom}`}

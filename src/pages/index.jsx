@@ -80,11 +80,11 @@ function SimplePlatformPrompt() {
                         {/* Header with App Logo */}
                         <div className="text-center">
                             <div className="flex items-center justify-center gap-4 mb-6">
-                                <div className="w-16 h-16 bg-gradient-to-r from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center">
-                                    <Shield className="w-10 h-10 text-slate-900" />
+                                <div className="w-16 h-16 bg-gradient-primary rounded-2xl flex items-center justify-center">
+                                    <Shield className="w-10 h-10 text-primary-foreground" />
                                 </div>
                                 <h1 className="text-5xl lg:text-6xl font-bold text-white">
-                                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">
+                                    <span className="text-transparent bg-clip-text bg-gradient-primary">
                                         ChessScope
                                     </span>
                                 </h1>
@@ -97,27 +97,27 @@ function SimplePlatformPrompt() {
                         {/* Three Key Features - Compact */}
                         <div className="flex flex-wrap gap-4 justify-center">
                             {/* Free */}
-                            <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-4 py-2 hover:bg-emerald-500/20 transition-all duration-300">
-                                <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center">
-                                    <DollarSign className="w-4 h-4 text-white" />
+                            <div className="flex items-center gap-2 bg-success/10 border border-success/30 rounded-lg px-4 py-2 hover:bg-success/20 transition-all duration-300">
+                                <div className="w-8 h-8 bg-success rounded-lg flex items-center justify-center">
+                                    <DollarSign className="w-4 h-4 text-primary-foreground" />
                                 </div>
-                                <span className="text-emerald-400 font-semibold">100% Free</span>
+                                <span className="text-success font-semibold">100% Free</span>
                             </div>
 
                             {/* Open Source */}
-                            <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 rounded-lg px-4 py-2 hover:bg-blue-500/20 transition-all duration-300">
-                                <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
-                                    <Code className="w-4 h-4 text-white" />
+                            <div className="flex items-center gap-2 bg-info/10 border border-info/30 rounded-lg px-4 py-2 hover:bg-info/20 transition-all duration-300">
+                                <div className="w-8 h-8 bg-info rounded-lg flex items-center justify-center">
+                                    <Code className="w-4 h-4 text-primary-foreground" />
                                 </div>
-                                <span className="text-blue-400 font-semibold">Open Source</span>
+                                <span className="text-info font-semibold">Open Source</span>
                             </div>
 
                             {/* Community Driven */}
-                            <div className="flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 rounded-lg px-4 py-2 hover:bg-purple-500/20 transition-all duration-300">
-                                <div className="w-8 h-8 bg-purple-500 rounded-lg flex items-center justify-center">
-                                    <Users className="w-4 h-4 text-white" />
+                            <div className="flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-lg px-4 py-2 hover:bg-primary/20 transition-all duration-300">
+                                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+                                    <Users className="w-4 h-4 text-primary-foreground" />
                                 </div>
-                                <span className="text-purple-400 font-semibold">Community Driven</span>
+                                <span className="text-primary font-semibold">Community Driven</span>
                             </div>
                         </div>
 
@@ -179,8 +179,8 @@ function SimplePlatformPrompt() {
                             <div className="aspect-video bg-card rounded-2xl border-2 border-border shadow-xl overflow-hidden">
                                 <div className="absolute inset-0 flex items-center justify-center">
                                     <div className="text-center space-y-4">
-                                        <div className="w-20 h-20 bg-amber-500 rounded-full flex items-center justify-center mx-auto shadow-lg">
-                                            <Play className="w-8 h-8 text-white ml-1" />
+                                        <div className="w-20 h-20 bg-warning rounded-full flex items-center justify-center mx-auto shadow-lg">
+                                            <Play className="w-8 h-8 text-primary-foreground ml-1" />
                                         </div>
                                         <div>
                                             <h3 className="text-xl font-bold text-card-foreground mb-2">See ChessScope in Action</h3>
@@ -190,11 +190,11 @@ function SimplePlatformPrompt() {
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 {/* Decorative browser elements */}
-                                <div className="absolute top-4 left-4 w-3 h-3 bg-red-500 rounded-full"></div>
-                                <div className="absolute top-4 left-10 w-3 h-3 bg-yellow-500 rounded-full"></div>
-                                <div className="absolute top-4 left-16 w-3 h-3 bg-green-500 rounded-full"></div>
+                                <div className="absolute top-4 left-4 w-3 h-3 bg-error rounded-full"></div>
+                                <div className="absolute top-4 left-10 w-3 h-3 bg-warning rounded-full"></div>
+                                <div className="absolute top-4 left-16 w-3 h-3 bg-success rounded-full"></div>
                             </div>
                         </div>
                     </div>

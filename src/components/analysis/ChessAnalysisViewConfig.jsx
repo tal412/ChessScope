@@ -6,6 +6,7 @@
 import { Target, Edit, Eye, Crown, Shield, Check } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { getCanvasColor } from '@/utils/themeColors';
 
 // Component configurations for different modes
 export const ComponentConfigs = {
@@ -118,7 +119,7 @@ export const createPerformanceGraphConfig = ({
     <div className="flex items-center gap-2 text-muted-foreground mr-3">
       {selectedPlayer === 'white' ? (
         <>
-          <Crown className="w-4 h-4 text-amber-400" />
+          <Crown className="w-4 h-4 text-warning" />
           <span className="text-sm">White</span>
         </>
       ) : (
@@ -205,12 +206,12 @@ export const createOpeningEditorConfig = ({
           </div>
         </div>
         {getAutoSaveStatus() && (
-          <span className="bg-green-500/20 text-green-400 border-green-500/30 px-2 py-1 rounded text-xs">
+          <span className="bg-success/20 text-success border-success/30 px-2 py-1 rounded text-xs">
             {getAutoSaveStatus()}
           </span>
         )}
         {isEditMode && (
-          <span className="bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/50 px-2 py-1 rounded text-xs font-semibold shadow-sm">
+          <span className="bg-warning/20 text-warning border border-warning/50 px-2 py-1 rounded text-xs font-semibold shadow-sm">
             <Edit className="w-3 h-3 inline mr-1" />
             EDIT MODE
           </span>
@@ -220,13 +221,13 @@ export const createOpeningEditorConfig = ({
     icon: isViewMode ? Eye : Edit,
     
     // Custom header styling based on mode (only for edit mode)
-    headerClassName: isEditMode 
-      ? "bg-gradient-to-r from-amber-100/60 to-orange-100/60 border-b-2 border-amber-500/50 dark:from-amber-900/30 dark:to-orange-900/30"
+    headerClassName: isEditMode
+      ? "bg-gradient-to-r from-warning/10 to-warning/5 border-b-2 border-warning/50"
       : "",
-    
+
     // Custom content area styling based on mode (only for edit mode)
-    className: isEditMode 
-      ? "bg-gradient-to-br from-amber-50/20 via-background to-orange-50/20 dark:from-amber-950/10 dark:via-background dark:to-orange-950/10"
+    className: isEditMode
+      ? "bg-gradient-to-br from-warning/5 via-background to-warning/3"
       : "",
     
     // Data
@@ -293,7 +294,7 @@ export const createOpeningEditorConfig = ({
         <div className="flex items-center gap-2 text-muted-foreground mr-3">
           {selectedPlayer === 'white' ? (
             <>
-              <Crown className="w-4 h-4 text-amber-400" />
+              <Crown className="w-4 h-4 text-warning" />
               <span className="text-sm">White</span>
             </>
           ) : (
@@ -339,7 +340,7 @@ export const createOpeningEditorConfig = ({
             onClick={onSave}
             disabled={saving}
             size="sm"
-            className="bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
+            className="bg-gradient-green hover:bg-gradient-green-hover text-white"
           >
             {saving ? (
               <>
@@ -462,7 +463,7 @@ export const createNodeHandlers = ({
           gameCount: node.data.gameCount || 0,
           details: { winRate: node.data.winRate || null },
           winRate: node.data.winRate || null,
-          arrowColor: shouldUsePinkArrow ? '#ec4899' : undefined,
+          arrowColor: shouldUsePinkArrow ? getCanvasColor('tagColor7') : undefined, // Pink for missing moves
           fixedThickness: shouldUsePinkArrow ? 14 : undefined
         };
         

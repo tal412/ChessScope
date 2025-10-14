@@ -761,16 +761,16 @@ export default function StudiesBook() {
         <div className="text-center">
           <div className="relative mb-8">
             <Spinner size="xl" variant="circle" color="primary" center />
-            <div className="absolute inset-0 rounded-full bg-purple-500/10 blur-lg"></div>
+            <div className="absolute inset-0 rounded-full bg-primary/10 blur-lg"></div>
           </div>
           <div className="space-y-3">
             <h2 className="text-2xl font-bold text-foreground">
               Loading your studies
             </h2>
             <div className="flex items-center justify-center gap-2 mt-6">
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
             </div>
           </div>
         </div>
@@ -916,7 +916,7 @@ export default function StudiesBook() {
               <FolderCreateDialog onCreateFolder={handleCreateFolder}>
                 <Button
                   size="sm"
-                  className="bg-gradient-to-r from-orange-400 to-amber-500 hover:from-orange-500 hover:to-amber-600 text-white"
+                  className="bg-gradient-primary hover:bg-gradient-primary-hover text-white"
                 >
                   <FolderPlus className="w-4 h-4 mr-2" />
                   New Folder
@@ -1217,7 +1217,7 @@ export default function StudiesBook() {
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Crown className="w-4 h-4 text-amber-400" />
+                          <Crown className="w-4 h-4 text-warning" />
                           <span>White</span>
                         </div>
                         <span className="text-xs text-muted-foreground">
@@ -1349,7 +1349,7 @@ export default function StudiesBook() {
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteStudy}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-error hover:bg-error/90"
             >
               Delete
             </AlertDialogAction>

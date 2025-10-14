@@ -27,15 +27,15 @@ const GradientButton = React.forwardRef(({
   const variantClasses = {
     primary: {
       enabled: "bg-gradient-primary hover:bg-gradient-primary-hover text-white",
-      disabled: "bg-transparent border border-gray-300 dark:border-slate-600 text-gray-400 dark:text-slate-500 cursor-not-allowed"
+      disabled: "bg-transparent border border-border text-muted-foreground cursor-not-allowed"
     },
     green: {
       enabled: "bg-gradient-green hover:bg-gradient-green-hover text-white",
-      disabled: "bg-transparent border border-gray-300 dark:border-slate-600 text-gray-400 dark:text-slate-500 cursor-not-allowed"
+      disabled: "bg-transparent border border-border text-muted-foreground cursor-not-allowed"
     },
     blue: {
       enabled: "bg-gradient-blue hover:bg-gradient-blue-hover text-white",
-      disabled: "bg-transparent border border-gray-300 dark:border-slate-600 text-gray-400 dark:text-slate-500 cursor-not-allowed"
+      disabled: "bg-transparent border border-border text-muted-foreground cursor-not-allowed"
     }
   };
 

@@ -14,8 +14,8 @@ export default function SyncingOverlay({
     <div className="absolute inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center z-50">
       <div className="text-center">
         <div className="relative mb-8">
-          <div className="animate-spin rounded-full h-20 w-20 border-4 border-border border-t-purple-500 mx-auto"></div>
-          <div className="absolute inset-0 rounded-full bg-purple-500/10 blur-lg"></div>
+          <div className="animate-spin rounded-full h-20 w-20 border-4 border-border border-t-primary mx-auto"></div>
+          <div className="absolute inset-0 rounded-full bg-primary/10 blur-lg"></div>
         </div>
         <div className="space-y-3">
           <h2 className="text-2xl font-bold text-foreground">
@@ -25,9 +25,9 @@ export default function SyncingOverlay({
             {subtitle}
           </p>
           <div className="flex items-center justify-center gap-2 mt-6">
-            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+            <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+            <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+            <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
           </div>
           
           {/* Progress Bar - Only show during actual syncing */}
@@ -44,9 +44,9 @@ export default function SyncingOverlay({
                 </div>
                 
                 <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full origin-left"
-                    style={{ 
+                  <div
+                    className="h-full bg-gradient-to-r from-primary to-info rounded-full origin-left"
+                    style={{
                       transform: `scaleX(${Math.min(syncProgress || 0, 100) / 100})`,
                       transition: 'transform 0.3s ease-out',
                       willChange: 'transform'

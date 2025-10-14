@@ -1,3 +1,12 @@
+import { getCanvasColor } from '@/utils/themeColors';
+
+/**
+ * Canvas V2 Constants - Theme-Aware Color System
+ *
+ * All color values are resolved from CSS variables at runtime,
+ * enabling proper dark mode support and theme consistency.
+ */
+
 // =============================================================================
 // CANVAS CONFIGURATION
 // =============================================================================
@@ -6,23 +15,23 @@ export const CANVAS_CONFIG = {
   // Node dimensions
   NODE_SIZE: 180,
   NODE_HALF_SIZE: 90,
-  
+
   // Padding and spacing
   DEFAULT_PADDING: 50,
   CLUSTER_PADDING: 100,
   POSITION_CLUSTER_PADDING: 80,
   SINGLE_NODE_CLUSTER_PADDING_MULTIPLIER: 1.5,
-  
+
   // Animation and timing
   ANIMATION_DURATION: 300,
   INITIALIZATION_TIMEOUT: 5000,
-  
+
   // Interaction thresholds
   DRAG_THRESHOLD: 3,
-  
+
   // Fallback dimensions when canvas can't be measured
   FALLBACK_DIMENSIONS: { width: 800, height: 600 },
-  
+
   // Context menu
   CONTEXT_MENU_OFFSET: 200,
   CONTEXT_MENU_ITEM_HEIGHT: 32,
@@ -40,26 +49,32 @@ export const ZOOM_CONFIG = {
 export const RENDER_CONFIG = {
   // High DPI support
   DEVICE_PIXEL_RATIO: window.devicePixelRatio || 1,
-  BACKGROUND_COLOR: '#0f172a', // slate-900
+  get BACKGROUND_COLOR() {
+    return getCanvasColor('background');
+  },
   HIGH_DPI_QUALITY: 'high',
-  
+
   // Text rendering
   FONT_FAMILY: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   FONT_SIZE: 12,
   FONT_WEIGHT: '500',
-  
+
   // Shadow effects
   SHADOW_BLUR: 4,
   SHADOW_OFFSET_X: 0,
   SHADOW_OFFSET_Y: 2,
-  SHADOW_COLOR: 'rgba(0, 0, 0, 0.1)',
-  
+  get SHADOW_COLOR() {
+    return getCanvasColor('foreground', 0.1);
+  },
+
   // Selection glow
-  SELECTION_GLOW_COLOR: '#3b82f6',
+  get SELECTION_GLOW_COLOR() {
+    return getCanvasColor('info');
+  },
   SELECTION_GLOW_WIDTH: 3,
   GLOW_BLUR: 20,
   GLOW_LAYERS: 8,
-  
+
   // Edge rendering
   EDGE_THICKNESS: {
     MIN: 4,
@@ -67,13 +82,13 @@ export const RENDER_CONFIG = {
     BASE: 4,
     GAME_COUNT_DIVISOR: 25,
   },
-  
+
   // Text stroke
   TEXT_STROKE_WIDTH: {
     BLACK_TEXT: 2,
     WHITE_TEXT: 3,
   },
-  
+
   // Font sizes for different elements
   FONT_SIZES: {
     ROOT_LABEL: 36,
@@ -87,13 +102,13 @@ export const RENDER_CONFIG = {
     PERFORMANCE_GAME_COUNT: 22,
     PERFORMANCE_NO_DATA: 20,
   },
-  
+
   // Icon sizes
   ICON_SIZES: {
     ANNOTATION: 20,
     ARROW: 16,
   },
-  
+
   // Text positioning offsets
   OFFSETS: {
     ARROW_Y: -65,
@@ -110,7 +125,7 @@ export const RENDER_CONFIG = {
     PERFORMANCE_GAME_COUNT_Y: 35,
     PERFORMANCE_NO_DATA_Y: 10,
   },
-  
+
   // Spacing
   SPACING: {
     ARROW_CIRCLE: 22,
@@ -123,60 +138,155 @@ export const RENDER_CONFIG = {
 // =============================================================================
 
 export const SHADOW_CONFIG = {
-  SELECTED_COLOR: 'rgba(59, 130, 246, 1.0)', // Blue glow for current position
-  INITIAL_MOVE_COLOR: 'rgba(249, 115, 22, 1.0)', // Orange glow
-  HOVERED_NEXT_MOVE_COLOR: 'rgba(236, 72, 153, 1.0)', // Pink glow for hovered move
+  get SELECTED_COLOR() {
+    return getCanvasColor('info'); // Blue glow for current position
+  },
+  get INITIAL_MOVE_COLOR() {
+    return getCanvasColor('warning'); // Orange glow
+  },
+  get HOVERED_NEXT_MOVE_COLOR() {
+    return getCanvasColor('destructive', 0.8); // Pink glow for hovered move
+  },
   BLUR: 20,
   INTENSE_BLUR: 25,
   LAYERS: 8,
 };
 
-
 // =============================================================================
-// COLOR SCHEMES
+// COLOR SCHEMES (Theme-aware with lazy evaluation)
 // =============================================================================
 
 export const PERFORMANCE_COLORS = {
-  excellent: { bg: '#059669', border: '#047857', text: '#ffffff' },    // Darker Green
-  good: { bg: '#0891b2', border: '#0e7490', text: '#ffffff' },         // Darker Cyan
-  solid: { bg: '#d97706', border: '#b45309', text: '#ffffff' },        // Darker Amber with white text
-  challenging: { bg: '#ea580c', border: '#c2410c', text: '#ffffff' },  // Darker Orange
-  difficult: { bg: '#b91c1c', border: '#991b1b', text: '#ffffff' },    // Darker Red
-  missing: { bg: '#4b5563', border: '#374151', text: '#ffffff' },      // Darker Gray
+  get excellent() {
+    return {
+      bg: getCanvasColor('canvasExcellent'),
+      border: getCanvasColor('canvasExcellent', 0.85),
+      text: getCanvasColor('successForeground')
+    };
+  },
+  get good() {
+    return {
+      bg: getCanvasColor('canvasGood'),
+      border: getCanvasColor('canvasGood', 0.85),
+      text: getCanvasColor('infoForeground')
+    };
+  },
+  get solid() {
+    return {
+      bg: getCanvasColor('canvasSolid'),
+      border: getCanvasColor('canvasSolid', 0.85),
+      text: getCanvasColor('warningForeground')
+    };
+  },
+  get challenging() {
+    return {
+      bg: getCanvasColor('canvasChallenging'),
+      border: getCanvasColor('canvasChallenging', 0.85),
+      text: getCanvasColor('warningForeground')
+    };
+  },
+  get difficult() {
+    return {
+      bg: getCanvasColor('canvasDifficult'),
+      border: getCanvasColor('canvasDifficult', 0.85),
+      text: getCanvasColor('errorForeground')
+    };
+  },
+  get missing() {
+    return {
+      bg: getCanvasColor('canvasMissing'),
+      border: getCanvasColor('canvasMissing', 0.85),
+      text: getCanvasColor('mutedForeground')
+    };
+  }
 };
 
 export const STUDY_NODE_COLORS = {
-  whiteMove: { bg: '#ffffff', border: '#d1d5db', text: '#000000' },
-  blackMove: { bg: '#374151', border: '#4b5563', text: '#ffffff' },
-  selected: { bg: '#3b82f6', border: '#2563eb', text: '#ffffff' },
-  withComment: { bg: '#06b6d4', border: '#0891b2', text: '#ffffff' },
-  withLinks: { bg: '#10b981', border: '#059669', text: '#ffffff' },
-  missing: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' },
-  startNode: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' },
+  get whiteMove() {
+    return {
+      bg: getCanvasColor('chessWhitePiece'),
+      border: getCanvasColor('chessPieceBorder'),
+      text: getCanvasColor('chessWhitePieceText')
+    };
+  },
+  get blackMove() {
+    return {
+      bg: getCanvasColor('chessBlackPiece'),
+      border: getCanvasColor('chessPieceBorder'),
+      text: getCanvasColor('chessBlackPieceText')
+    };
+  },
+  get selected() {
+    return {
+      bg: getCanvasColor('canvasSelected'),
+      border: getCanvasColor('canvasSelected', 0.8),
+      text: getCanvasColor('primaryForeground')
+    };
+  },
+  get withComment() {
+    return {
+      bg: getCanvasColor('canvasComment'),
+      border: getCanvasColor('canvasComment', 0.8),
+      text: getCanvasColor('infoForeground')
+    };
+  },
+  get withLinks() {
+    return {
+      bg: getCanvasColor('canvasLink'),
+      border: getCanvasColor('canvasLink', 0.8),
+      text: getCanvasColor('successForeground')
+    };
+  },
+  get missing() {
+    return {
+      bg: getCanvasColor('canvasMissing'),
+      border: getCanvasColor('canvasMissing', 0.8),
+      text: getCanvasColor('mutedForeground')
+    };
+  },
+  get startNode() {
+    return {
+      bg: getCanvasColor('canvasSolid'),
+      border: getCanvasColor('canvasSolid', 0.8),
+      text: getCanvasColor('chessBlackPieceText')  // Always white text across all themes
+    };
+  }
 };
 
 // Backward compatibility alias
 export const OPENING_NODE_COLORS = STUDY_NODE_COLORS;
 
-// Opening cluster colors - EXACT match with ReactFlow
-export const OPENING_CLUSTER_COLORS = [{ bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' }];
+// Opening cluster colors - theme-aware
+export const OPENING_CLUSTER_COLORS = [
+  {
+    get bg() { return getCanvasColor('cluster1'); },
+    get border() { return getCanvasColor('cluster1', 0.9); },
+    get text() { return getCanvasColor('foreground'); }
+  }
+];
 
-// Position cluster colors
+// Position cluster colors - theme-aware
 export const POSITION_CLUSTER_COLORS = [
-  { bg: '#f97316', border: '#ea580c', text: '#ffffff' }, // Bright Orange
-  { bg: '#f59e0b', border: '#d97706', text: '#000000' }, // Amber  
-  { bg: '#eab308', border: '#ca8a04', text: '#000000' }, // Yellow
+  {
+    get bg() { return getCanvasColor('cluster9'); }, // Orange
+    get border() { return getCanvasColor('cluster9', 0.9); },
+    get text() { return getCanvasColor('foreground'); }
+  },
+  {
+    get bg() { return getCanvasColor('cluster4'); }, // Amber
+    get border() { return getCanvasColor('cluster4', 0.9); },
+    get text() { return getCanvasColor('foreground'); }
+  },
+  {
+    get bg() { return getCanvasColor('chessDubious'); }, // Yellow
+    get border() { return getCanvasColor('chessDubious', 0.9); },
+    get text() { return getCanvasColor('foreground'); }
+  }
 ];
 
 export const CLUSTER_COLORS = {
-  opening: [
-    { bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' }  // Purple
-  ],
-  position: [
-    { bg: '#f97316', border: '#ea580c', text: '#ffffff' }, // Bright Orange
-    { bg: '#f59e0b', border: '#d97706', text: '#000000' }, // Amber  
-    { bg: '#eab308', border: '#ca8a04', text: '#000000' }, // Yellow
-  ]
+  opening: OPENING_CLUSTER_COLORS,
+  position: POSITION_CLUSTER_COLORS
 };
 
 // =============================================================================
@@ -226,5 +336,3 @@ export const CLUSTER_CONFIG = {
     MULTI_NODES: 60,
   },
 };
-
- 

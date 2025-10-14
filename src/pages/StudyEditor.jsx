@@ -19,6 +19,7 @@ import ChessAnalysisView from '../components/analysis/ChessAnalysisView';
 import MoveDetailsSection from '../components/analysis/MoveDetailsSection';
 import { createOpeningEditorConfig } from '../components/analysis/ChessAnalysisViewConfig.jsx';
 import { createOpeningClusters } from '../utils/clusteringAnalysis';
+import { getCanvasColor } from '@/utils/themeColors';
 // Firebase sync is handled automatically by hybrid entities
 
 // Move tree node structure
@@ -276,7 +277,7 @@ export default function OpeningEditor() {
   // Handle arrow drawing from chessboard
   const handleArrowDraw = useCallback((from, to, color = null) => {
     if (currentNode) {
-      const arrowColor = color || '#22c55e';
+      const arrowColor = color || getCanvasColor('chessGood');
       const newArrow = { from, to, color: arrowColor };
       currentNode.arrows = [...(currentNode.arrows || []), newArrow];
       setTreeVersion(v => v + 1);
@@ -1369,7 +1370,7 @@ export default function OpeningEditor() {
     return (
       <div className="h-screen w-full flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="w-12 h-12 text-amber-500 animate-spin mx-auto mb-4" />
+          <Loader2 className="w-12 h-12 text-warning animate-spin mx-auto mb-4" />
           <p className="text-foreground">Loading study...</p>
         </div>
       </div>
@@ -1381,9 +1382,9 @@ export default function OpeningEditor() {
       {/* Error Alert */}
       {(error || conflictError) && (
         <div className="absolute top-0 left-0 right-0 z-50 p-4 bg-card border-b border-border">
-          <Alert className="bg-red-900/20 border-red-700">
+          <Alert className="bg-error/20 border-error">
             <AlertTriangle className="h-4 w-4" />
-            <AlertDescription className="text-red-400">
+            <AlertDescription className="text-error">
               {conflictError || error}
               {/* Firebase handles sync conflicts automatically */}
             </AlertDescription>
@@ -1431,13 +1432,13 @@ export default function OpeningEditor() {
         <AlertDialogContent className="bg-card/95 backdrop-blur-optimized border-border/50">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl text-card-foreground flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-red-400" />
+              <AlertTriangle className="w-5 h-5 text-error" />
               Delete Move
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
               Are you sure you want to delete the move <span className="font-semibold text-foreground">{nodeToDelete?.san}</span>?
               <br />
-              <span className="text-red-400 font-medium">This will also delete all moves that follow this move.</span>
+              <span className="text-error font-medium">This will also delete all moves that follow this move.</span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
@@ -1447,9 +1448,9 @@ export default function OpeningEditor() {
             >
               Cancel
             </AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleConfirmDelete}
-              className="bg-red-600 hover:bg-red-700 text-white"
+              className="bg-error hover:bg-error/90 text-white"
             >
               <Trash2 className="w-4 h-4 mr-2" />
               Delete Move

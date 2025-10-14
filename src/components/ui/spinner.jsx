@@ -32,14 +32,14 @@ const Spinner = ({
 
   const colorConfig = {
     primary: {
-      icon: 'text-amber-500',
-      circle: 'border-border border-t-amber-500',
-      dots: 'bg-amber-500'
+      icon: 'text-warning',
+      circle: 'border-muted border-t-warning',
+      dots: 'bg-warning'
     },
     secondary: {
-      icon: 'text-blue-500',
-      circle: 'border-border border-t-blue-500',
-      dots: 'bg-blue-500'
+      icon: 'text-info',
+      circle: 'border-muted border-t-info',
+      dots: 'bg-info'
     },
     white: {
       icon: 'text-white',
@@ -48,18 +48,18 @@ const Spinner = ({
     },
     muted: {
       icon: 'text-muted-foreground',
-      circle: 'border-border border-t-muted-foreground',
+      circle: 'border-muted border-t-muted-foreground',
       dots: 'bg-muted-foreground'
     },
     purple: {
-      icon: 'text-purple-500',
-      circle: 'border-border border-t-purple-500',
-      dots: 'bg-purple-500'
+      icon: 'text-primary',
+      circle: 'border-muted border-t-primary',
+      dots: 'bg-primary'
     },
     green: {
-      icon: 'text-green-500',
-      circle: 'border-border border-t-green-500',
-      dots: 'bg-green-500'
+      icon: 'text-success',
+      circle: 'border-muted border-t-success',
+      dots: 'bg-success'
     }
   };
 

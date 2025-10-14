@@ -9,7 +9,7 @@ import {
   DialogFooter,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { 
+import {
   FolderPlus,
   Folder,
   BookOpen,
@@ -22,6 +22,7 @@ import {
   Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { FOLDER_COLORS } from '@/constants/colors';
 
 const FOLDER_ICONS = [
   { icon: Folder, name: 'folder' },
@@ -35,16 +36,11 @@ const FOLDER_ICONS = [
   { icon: Shield, name: 'shield' }
 ];
 
-const FOLDER_COLORS = [
-  '#6366f1', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', 
-  '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#64748b'
-];
-
 export default function FolderCreateDialog({ onCreateFolder, children }) {
   const [isOpen, setIsOpen] = useState(false);
   const [folderName, setFolderName] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('folder');
-  const [selectedColor, setSelectedColor] = useState('#6366f1');
+  const [selectedColor, setSelectedColor] = useState(FOLDER_COLORS[0].value);
 
   const handleCreate = () => {
     if (!folderName.trim()) return;
@@ -58,14 +54,14 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
     // Reset form
     setFolderName('');
     setSelectedIcon('folder');
-    setSelectedColor('#6366f1');
+    setSelectedColor(FOLDER_COLORS[0].value);
     setIsOpen(false);
   };
 
   const handleCancel = () => {
     setFolderName('');
     setSelectedIcon('folder');
-    setSelectedColor('#6366f1');
+    setSelectedColor(FOLDER_COLORS[0].value);
     setIsOpen(false);
   };
 
@@ -73,10 +69,10 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         {children || (
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             size="sm"
-            className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-700 dark:text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-600 hover:text-gray-900 dark:hover:text-white"
+            className="bg-secondary border-border text-foreground hover:bg-accent hover:text-foreground"
           >
             <FolderPlus className="w-4 h-4 mr-2" />
             New Folder
@@ -84,9 +80,9 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
         )}
       </DialogTrigger>
 
-      <DialogContent className="bg-white dark:bg-slate-800 border-gray-300 dark:border-slate-700 max-w-md">
+      <DialogContent className="bg-card border-border max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-gray-900 dark:text-slate-100 flex items-center gap-2">
+          <DialogTitle className="text-foreground flex items-center gap-2">
             <FolderPlus className="w-5 h-5" />
             Create New Folder
           </DialogTitle>
@@ -94,20 +90,20 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
         
         <div className="space-y-4">
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2 block">
+            <label className="text-sm font-medium text-foreground mb-2 block">
               Folder Name
             </label>
             <Input
               value={folderName}
               onChange={(e) => setFolderName(e.target.value)}
-              className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-900 dark:text-slate-100"
+              className="bg-secondary border-border text-foreground"
               placeholder="Enter folder name"
               autoFocus
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2 block">
+            <label className="text-sm font-medium text-foreground mb-2 block">
               Icon
             </label>
             <div className="grid grid-cols-5 gap-2">
@@ -117,10 +113,10 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
                   type="button"
                   onClick={() => setSelectedIcon(name)}
                   className={cn(
-                    "p-2 rounded-md border-2 transition-all hover:bg-slate-700",
-                    selectedIcon === name 
-                      ? "border-amber-500 bg-amber-500/20" 
-                      : "border-gray-300 dark:border-slate-600 bg-gray-100 dark:bg-slate-800"
+                    "p-2 rounded-md border-2 transition-all hover:bg-accent",
+                    selectedIcon === name
+                      ? "border-warning bg-warning/20"
+                      : "border-border bg-secondary"
                   )}
                 >
                   <Icon className="w-4 h-4 mx-auto" style={{ color: selectedColor }} />
@@ -130,22 +126,22 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2 block">
+            <label className="text-sm font-medium text-foreground mb-2 block">
               Color
             </label>
             <div className="grid grid-cols-5 gap-2">
-              {FOLDER_COLORS.map((color) => (
+              {FOLDER_COLORS.map((color, index) => (
                 <button
-                  key={color}
+                  key={index}
                   type="button"
-                  onClick={() => setSelectedColor(color)}
+                  onClick={() => setSelectedColor(color.value)}
                   className={cn(
                     "w-8 h-8 rounded-md border-2 transition-all hover:scale-110",
-                    selectedColor === color 
-                      ? "border-gray-800 dark:border-white scale-110" 
-                      : "border-gray-300 dark:border-slate-600"
+                    selectedColor === color.value
+                      ? "border-foreground scale-110"
+                      : "border-border"
                   )}
-                  style={{ backgroundColor: color }}
+                  style={{ backgroundColor: color.value }}
                 />
               ))}
             </div>
@@ -153,13 +149,13 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
 
           {/* Preview */}
           <div>
-            <label className="text-sm font-medium text-gray-700 dark:text-slate-200 mb-2 block">
+            <label className="text-sm font-medium text-foreground mb-2 block">
               Preview
             </label>
-            <div className="p-3 bg-gray-50 dark:bg-slate-900 rounded-md border border-gray-200 dark:border-slate-700 flex items-center gap-3">
-              <div 
+            <div className="p-3 bg-secondary/50 rounded-md border border-border flex items-center gap-3">
+              <div
                 className="p-2 rounded-lg"
-                style={{ 
+                style={{
                   backgroundColor: `${selectedColor}20`,
                   border: `1px solid ${selectedColor}40`
                 }}
@@ -172,7 +168,7 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
                   }
                 )}
               </div>
-              <div className="text-gray-700 dark:text-slate-200 font-medium">
+              <div className="text-foreground font-medium">
                 {folderName || 'Folder Name'}
               </div>
             </div>
@@ -183,14 +179,14 @@ export default function FolderCreateDialog({ onCreateFolder, children }) {
           <Button
             variant="outline"
             onClick={handleCancel}
-            className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-200 dark:hover:bg-slate-600"
+            className="bg-secondary border-border text-foreground hover:bg-accent"
           >
             Cancel
           </Button>
           <Button
             onClick={handleCreate}
             disabled={!folderName.trim()}
-            className="bg-amber-600 hover:bg-amber-700 text-white"
+            className="bg-warning hover:bg-warning/90 text-white"
           >
             Create Folder
           </Button>

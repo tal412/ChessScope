@@ -58,9 +58,9 @@ export default function StudyCard({
   return (
     <ContextMenu>
       <ContextMenuTrigger>
-        <Card 
+        <Card
           className={cn(
-            "bg-card border-border hover:border-amber-500/50 transition-all cursor-pointer group",
+            "bg-secondary/60 dark:bg-secondary/80 backdrop-blur-sm border-border/60 hover:border-warning/50 hover:bg-secondary/80 dark:hover:bg-secondary/95 transition-all cursor-pointer group shadow-sm",
             isDragging && "opacity-50 rotate-2 scale-105",
             className
           )}
@@ -73,7 +73,7 @@ export default function StudyCard({
                   {study.name}
                 </CardTitle>
                 <div className="flex items-center gap-1 mt-1">
-                  <Badge variant="outline" className={`text-xs px-1.5 py-0.5 ${study.color === 'white' ? 'border-amber-500/50 text-amber-400' : 'border-border text-muted-foreground'}`}>
+                  <Badge variant="outline" className={`text-xs px-1.5 py-0.5 ${study.color === 'white' ? 'border-[hsl(var(--warning))]/50 text-[hsl(var(--warning))]' : 'border-border text-muted-foreground'}`}>
                     {study.color === 'white' ? (
                       <Crown className="w-2.5 h-2.5 mr-1" />
                     ) : (
@@ -137,7 +137,7 @@ export default function StudyCard({
                   size="sm"
                   variant="ghost"
                   onClick={(e) => handleContextAction(() => onDelete?.(study), e)}
-                  className="h-6 w-6 p-0 text-red-400 hover:text-red-300"
+                  className="h-6 w-6 p-0 text-destructive hover:text-destructive/80"
                 >
                   <Trash2 className="w-3 h-3" />
                 </Button>
@@ -203,9 +203,9 @@ export default function StudyCard({
           </>
         )}
         
-        <ContextMenuItem 
+        <ContextMenuItem
           onClick={(e) => handleContextAction(() => onDelete?.(study), e)}
-          className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+          className="text-destructive hover:text-destructive/80 hover:bg-destructive/10"
         >
           <Trash2 className="w-4 h-4 mr-2" />
           Delete Study

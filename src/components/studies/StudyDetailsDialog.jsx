@@ -16,6 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { Crown, Shield, Edit, Plus, BookOpen, X, Tags } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { studyTag } from '@/api/hybridEntities';
+import { TAG_COLORS } from '@/constants/colors';
+import { getContrastingTextColor } from '@/utils/themeColors';
 
 export default function StudyDetailsDialog({ 
   trigger, 
@@ -37,7 +39,7 @@ export default function StudyDetailsDialog({
   const [availableTags, setAvailableTags] = useState([]);
   const [showNewTagForm, setShowNewTagForm] = useState(false);
   const [newTagName, setNewTagName] = useState('');
-  const [newTagColor, setNewTagColor] = useState('#22c55e');
+  const [newTagColor, setNewTagColor] = useState(TAG_COLORS[2].value); // Default to green
   const [error, setError] = useState('');
   const [fenError, setFenError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -81,7 +83,7 @@ export default function StudyDetailsDialog({
       // Auto-select the new tag only if under the limit
       setSelectedTags(prev => prev.length < MAX_TAGS ? [...prev, newTag] : prev);
       setNewTagName('');
-      setNewTagColor('#22c55e');
+      setNewTagColor(TAG_COLORS[2].value); // Reset to green
       setShowNewTagForm(false);
       setError('');
     } catch (error) {
@@ -90,10 +92,8 @@ export default function StudyDetailsDialog({
     }
   };
 
-  const DEFAULT_COLORS = [
-    '#22c55e', '#3b82f6', '#f59e0b', '#ef4444', 
-    '#8b5cf6', '#06b6d4', '#f97316', '#84cc16'
-  ];
+  // Use first 8 colors from TAG_COLORS for the color picker
+  const DEFAULT_COLORS = TAG_COLORS.slice(0, 8).map(c => c.value);
 
   const MAX_TAGS = 3;
 
@@ -186,7 +186,7 @@ export default function StudyDetailsDialog({
     setSelectedTags([]);
     setShowNewTagForm(false);
     setNewTagName('');
-    setNewTagColor('#22c55e');
+    setNewTagColor(TAG_COLORS[2].value); // Reset to green
     setError('');
     setFenError('');
   };
@@ -224,10 +224,10 @@ export default function StudyDetailsDialog({
       <DialogTrigger asChild>
         {children || triggerElement}
       </DialogTrigger>
-      <DialogContent className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-optimized border-gray-200/50 dark:border-slate-700/50 text-gray-900 dark:text-slate-100 max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-card/95 backdrop-blur-optimized border-border text-card-foreground max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl text-gray-900 dark:text-white flex items-center gap-2">
-            <BookOpen className="w-5 h-5 text-amber-500" />
+          <DialogTitle className="text-xl text-card-foreground flex items-center gap-2">
+            <BookOpen className="w-5 h-5 text-warning" />
             {title}
           </DialogTitle>
         </DialogHeader>
@@ -235,7 +235,7 @@ export default function StudyDetailsDialog({
         <div className="space-y-6 py-4">
           {/* Study Name */}
           <div className="space-y-2">
-            <Label className="text-gray-700 dark:text-slate-300">Study Name</Label>
+            <Label className="text-foreground">Study Name</Label>
             <Input
               value={name}
               onChange={(e) => {
@@ -243,14 +243,14 @@ export default function StudyDetailsDialog({
                 if (error) setError('');
               }}
               placeholder="e.g. Italian Game - Giuoco Piano"
-              className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-900 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-400"
+              className="bg-input border-input text-foreground placeholder:text-muted-foreground"
               disabled={loading}
             />
           </div>
 
           {/* Color Selection */}
           <div className="space-y-3">
-            <Label className="text-gray-700 dark:text-slate-300">Playing Color</Label>
+            <Label className="text-foreground">Playing Color</Label>
             <div className="flex gap-3">
               <button
                 type="button"
@@ -258,15 +258,15 @@ export default function StudyDetailsDialog({
                 disabled={loading}
                 className={cn(
                   "flex-1 h-12 px-4 rounded-md font-medium transition-all duration-200 flex items-center justify-center border",
-                  color === 'white' 
-                    ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600' 
-                    : 'bg-transparent border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700/50 hover:border-gray-400 dark:hover:border-slate-500',
+                  color === 'white'
+                    ? 'bg-warning text-warning-foreground border-warning hover:bg-warning/90'
+                    : 'bg-transparent border-border text-foreground hover:bg-accent hover:border-accent',
                   loading && 'opacity-50 cursor-not-allowed'
                 )}
               >
                 <Crown className={cn(
                   "w-5 h-5 mr-2",
-                  color === 'white' ? 'text-white' : 'text-amber-500'
+                  color === 'white' ? 'text-warning-foreground' : 'text-warning'
                 )} />
                 White
               </button>
@@ -276,15 +276,15 @@ export default function StudyDetailsDialog({
                 disabled={loading}
                 className={cn(
                   "flex-1 h-12 px-4 rounded-md font-medium transition-all duration-200 flex items-center justify-center border",
-                  color === 'black' 
-                    ? 'bg-amber-500 text-white border-amber-500 hover:bg-amber-600' 
-                    : 'bg-transparent border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700/50 hover:border-gray-400 dark:hover:border-slate-500',
+                  color === 'black'
+                    ? 'bg-warning text-warning-foreground border-warning hover:bg-warning/90'
+                    : 'bg-transparent border-border text-foreground hover:bg-accent hover:border-accent',
                   loading && 'opacity-50 cursor-not-allowed'
                 )}
               >
                 <Shield className={cn(
                   "w-5 h-5 mr-2",
-                  color === 'black' ? 'text-white' : 'text-gray-500 dark:text-slate-400'
+                  color === 'black' ? 'text-warning-foreground' : 'text-muted-foreground'
                 )} />
                 Black
               </button>
@@ -293,7 +293,7 @@ export default function StudyDetailsDialog({
 
           {/* Starting Position */}
           <div className="space-y-3">
-            <Label className="text-gray-700 dark:text-slate-300">Starting Position</Label>
+            <Label className="text-foreground">Starting Position</Label>
             <div className="flex gap-2">
               <button
                 type="button"
@@ -305,9 +305,9 @@ export default function StudyDetailsDialog({
                 disabled={loading}
                 className={cn(
                   "flex-1 h-10 px-3 rounded-md text-sm font-medium transition-all duration-200 border",
-                  startingMethod === 'standard' 
-                    ? 'bg-amber-500 text-white border-amber-500' 
-                    : 'bg-transparent border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700/50',
+                  startingMethod === 'standard'
+                    ? 'bg-warning text-warning-foreground border-warning'
+                    : 'bg-transparent border-border text-foreground hover:bg-accent',
                 )}
               >
                 Standard
@@ -322,9 +322,9 @@ export default function StudyDetailsDialog({
                 disabled={loading}
                 className={cn(
                   "flex-1 h-10 px-3 rounded-md text-sm font-medium transition-all duration-200 border",
-                  startingMethod === 'fen' 
-                    ? 'bg-amber-500 text-white border-amber-500' 
-                    : 'bg-transparent border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700/50',
+                  startingMethod === 'fen'
+                    ? 'bg-warning text-warning-foreground border-warning'
+                    : 'bg-transparent border-border text-foreground hover:bg-accent',
                 )}
               >
                 FEN
@@ -338,20 +338,20 @@ export default function StudyDetailsDialog({
                   onChange={(e) => handleFenChange(e.target.value)}
                   placeholder="rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
                   className={cn(
-                    "bg-gray-100 dark:bg-slate-700 text-gray-900 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-400 font-mono text-sm",
-                    fenError 
-                      ? "border-red-500 focus:border-red-500 focus:ring-red-500" 
-                      : "border-gray-300 dark:border-slate-600"
+                    "bg-input text-foreground placeholder:text-muted-foreground font-mono text-sm",
+                    fenError
+                      ? "border-destructive focus:border-destructive focus:ring-destructive"
+                      : "border-input"
                   )}
                   disabled={loading}
                 />
                 {fenError ? (
-                  <p className="text-xs text-red-400 flex items-center gap-1">
-                    <span className="w-4 h-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">!</span>
+                  <p className="text-xs text-destructive flex items-center gap-1">
+                    <span className="w-4 h-4 rounded-full bg-destructive text-destructive-foreground text-xs flex items-center justify-center">!</span>
                     {fenError}
                   </p>
                 ) : (
-                  <p className="text-xs text-gray-500 dark:text-slate-400">Enter a FEN position to start your study from</p>
+                  <p className="text-xs text-muted-foreground">Enter a FEN position to start your study from</p>
                 )}
               </div>
             )}
@@ -361,11 +361,11 @@ export default function StudyDetailsDialog({
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Label className="text-gray-700 dark:text-slate-300 flex items-center gap-2">
+                <Label className="text-foreground flex items-center gap-2">
                   <Tags className="w-4 h-4" />
                   Tags
                 </Label>
-                <span className="text-xs text-gray-500 dark:text-slate-500">
+                <span className="text-xs text-muted-foreground">
                   ({selectedTags.length}/{MAX_TAGS})
                 </span>
               </div>
@@ -378,8 +378,8 @@ export default function StudyDetailsDialog({
                 className={cn(
                   "h-6 text-xs transition-all",
                   (selectedTags.length >= MAX_TAGS && !showNewTagForm)
-                    ? "text-gray-400 dark:text-slate-500 cursor-not-allowed"
-                    : "text-gray-600 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-300"
+                    ? "text-muted-foreground/50 cursor-not-allowed"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
                 title={(selectedTags.length >= MAX_TAGS && !showNewTagForm) ? "Maximum tags reached" : undefined}
               >
@@ -390,10 +390,10 @@ export default function StudyDetailsDialog({
 
             {/* New Tag Form */}
             {showNewTagForm && (
-              <div className="p-3 bg-gray-100 dark:bg-slate-700/30 rounded-lg border border-gray-300 dark:border-slate-600 space-y-3">
+              <div className="p-3 bg-secondary/50 rounded-lg border border-border space-y-3">
                 {selectedTags.length >= MAX_TAGS && (
-                  <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/50 rounded text-xs text-amber-700 dark:text-amber-400">
-                    <span className="font-medium">Note:</span> You've reached the {MAX_TAGS} tag limit. 
+                  <div className="p-2 bg-warning/10 border border-warning/30 rounded text-xs text-warning">
+                    <span className="font-medium">Note:</span> You've reached the {MAX_TAGS} tag limit.
                     New tags will be created but not automatically selected.
                   </div>
                 )}
@@ -405,7 +405,7 @@ export default function StudyDetailsDialog({
                       setNewTagName(e.target.value);
                       setError('');
                     }}
-                    className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-900 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-400"
+                    className="bg-input border-input text-foreground placeholder:text-muted-foreground"
                     disabled={loading}
                   />
                   <div className="flex items-center gap-2">
@@ -432,7 +432,7 @@ export default function StudyDetailsDialog({
                       style={{
                         backgroundColor: newTagColor,
                         borderColor: newTagColor,
-                        color: 'white'
+                        color: getContrastingTextColor(newTagColor)
                       }}
                     >
                       {newTagName || 'Preview'}
@@ -459,7 +459,7 @@ export default function StudyDetailsDialog({
                         setError('');
                       }}
                       disabled={loading}
-                      className="text-gray-600 dark:text-slate-400"
+                      className="text-muted-foreground hover:text-foreground"
                     >
                       Cancel
                     </Button>
@@ -482,11 +482,11 @@ export default function StudyDetailsDialog({
                       className={cn(
                         "transition-all duration-200 border-2",
                         canSelect ? "cursor-pointer" : "cursor-not-allowed opacity-50",
-                        isSelected 
-                          ? 'border-current text-white' 
+                        isSelected
+                          ? 'border-current text-white'
                           : canSelect
-                            ? 'border-gray-300 dark:border-slate-600 text-gray-600 dark:text-slate-400 hover:border-gray-400 dark:hover:border-slate-500 hover:text-gray-800 dark:hover:text-slate-300'
-                            : 'border-gray-200 dark:border-slate-700 text-gray-400 dark:text-slate-500'
+                            ? 'border-border text-muted-foreground hover:border-accent hover:text-foreground'
+                            : 'border-border/50 text-muted-foreground/50'
                       )}
                       style={{
                         backgroundColor: isSelected ? tag.color : 'transparent',
@@ -503,28 +503,28 @@ export default function StudyDetailsDialog({
               </div>
             )}
             
-            <p className="text-xs text-gray-500 dark:text-slate-400">
+            <p className="text-xs text-muted-foreground">
               Select up to {MAX_TAGS} tags to categorize your study, or create new ones
               {selectedTags.length >= MAX_TAGS && (
-                <span className="text-amber-400 ml-1">(Maximum reached)</span>
+                <span className="text-warning ml-1">(Maximum reached)</span>
               )}
             </p>
           </div>
 
           {error && (
-            <div className="p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700">
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            <div className="p-3 rounded-md bg-destructive/10 border border-destructive">
+              <p className="text-sm text-destructive">{error}</p>
             </div>
           )}
         </div>
 
         {/* Actions */}
-        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t border-gray-200 dark:border-slate-700">
+        <div className="flex flex-col-reverse sm:flex-row gap-3 pt-4 border-t border-border">
           <Button
             variant="outline"
             onClick={handleCancel}
             disabled={loading}
-            className="flex-1 border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-300 hover:bg-gray-100 dark:hover:bg-slate-700 hover:text-gray-900 dark:hover:text-white"
+            className="flex-1 border-border text-foreground hover:bg-accent hover:text-accent-foreground"
           >
             Cancel
           </Button>

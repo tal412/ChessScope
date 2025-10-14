@@ -54,35 +54,35 @@ export function MobileRedirect() {
         {/* Three Key Features - Same as desktop */}
         <div className="flex flex-wrap gap-3 justify-center mb-6 px-4">
           {/* Free */}
-          <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 rounded-lg px-3 py-2">
-            <div className="w-7 h-7 bg-emerald-500 rounded-lg flex items-center justify-center">
-              <DollarSign className="w-3.5 h-3.5 text-white" />
+          <div className="flex items-center gap-2 bg-success/10 border border-success/30 rounded-lg px-3 py-2">
+            <div className="w-7 h-7 bg-success rounded-lg flex items-center justify-center">
+              <DollarSign className="w-3.5 h-3.5 text-primary-foreground" />
             </div>
-            <span className="text-emerald-400 font-semibold text-sm">100% Free</span>
+            <span className="text-success font-semibold text-sm">100% Free</span>
           </div>
 
           {/* Open Source */}
-          <div className="flex items-center gap-2 bg-blue-500/10 border border-blue-500/30 rounded-lg px-3 py-2">
-            <div className="w-7 h-7 bg-blue-500 rounded-lg flex items-center justify-center">
-              <Code className="w-3.5 h-3.5 text-white" />
+          <div className="flex items-center gap-2 bg-info/10 border border-info/30 rounded-lg px-3 py-2">
+            <div className="w-7 h-7 bg-info rounded-lg flex items-center justify-center">
+              <Code className="w-3.5 h-3.5 text-primary-foreground" />
             </div>
-            <span className="text-blue-400 font-semibold text-sm">Open Source</span>
+            <span className="text-info font-semibold text-sm">Open Source</span>
           </div>
 
           {/* Community Driven */}
-          <div className="flex items-center gap-2 bg-purple-500/10 border border-purple-500/30 rounded-lg px-3 py-2">
-            <div className="w-7 h-7 bg-purple-500 rounded-lg flex items-center justify-center">
-              <Users className="w-3.5 h-3.5 text-white" />
+          <div className="flex items-center gap-2 bg-primary/10 border border-primary/30 rounded-lg px-3 py-2">
+            <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center">
+              <Users className="w-3.5 h-3.5 text-primary-foreground" />
             </div>
-            <span className="text-purple-400 font-semibold text-sm">Community Driven</span>
+            <span className="text-primary font-semibold text-sm">Community Driven</span>
           </div>
         </div>
 
         {/* Mobile Not Supported Card */}
         <div className="w-full max-w-sm bg-card border border-border rounded-xl p-6 mb-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-amber-500/10 rounded-lg flex items-center justify-center">
-              <Monitor className="w-5 h-5 text-amber-500" />
+            <div className="w-10 h-10 bg-warning/10 rounded-lg flex items-center justify-center">
+              <Monitor className="w-5 h-5 text-warning" />
             </div>
             <h2 className="text-lg font-semibold">Desktop Required</h2>
           </div>
@@ -95,8 +95,8 @@ export function MobileRedirect() {
           <div className="relative bg-secondary rounded-lg aspect-video mb-4 overflow-hidden">
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="text-center">
-                <div className="w-12 h-12 bg-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <Play className="w-5 h-5 text-amber-500 ml-0.5" />
+                <div className="w-12 h-12 bg-warning/20 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <Play className="w-5 h-5 text-warning ml-0.5" />
                 </div>
                 <p className="text-xs text-muted-foreground px-4">
                   Watch how ChessScope transforms your chess analysis
@@ -105,9 +105,9 @@ export function MobileRedirect() {
             </div>
             {/* Decorative browser elements */}
             <div className="absolute top-2 left-2 flex gap-1">
-              <div className="w-2 h-2 bg-red-500 rounded-full opacity-60"></div>
-              <div className="w-2 h-2 bg-yellow-500 rounded-full opacity-60"></div>
-              <div className="w-2 h-2 bg-green-500 rounded-full opacity-60"></div>
+              <div className="w-2 h-2 bg-error rounded-full opacity-60"></div>
+              <div className="w-2 h-2 bg-warning rounded-full opacity-60"></div>
+              <div className="w-2 h-2 bg-success rounded-full opacity-60"></div>
             </div>
           </div>
 
@@ -116,19 +116,19 @@ export function MobileRedirect() {
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">What you'll get on desktop:</p>
             <ul className="space-y-1.5 text-sm">
               <li className="flex items-start gap-2">
-                <span className="text-emerald-500 mt-0.5">✓</span>
+                <span className="text-success mt-0.5">✓</span>
                 <span>Interactive game analysis with move visualization</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-emerald-500 mt-0.5">✓</span>
+                <span className="text-success mt-0.5">✓</span>
                 <span>Performance graphs and statistics</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-emerald-500 mt-0.5">✓</span>
+                <span className="text-success mt-0.5">✓</span>
                 <span>Study creation and management tools</span>
               </li>
               <li className="flex items-start gap-2">
-                <span className="text-emerald-500 mt-0.5">✓</span>
+                <span className="text-success mt-0.5">✓</span>
                 <span>Real-time position evaluation</span>
               </li>
             </ul>

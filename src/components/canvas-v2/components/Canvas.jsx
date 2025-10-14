@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useCallback, useState } from 'react';
 import { CANVAS_CONFIG, RENDER_CONFIG, CLUSTER_CONFIG, SHADOW_CONFIG } from '../constants.js';
 import { getPerformanceColors, getStudyNodeColors, hexToRgba } from '../utils/colors.js';
 import { drawIcon, drawChainLinkIcon, createConvexHull } from '../utils/geometry.js';
+import { getCanvasColor, isColorDark } from '@/utils/themeColors';
 
 /**
  * Render performance node text with proper fonts and positioning
@@ -11,15 +12,17 @@ function renderPerformanceNodeText(ctx, node, centerX, centerY) {
   const textColor = colors.text;
   const isMissingNode = node.data?.isMissing;
   
-  // Set up text stroke for readability (matching v1)
-  // Special handling for missing nodes - stronger black stroke for better visibility
+  // Theme-aware text strokes for better readability
   if (isMissingNode) {
-    ctx.strokeStyle = 'rgba(0, 0, 0, 1.0)'; // Fully opaque black stroke
+    // Missing nodes use stronger stroke for visibility
+    ctx.strokeStyle = getCanvasColor('foreground', 1.0);
     ctx.lineWidth = 4; // Thicker stroke for missing nodes
   } else {
-    const isBlackText = textColor === '#000000' || textColor === '#000';
-    ctx.strokeStyle = isBlackText ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
-    ctx.lineWidth = isBlackText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
+    const isDarkText = isColorDark(textColor);
+    ctx.strokeStyle = isDarkText
+      ? getCanvasColor('card', 0.8)          // Light stroke for dark text
+      : getCanvasColor('foreground', 0.8);   // Dark stroke for light text
+    ctx.lineWidth = isDarkText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
   }
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
@@ -83,11 +86,13 @@ function renderPerformanceNodeText(ctx, node, centerX, centerY) {
 function renderStudyNodeText(ctx, node, centerX, centerY) {
   const colors = getStudyNodeColors(node || {});
   const textColor = colors.text;
-  
-  // Set up text stroke for readability (matching v1)
-  const isBlackText = textColor === '#000000' || textColor === '#000';
-  ctx.strokeStyle = isBlackText ? 'rgba(255, 255, 255, 0.8)' : 'rgba(0, 0, 0, 0.8)';
-  ctx.lineWidth = isBlackText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
+
+  // Theme-aware text strokes for better readability
+  const isDarkText = isColorDark(textColor);
+  ctx.strokeStyle = isDarkText
+    ? getCanvasColor('card', 0.8)          // Light stroke for dark text
+    : getCanvasColor('foreground', 0.8);   // Dark stroke for light text
+  ctx.lineWidth = isDarkText ? RENDER_CONFIG.TEXT_STROKE_WIDTH.BLACK_TEXT : RENDER_CONFIG.TEXT_STROKE_WIDTH.WHITE_TEXT;
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
   ctx.textAlign = 'center';
@@ -97,22 +102,30 @@ function renderStudyNodeText(ctx, node, centerX, centerY) {
     // Render "INITIAL" and "POSITION" on separate lines with smaller font
     ctx.font = `bold 30px ${RENDER_CONFIG.FONT_FAMILY}`;
     ctx.fillStyle = textColor;
-    
+
     // First line: "INITIAL" - using same offset as performance mode START
     ctx.strokeText('INITIAL', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_LABEL_Y);
     ctx.fillText('INITIAL', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_LABEL_Y);
-    
+
     // Second line: "POSITION" - using same offset as performance mode game count
     ctx.strokeText('POSITION', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_GAME_COUNT_Y);
     ctx.fillText('POSITION', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_GAME_COUNT_Y);
-    
+
     // Don't show game count in study mode for root node
     // Game count doesn't make sense for study initial positions
+  } else if (!node.data?.san || node.data?.san === 'Start') {
+    // Handle nodes without san or with 'Start' as initial position
+    ctx.font = `bold 30px ${RENDER_CONFIG.FONT_FAMILY}`;
+    ctx.fillStyle = textColor;
+    ctx.strokeText('INITIAL', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_LABEL_Y);
+    ctx.fillText('INITIAL', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_LABEL_Y);
+    ctx.strokeText('POSITION', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_GAME_COUNT_Y);
+    ctx.fillText('POSITION', centerX, centerY + RENDER_CONFIG.OFFSETS.ROOT_GAME_COUNT_Y);
   } else {
     ctx.font = `bold ${RENDER_CONFIG.FONT_SIZES.MOVE_LABEL}px ${RENDER_CONFIG.FONT_FAMILY}`;
     ctx.fillStyle = textColor;
-    ctx.strokeText(node.data?.san || '?', centerX, centerY);
-    ctx.fillText(node.data?.san || '?', centerX, centerY);
+    ctx.strokeText(node.data.san, centerX, centerY);
+    ctx.fillText(node.data.san, centerX, centerY);
     
     if (node.data?.gameCount) {
       ctx.font = `600 ${RENDER_CONFIG.FONT_SIZES.GAME_COUNT}px ${RENDER_CONFIG.FONT_FAMILY}`;
@@ -139,9 +152,9 @@ function drawArrowIcons(ctx, centerX, centerY, arrows) {
     
     ctx.beginPath();
     ctx.arc(circleX, circleY, circleSize / 2, 0, 2 * Math.PI);
-    ctx.fillStyle = arrow.color || '#3b82f6';
+    ctx.fillStyle = arrow.color || getCanvasColor('chessInteresting');
     ctx.fill();
-    ctx.strokeStyle = '#ffffff';
+    ctx.strokeStyle = getCanvasColor('card');
     ctx.lineWidth = 2;
     ctx.stroke();
   });
@@ -161,9 +174,9 @@ function drawAnnotationIcons(ctx, centerX, centerY, annotations) {
     
     // Draw icon based on annotation type
     if (annotation.type === 'link') {
-      drawChainLinkIcon(ctx, iconX, iconY, iconSize, '#60a5fa');
+      drawChainLinkIcon(ctx, iconX, iconY, iconSize, getCanvasColor('info'));
     } else {
-      drawIcon(ctx, annotation.icon, iconX, iconY, iconSize, '#60a5fa');
+      drawIcon(ctx, annotation.icon, iconX, iconY, iconSize, getCanvasColor('info'));
     }
   });
 }
@@ -277,15 +290,8 @@ export function Canvas({
     ctx.clearRect(0, 0, width, height);
     
     // Add appropriate background based on theme
-    if (isDarkTheme) {
-      // Dark mode background - matching slate-900 from performance graph
-      ctx.fillStyle = '#0f172a';
-      ctx.fillRect(0, 0, width, height);
-    } else {
-      // Light mode background
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, width, height);
-    }
+    ctx.fillStyle = getCanvasColor('background');
+    ctx.fillRect(0, 0, width, height);
     
     // Save context and apply transform (translate first, then scale - order matters!)
     ctx.save();
@@ -319,9 +325,13 @@ export function Canvas({
         if (clusterNodes.length === 0) return;
 
         const nodePoints = clusterNodes.map(node => ({ x: node.x, y: node.y }));
-        
-                 // Opening clusters are all purple
-         const colors = { bg: '#8b5cf650', border: '#8b5cf6', text: '#8b5cf6' };
+
+        // Opening clusters are all purple
+        const colors = {
+          bg: getCanvasColor('cluster1', 0.31),
+          border: getCanvasColor('cluster1'),
+          text: getCanvasColor('cluster1')
+        };
 
         // Create cluster path
         let clusterPath = new Path2D();
@@ -412,9 +422,13 @@ export function Canvas({
         if (clusterNodes.length === 0) return;
 
         const nodePoints = clusterNodes.map(node => ({ x: node.x, y: node.y }));
-        
-                 // Position clusters are all orange
-         const colors = { bg: '#f59e0b50', border: '#f59e0b', text: '#f59e0b' };
+
+        // Position clusters are all orange/amber
+        const colors = {
+          bg: getCanvasColor('cluster4', 0.31),
+          border: getCanvasColor('cluster4'),
+          text: getCanvasColor('cluster4')
+        };
 
                  // Create cluster path (same tight logic as opening clusters)
          let clusterPath = new Path2D();
@@ -489,11 +503,11 @@ export function Canvas({
       if (mode === 'study') {
         // Study mode edge rendering with theme-aware colors
         const isMainLine = edge.data?.isMainLine || false;
-        
-        // Use theme-appropriate colors for main line
-        const mainLineColor = isDarkTheme ? '#ffffff' : '#000000';
-        const nonMainLineColor = isDarkTheme ? '#6b7280' : '#9ca3af';
-        
+
+        // Use theme colors for main line
+        const mainLineColor = getCanvasColor('foreground');
+        const nonMainLineColor = getCanvasColor('mutedForeground');
+
         ctx.strokeStyle = isMainLine ? mainLineColor : nonMainLineColor;
         ctx.lineWidth = isMainLine ? 3 : 2;
         ctx.lineCap = 'round';
@@ -518,7 +532,7 @@ export function Canvas({
           )
         );
 
-        ctx.strokeStyle = perfData.border || perfData.stroke || '#374151';
+        ctx.strokeStyle = perfData.border || perfData.stroke || getCanvasColor('border');
         ctx.lineWidth = thickness;
         ctx.lineCap = 'round';
         ctx.globalAlpha = 0.8;
@@ -601,8 +615,8 @@ export function Canvas({
         ctx.beginPath();
         ctx.roundRect(nodeX, nodeY, nodeWidth, nodeHeight, CLUSTER_CONFIG.CORNER_RADIUS);
         ctx.fill();
-        
-        ctx.strokeStyle = '#f97316'; // Orange-500
+
+        ctx.strokeStyle = getCanvasColor('warning'); // Orange for initial move
         ctx.lineWidth = 6;
         ctx.stroke();
         

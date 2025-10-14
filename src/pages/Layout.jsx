@@ -287,7 +287,7 @@ export default function Layout() {
                         }}
                         className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-[transform,box-shadow] duration-200 group outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0 ${
                           location.pathname === item.url
-                            ? "bg-gradient-to-r from-amber-500/90 to-orange-500/90 text-white border border-amber-400/50 shadow-lg shadow-amber-500/25 hover:from-amber-500 hover:to-orange-500"
+                            ? "bg-gradient-primary text-white border border-warning/50 shadow-lg shadow-warning/25"
                             : `text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent border border-transparent ${(isSyncing || isImporting) ? 'opacity-50 cursor-not-allowed' : ''}`
                         } ${isSidebarCollapsed ? 'justify-center' : ''}`}
                       >
@@ -541,7 +541,7 @@ export default function Layout() {
                             : 'left-1/2 top-1/2 -translate-x-1/2 translate-y-[22px]'
                         }`}
                       >
-                        <Linkedin className="w-4 h-4 text-sidebar-foreground/70 group-hover:text-blue-400 transition-colors" />
+                        <Linkedin className="w-4 h-4 text-sidebar-foreground/70 group-hover:text-info transition-colors" />
                       </a>
                     </TooltipTrigger>
                     <TooltipContent 
@@ -648,7 +648,7 @@ export default function Layout() {
               <Card className="bg-card/50 border-border/50">
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-purple-600 rounded-lg flex items-center justify-center">
+                    <div className="w-10 h-10 bg-info rounded-lg flex items-center justify-center">
                       <Settings className="w-5 h-5 text-sidebar-foreground flex-shrink-0" />
                     </div>
                     <div>
@@ -693,7 +693,7 @@ export default function Layout() {
               <Card className="bg-card/50 border-border/50">
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-green-600 rounded-lg flex items-center justify-center">
+                    <div className="w-10 h-10 bg-success rounded-lg flex items-center justify-center">
                       <CalendarIcon className="w-5 h-5 text-foreground flex-shrink-0" />
                     </div>
                     <div>
@@ -806,7 +806,7 @@ export default function Layout() {
               <Card className="bg-card/50 border-border/50">
                 <CardHeader className="pb-4">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                    <div className="w-10 h-10 bg-info rounded-lg flex items-center justify-center">
                       <Globe className="w-5 h-5 text-white flex-shrink-0" />
                     </div>
                     <div>
@@ -844,7 +844,7 @@ export default function Layout() {
 
                   <div className="bg-muted/30 p-4 rounded-lg">
                     <div className="flex items-start gap-3">
-                      <CheckCircle className="w-5 h-5 text-green-400 mt-0.5 flex-shrink-0" />
+                      <CheckCircle className="w-5 h-5 text-success mt-0.5 flex-shrink-0" />
                       <div className="text-sm">
                         <p className="text-foreground font-medium mb-1">Current Settings</p>
                         <p className="text-muted-foreground text-xs">
@@ -882,8 +882,8 @@ export default function Layout() {
             {/* Validation */}
             {settingsError && (
               <Alert className="status-error border">
-                <AlertCircle className="h-4 w-4 text-red-400" />
-                <AlertDescription className="text-red-300">
+                <AlertCircle className="h-4 w-4 text-error" />
+                <AlertDescription className="text-error">
                   {settingsError}
                 </AlertDescription>
               </Alert>

@@ -17,6 +17,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase.js';
 import { firebaseAuth } from './FirebaseAuth.js';
+import { DEFAULT_STUDY_TAGS, DEFAULT_TAG_COLOR, DEFAULT_FOLDER_COLOR } from '@/constants/colors';
 
 class FirestoreService {
   constructor() {
@@ -357,7 +358,7 @@ class FirestoreService {
       const folderDoc = {
         ...folderData,
         icon: folderData.icon || 'folder',
-        color: folderData.color || '#6366f1',
+        color: folderData.color || DEFAULT_FOLDER_COLOR.value,
         position: folderData.position || 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -434,7 +435,7 @@ class FirestoreService {
       
       const tagDoc = {
         ...tagData,
-        color: tagData.color || '#6366f1',
+        color: tagData.color || DEFAULT_TAG_COLOR.value,
         createdAt: serverTimestamp()
       };
 
@@ -792,14 +793,10 @@ class FirestoreService {
   // INITIALIZE DEFAULT TAGS (idempotent - safe to call multiple times)
   async initializeDefaultTags() {
     try {
-      const defaultTags = [
-        { name: 'Opening', color: '#22c55e' },
-        { name: 'Middlegame', color: '#3b82f6' },
-        { name: 'Endgame', color: '#f59e0b' },
-        { name: 'Tactics', color: '#ef4444' },
-        { name: 'Strategy', color: '#8b5cf6' },
-        { name: 'Defense', color: '#06b6d4' }
-      ];
+      const defaultTags = DEFAULT_STUDY_TAGS.map(tag => ({
+        name: tag.name,
+        color: tag.color
+      }));
 
       // Check if tags already exist
       const existingTags = await this.getStudyTags();

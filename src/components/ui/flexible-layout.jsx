@@ -77,7 +77,7 @@ export function AppBar({
           {/* Title with Icon */}
           {title && (
             <div className="flex items-center gap-2 min-w-0">
-              {Icon && <Icon className="w-5 h-5 text-amber-500 flex-shrink-0" />}
+              {Icon && <Icon className="w-5 h-5 text-warning flex-shrink-0" />}
               <div className="min-w-0">
                 <h1 className="text-lg sm:text-xl font-bold text-appbar-foreground truncate">{title}</h1>
                 {subtitle && <p className="text-xs text-appbar-foreground opacity-60 truncate">{subtitle}</p>}

@@ -23,26 +23,13 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { studyTag } from '@/api/hybridEntities';
+import { TAG_COLORS } from '@/constants/colors';
+import { getContrastingTextColor } from '@/utils/themeColors';
 
-const DEFAULT_COLORS = [
-  '#22c55e', // green
-  '#3b82f6', // blue
-  '#f59e0b', // amber
-  '#ef4444', // red
-  '#8b5cf6', // purple
-  '#06b6d4', // cyan
-  '#f97316', // orange
-  '#84cc16', // lime
-  '#ec4899', // pink
-  '#6b7280', // gray
-  '#14b8a6', // teal
-  '#a855f7', // violet
-];
-
-export default function TagManagementDialog({ 
-  trigger, 
-  children, 
-  onTagsChanged 
+export default function TagManagementDialog({
+  trigger,
+  children,
+  onTagsChanged
 }) {
   const [open, setOpen] = useState(false);
   const [tags, setTags] = useState([]);
@@ -52,7 +39,7 @@ export default function TagManagementDialog({
   const [preventClose, setPreventClose] = useState(false);
   const [tagsChanged, setTagsChanged] = useState(false);
   const [newTagName, setNewTagName] = useState('');
-  const [newTagColor, setNewTagColor] = useState(DEFAULT_COLORS[0]);
+  const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0].value);
   const [error, setError] = useState('');
 
   // Load tags when dialog opens
@@ -95,11 +82,11 @@ export default function TagManagementDialog({
         name: newTagName.trim(),
         color: newTagColor
       });
-      
+
       setTags(prev => [...prev, newTag].sort((a, b) => a.name.localeCompare(b.name)));
       setNewTagName('');
-      setNewTagColor(DEFAULT_COLORS[0]);
-      
+      setNewTagColor(TAG_COLORS[0].value);
+
       // Mark that tags have changed so we can notify parent when dialog closes
       setTagsChanged(true);
       
@@ -199,7 +186,7 @@ export default function TagManagementDialog({
   };
 
   const triggerElement = trigger || (
-    <Button variant="outline" size="sm" className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-700 dark:text-slate-200 hover:bg-gray-200 dark:hover:bg-slate-600 hover:text-gray-900 dark:hover:text-white">
+    <Button variant="outline" size="sm" className="bg-secondary border-border text-foreground hover:bg-accent hover:text-foreground">
       <Tags className="w-4 h-4 mr-2" />
       Manage Tags
     </Button>
@@ -229,25 +216,25 @@ export default function TagManagementDialog({
       <DialogTrigger asChild>
         {children || triggerElement}
       </DialogTrigger>
-      <DialogContent className="bg-white/95 dark:bg-slate-800/95 backdrop-blur-optimized border-gray-200/50 dark:border-slate-700/50 text-gray-900 dark:text-slate-100 max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-card/95 backdrop-blur-optimized border-border text-foreground max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-xl text-gray-900 dark:text-white flex items-center gap-2">
-            <Tags className="w-5 h-5 text-amber-500" />
+          <DialogTitle className="text-xl text-foreground flex items-center gap-2">
+            <Tags className="w-5 h-5 text-[hsl(var(--warning))]" />
             Manage Study Tags
           </DialogTitle>
         </DialogHeader>
         
         <div className="space-y-6 py-4">
           {/* Create New Tag */}
-          <div className="space-y-4 p-4 bg-gray-100 dark:bg-slate-700/30 rounded-lg border border-gray-300 dark:border-slate-600">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-slate-300 flex items-center gap-2">
+          <div className="space-y-4 p-4 bg-secondary/50 rounded-lg border border-border">
+            <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
               <Plus className="w-4 h-4" />
               Create New Tag
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-gray-700 dark:text-slate-300">Tag Name</Label>
+                <Label className="text-foreground">Tag Name</Label>
                 <Input
                   value={newTagName}
                   onChange={(e) => {
@@ -255,26 +242,26 @@ export default function TagManagementDialog({
                     setError('');
                   }}
                   placeholder="e.g. Sicilian Defense"
-                  className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-900 dark:text-slate-100 placeholder:text-gray-500 dark:placeholder:text-slate-400"
+                  className="bg-secondary border-border text-foreground placeholder:text-muted-foreground"
                   disabled={loading}
                 />
               </div>
               
               <div className="space-y-2">
-                <Label className="text-gray-700 dark:text-slate-300">Color</Label>
+                <Label className="text-foreground">Color</Label>
                 <div className="flex flex-wrap gap-2">
-                  {DEFAULT_COLORS.map(color => (
+                  {TAG_COLORS.map((color, index) => (
                     <button
-                      key={color}
+                      key={index}
                       type="button"
-                      onClick={() => setNewTagColor(color)}
+                      onClick={() => setNewTagColor(color.value)}
                       className={cn(
                         "w-8 h-8 rounded-full border-2 transition-all",
-                        newTagColor === color 
-                          ? 'border-white scale-110' 
+                        newTagColor === color.value
+                          ? 'border-white scale-110'
                           : 'border-transparent hover:scale-105'
                       )}
-                      style={{ backgroundColor: color }}
+                      style={{ backgroundColor: color.value }}
                       disabled={loading}
                     />
                   ))}
@@ -285,7 +272,7 @@ export default function TagManagementDialog({
                     style={{
                       backgroundColor: newTagColor,
                       borderColor: newTagColor,
-                      color: 'white'
+                      color: getContrastingTextColor(newTagColor)
                     }}
                   >
                     {newTagName || 'Preview'}
@@ -306,16 +293,16 @@ export default function TagManagementDialog({
 
           {/* Existing Tags */}
           <div className="space-y-4">
-            <h3 className="text-sm font-medium text-gray-700 dark:text-slate-300">
+            <h3 className="text-sm font-medium text-foreground">
               Existing Tags ({tags.length})
             </h3>
             
             {loading && tags.length === 0 ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="w-6 h-6 animate-spin text-amber-500" />
+                <Loader2 className="w-6 h-6 animate-spin text-[hsl(var(--warning))]" />
               </div>
             ) : tags.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 dark:text-slate-400">
+              <div className="text-center py-8 text-muted-foreground">
                 <Tags className="w-12 h-12 mx-auto mb-3 opacity-50" />
                 <p>No tags created yet</p>
               </div>
@@ -325,7 +312,7 @@ export default function TagManagementDialog({
                   {tags.map((tag) => (
                     <div
                       key={tag.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 dark:bg-slate-700/20 rounded-lg border border-gray-200 dark:border-slate-600"
+                      className="flex items-center justify-between p-3 bg-secondary/50 rounded-lg border border-border"
                     >
                       {editingTag === tag.id ? (
                         <TagEditForm
@@ -342,7 +329,7 @@ export default function TagManagementDialog({
                               style={{
                                 backgroundColor: tag.color,
                                 borderColor: tag.color,
-                                color: 'white'
+                                color: getContrastingTextColor(tag.color)
                               }}
                             >
                               {tag.name}
@@ -369,7 +356,7 @@ export default function TagManagementDialog({
                                 confirmDeleteTag(tag.id);
                               }}
                               disabled={loading}
-                              className="h-8 w-8 p-0 text-red-400 hover:text-red-300"
+                              className="h-8 w-8 p-0 text-destructive hover:text-destructive/80"
                             >
                               <Trash2 className="w-3 h-3" />
                             </Button>
@@ -384,8 +371,8 @@ export default function TagManagementDialog({
           </div>
 
           {error && (
-            <div className="p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700">
-              <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            <div className="p-3 rounded-md bg-destructive/10 border border-destructive/30">
+              <p className="text-sm text-destructive">{error}</p>
             </div>
           )}
 
@@ -394,13 +381,13 @@ export default function TagManagementDialog({
         {/* Delete Confirmation Overlay */}
         {deletingTag && (
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-600 rounded-lg p-6 mx-4 max-w-md w-full shadow-xl">
+            <div className="bg-card border border-border rounded-lg p-6 mx-4 max-w-md w-full shadow-xl">
               <div className="flex items-center gap-3 mb-4">
-                <Trash2 className="w-6 h-6 text-red-400" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Delete Tag</h3>
+                <Trash2 className="w-6 h-6 text-destructive" />
+                <h3 className="text-lg font-semibold text-foreground">Delete Tag</h3>
               </div>
-              
-              <p className="text-gray-700 dark:text-slate-300 mb-6">
+
+              <p className="text-foreground mb-6">
                 Are you sure you want to delete this tag? It will be removed from all studies and cannot be undone.
               </p>
               
@@ -410,7 +397,7 @@ export default function TagManagementDialog({
                   size="sm"
                   onClick={cancelDeleteTag}
                   disabled={loading}
-                  className="text-gray-600 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-200"
+                  className="text-muted-foreground hover:text-foreground"
                 >
                   Cancel
                 </Button>
@@ -422,7 +409,7 @@ export default function TagManagementDialog({
                     handleDeleteTag(deletingTag);
                   }}
                   disabled={loading}
-                  className="bg-red-600 hover:bg-red-700"
+                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
                 >
                   {loading ? (
                     <>
@@ -460,21 +447,21 @@ function TagEditForm({ tag, onSave, onCancel, loading }) {
       <Input
         value={name}
         onChange={(e) => setName(e.target.value)}
-        className="bg-gray-100 dark:bg-slate-700 border-gray-300 dark:border-slate-600 text-gray-900 dark:text-slate-100 flex-1"
+        className="bg-secondary border-border text-foreground flex-1"
         disabled={loading}
       />
-      
+
       <div className="flex gap-1">
-        {DEFAULT_COLORS.slice(0, 6).map(c => (
+        {TAG_COLORS.slice(0, 6).map((c, index) => (
           <button
-            key={c}
+            key={index}
             type="button"
-            onClick={() => setColor(c)}
+            onClick={() => setColor(c.value)}
             className={cn(
               "w-6 h-6 rounded-full border transition-all",
-              color === c ? 'border-gray-800 dark:border-white' : 'border-transparent'
+              color === c.value ? 'border-foreground' : 'border-transparent'
             )}
-            style={{ backgroundColor: c }}
+            style={{ backgroundColor: c.value }}
             disabled={loading}
           />
         ))}
@@ -485,7 +472,7 @@ function TagEditForm({ tag, onSave, onCancel, loading }) {
         size="sm"
         onClick={handleSave}
         disabled={loading || !name.trim()}
-        className="h-8 w-8 p-0 text-green-400"
+        className="h-8 w-8 p-0 text-success"
       >
         <Save className="w-3 h-3" />
       </Button>
@@ -495,7 +482,7 @@ function TagEditForm({ tag, onSave, onCancel, loading }) {
         size="sm"
         onClick={onCancel}
         disabled={loading}
-        className="h-8 w-8 p-0 text-gray-600 dark:text-slate-400"
+        className="h-8 w-8 p-0 text-muted-foreground"
       >
         <X className="w-3 h-3" />
       </Button>

@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { CANVAS_CONFIG, KEYBOARD_SHORTCUTS, MOUSE_BUTTONS } from '../constants.js';
 import { isPointInPath } from '../utils.js';
+import { SINGLE_CLUSTER_COLOR } from '@/constants/colors';
 
 /**
  * Hook for managing canvas events (mouse, keyboard, touch)
@@ -183,8 +184,7 @@ export const useCanvasEvents = ({
         setHoveredCluster(cluster);
         
         if (cluster && onClusterHover) {
-          const clusterColor = { bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' };
-          onClusterHover(cluster.name, clusterColor);
+          onClusterHover(cluster.name, SINGLE_CLUSTER_COLOR);
         } else if (!cluster && onClusterHoverEnd) {
           onClusterHoverEnd();
         }

@@ -52,14 +52,17 @@ export function getStudyNodeColors(node, isSelected = false) {
   if (nodeData.isMissing) {
     return STUDY_NODE_COLORS.missing;
   }
-  
-  if (nodeData.isRoot) {
+
+  // Check for root nodes (including those without san or with 'Start' as san)
+  if (nodeData.isRoot || !nodeData.san || nodeData.san === 'Start') {
     return STUDY_NODE_COLORS.startNode;
   }
-  
+
   const moveSequence = nodeData.moveSequence || [];
-  const isWhiteMove = moveSequence.length % 2 !== 0;
-  
+  // In chess, even move sequence length = white's turn (0, 2, 4...)
+  // odd move sequence length = black's turn (1, 3, 5...)
+  const isWhiteMove = moveSequence.length % 2 === 0;
+
   return isWhiteMove ? STUDY_NODE_COLORS.whiteMove : STUDY_NODE_COLORS.blackMove;
 }
 

@@ -31,8 +31,10 @@ export const getOpeningNodeColor = (node, isSelected) => {
   
   // Get move sequence to determine if this is a white or black move
   const moveSequence = node.data.moveSequence || [];
-  const isWhiteMove = moveSequence.length % 2 === 1; // Odd move number = white move
-  
+  // In chess, even move sequence length = white's turn (0, 2, 4...)
+  // odd move sequence length = black's turn (1, 3, 5...)
+  const isWhiteMove = moveSequence.length % 2 === 0;
+
   return isWhiteMove ? OPENING_NODE_COLORS.whiteMove : OPENING_NODE_COLORS.blackMove;
 };
 

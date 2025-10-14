@@ -1,3 +1,5 @@
+import { getCanvasColor } from '@/utils/themeColors';
+
 /**
  * Service for generating hierarchical hashes of database content
  * for granular conflict detection in chess studies
@@ -148,12 +150,12 @@ class DatabaseHashService {
    */
   normalizeArrows(arrows) {
     if (!arrows || !Array.isArray(arrows)) return [];
-    
+
     return arrows
       .map(arrow => ({
         from: arrow.from,
         to: arrow.to,
-        color: arrow.color || '#22c55e'
+        color: arrow.color || getCanvasColor('chessGood') // Default to green chess color
       }))
       .sort((a, b) => {
         if (a.from !== b.from) return a.from.localeCompare(b.from);

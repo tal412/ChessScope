@@ -41,11 +41,11 @@ const MoveActionButton = ({
         }}
         className={cn(
           "h-9 w-9 p-0 border transition-all duration-200",
-          isActive 
-            ? "bg-amber-500 border-amber-400 text-white" 
+          isActive
+            ? "bg-warning border-warning text-warning-foreground"
             : "bg-card border-border text-muted-foreground",
           !readOnly && !isActive && "hover:bg-accent hover:border-border hover:text-foreground",
-          !readOnly && isActive && "hover:bg-amber-600",
+          !readOnly && isActive && "hover:bg-warning/90",
           readOnly && "cursor-default"
         )}
       >
@@ -301,8 +301,8 @@ export default function MoveDetailsPanel({
                       "w-full transition-all duration-200",
                       selectedNode && selectedNode.san === 'Start'
                         ? "opacity-50 cursor-not-allowed text-muted-foreground"
-                        : drawingMode 
-                          ? "bg-green-500/20 text-green-600 hover:bg-green-500/30 border border-green-500/50" 
+                        : drawingMode
+                          ? "bg-success/20 text-success hover:bg-success/30 border border-success/50"
                           : "bg-muted/50 text-muted-foreground hover:bg-accent hover:text-foreground"
                     )}
                     title={selectedNode && selectedNode.san === 'Start' ? "Cannot draw arrows on starting position" : undefined}
@@ -319,8 +319,8 @@ export default function MoveDetailsPanel({
               {/* Show drawing mode status */}
               {!readOnly && drawingMode && (
                 <div className="text-xs text-muted-foreground">
-                  <div className="flex items-center gap-2 text-green-400">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                  <div className="flex items-center gap-2 text-success">
+                    <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
                     Drawing mode active - right-click drag on board to draw arrows
                   </div>
                 </div>
@@ -351,7 +351,7 @@ export default function MoveDetailsPanel({
                               newArrows.splice(index, 1);
                               handleArrowsChange(newArrows);
                             }}
-                            className="h-6 w-6 p-0 rounded-md text-red-400 hover:text-red-200 hover:bg-red-500/20 transition-all duration-200 hover:scale-110 active:scale-95"
+                            className="h-6 w-6 p-0 rounded-md text-error hover:text-error/80 hover:bg-error/20 transition-all duration-200 hover:scale-110 active:scale-95"
                           >
                             <X className="w-3 h-3" />
                           </Button>
@@ -392,7 +392,7 @@ export default function MoveDetailsPanel({
                               size="sm"
                               variant="ghost"
                               onClick={() => window.open(link.url, '_blank')}
-                              className="text-blue-500 hover:text-blue-400 hover:bg-blue-500/10 flex-shrink-0 ml-2 p-1 h-auto"
+                              className="text-info hover:text-info/80 hover:bg-info/10 flex-shrink-0 ml-2 p-1 h-auto"
                             >
                               <ExternalLink className="w-3.5 h-3.5" />
                             </Button>
@@ -424,7 +424,7 @@ export default function MoveDetailsPanel({
                         size="sm"
                         variant="ghost"
                         onClick={() => handleRemoveLink(index)}
-                        className="text-red-500 hover:text-red-400 hover:bg-red-500/10 flex-shrink-0 h-8 w-8 p-0"
+                        className="text-error hover:text-error/80 hover:bg-error/10 flex-shrink-0 h-8 w-8 p-0"
                       >
                         <X className="w-3.5 h-3.5" />
                       </Button>

@@ -5,6 +5,8 @@ import { Badge } from '@/components/ui/badge';
 
 import { ArrowRight } from 'lucide-react';
 import { Chess } from 'chess.js';
+import { getPerformanceBorderClass, getPerformanceColorClasses } from '@/constants/colors';
+import { getCanvasColor } from '@/utils/themeColors';
 
 // Global mouse position tracker
 let globalMouseX = 0;
@@ -20,25 +22,20 @@ if (typeof window !== 'undefined') {
 
 // Responsive tree layout - no fixed dimensions
 
+// Use theme-aware performance colors
 const getPerformanceColor = (winRate) => {
-  if (winRate >= 70) return "border-green-500/80 hover:bg-green-500/10 dark:hover:bg-green-500/20";
-  if (winRate >= 60) return "border-blue-500/80 hover:bg-blue-500/10 dark:hover:bg-blue-500/20";
-  if (winRate >= 50) return "border-yellow-500/80 hover:bg-yellow-500/10 dark:hover:bg-yellow-500/20";
-  return "border-red-500/80 hover:bg-red-500/10 dark:hover:bg-red-500/20";
+  return getPerformanceBorderClass(winRate);
 };
 
 const getSelectedColor = (winRate) => {
-  if (winRate >= 70) return "bg-green-500/20 dark:bg-green-500/30 border-green-400";
-  if (winRate >= 60) return "bg-blue-500/20 dark:bg-blue-500/30 border-blue-400";
-  if (winRate >= 50) return "bg-yellow-500/20 dark:bg-yellow-500/30 border-yellow-400";
-  return "bg-red-500/20 dark:bg-red-500/30 border-red-400";
+  return getPerformanceColorClasses(winRate);
 };
 
 const getArrowColor = (winRate) => {
-  if (winRate >= 70) return "#22c55e"; // green-500
-  if (winRate >= 60) return "#3b82f6"; // blue-500
-  if (winRate >= 50) return "#eab308"; // yellow-500
-  return "#ef4444"; // red-500
+  if (winRate >= 70) return getCanvasColor('canvasExcellent');  // green
+  if (winRate >= 60) return getCanvasColor('canvasGood');       // cyan
+  if (winRate >= 50) return getCanvasColor('canvasSolid');      // amber
+  return getCanvasColor('canvasDifficult');                      // red
 };
 
 // Move button component
@@ -94,10 +91,10 @@ const MoveButton = ({ moveData, onSelect, isSelected, onHover, onHoverEnd, isInL
     }
   }, [isInLastCard, isHovered]); // Remove onHoverEnd from dependencies to prevent infinite loop
   
-  // Study mode styling (pink theme)
+  // Study mode styling (using theme cluster7 color - pink)
   const studyModeStyle = displayMode === 'study' ? {
-    base: 'bg-muted/50 dark:bg-zinc-700/40 border-pink-500/60 hover:bg-pink-500/10 dark:hover:bg-pink-500/20',
-    selected: 'bg-pink-500/20 dark:bg-pink-500/30 border-pink-400'
+    base: 'bg-muted/50 dark:bg-zinc-700/40 border-[hsl(var(--cluster-7))]/60 hover:bg-[hsl(var(--cluster-7))]/10 dark:hover:bg-[hsl(var(--cluster-7))]/20',
+    selected: 'bg-[hsl(var(--cluster-7))]/20 dark:bg-[hsl(var(--cluster-7))]/30 border-[hsl(var(--cluster-7))]'
   } : null;
   
   return (
@@ -766,7 +763,7 @@ export default function ChunkVisualization({
                     const enhancedMoveData = {
                       ...moveData,
                       maxGameCount: globalMaxGameCount,
-                      arrowColor: displayMode === 'study' ? '#ec4899' : getArrowColor(moveData.details?.winRate ?? moveData.winRate ?? 0),
+                      arrowColor: displayMode === 'study' ? getCanvasColor('cluster7') : getArrowColor(moveData.details?.winRate ?? moveData.winRate ?? 0),
                       fixedThickness: displayMode === 'study' ? 14 : undefined
                     };
                     onMoveHover(enhancedMoveData);

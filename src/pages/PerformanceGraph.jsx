@@ -462,8 +462,8 @@ function PerformanceGraphContent() {
       <div className="h-screen w-full bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="relative mb-8">
-            <div className="animate-spin rounded-full h-20 w-20 border-4 border-border border-t-purple-500 mx-auto"></div>
-            <div className="absolute inset-0 rounded-full bg-purple-500/10 blur-lg"></div>
+            <div className="animate-spin rounded-full h-20 w-20 border-4 border-border border-t-primary mx-auto"></div>
+            <div className="absolute inset-0 rounded-full bg-primary/10 blur-lg"></div>
           </div>
           <div className="space-y-3">
             <h2 className="text-2xl font-bold text-foreground">
@@ -473,9 +473,9 @@ function PerformanceGraphContent() {
               Building your opening analysis from imported games...
             </p>
             <div className="flex items-center justify-center gap-2 mt-6">
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-              <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce"></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+              <div className="w-2 h-2 bg-primary rounded-full animate-bounce"></div>
             </div>
           </div>
         </div>
@@ -487,10 +487,10 @@ function PerformanceGraphContent() {
     return (
       <div className="w-full h-full bg-background flex items-center justify-center">
         <div className="text-center">
-          <Target className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-slate-300 mb-2">No Chess Data Found</h3>
-          <p className="text-slate-400 mb-4">Import your games first to see the performance graph.</p>
-          <Button onClick={() => window.location.href = '/import'} className="bg-blue-600 hover:bg-blue-700">
+          <Target className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-xl font-bold text-foreground mb-2">No Chess Data Found</h3>
+          <p className="text-muted-foreground mb-4">Import your games first to see the performance graph.</p>
+          <Button onClick={() => window.location.href = '/import'} className="bg-info hover:bg-info/90">
             Import Games
           </Button>
         </div>
@@ -518,11 +518,11 @@ function PerformanceGraphContent() {
       {(isGenerating || (loading && (isSyncing || pendingAutoSync))) && (
         <div className="absolute inset-0 bg-background/95 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500 mx-auto mb-6"></div>
-            <p className="text-slate-200 text-lg font-medium">
+            <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-6"></div>
+            <p className="text-foreground text-lg font-medium">
               {(loading && (isSyncing || pendingAutoSync)) ? 'Syncing Games' : 'Generating Performance Graph'}
             </p>
-            <p className="text-slate-400 text-sm mt-2">
+            <p className="text-muted-foreground text-sm mt-2">
               {(loading && (isSyncing || pendingAutoSync)) ? (syncStatus || 'Updating analysis...') : 'Processing your opening analysis...'}
             </p>
           </div>

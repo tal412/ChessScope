@@ -1,28 +1,12 @@
 // Clustering Analysis for Chess Performance Graph
 // Both position-based and opening-based clustering
 
-// Color constants for cluster visualization
-const SINGLE_PURPLE_COLOR = { bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' };
-const OPENING_CLUSTER_COLORS = [
-  { bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' }, // Purple
-  { bg: '#3b82f6', border: '#2563eb', text: '#ffffff' }, // Blue
-  { bg: '#10b981', border: '#059669', text: '#ffffff' }, // Green
-  { bg: '#f59e0b', border: '#d97706', text: '#ffffff' }, // Orange
-  { bg: '#ef4444', border: '#dc2626', text: '#ffffff' }, // Red
-  { bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' }, // Purple (repeat)
-  { bg: '#06b6d4', border: '#0891b2', text: '#ffffff' }, // Cyan
-  { bg: '#84cc16', border: '#65a30d', text: '#ffffff' }, // Lime
-  { bg: '#f97316', border: '#ea580c', text: '#ffffff' }, // Orange-alt
-  { bg: '#ec4899', border: '#db2777', text: '#ffffff' }, // Pink
-  { bg: '#6366f1', border: '#4f46e5', text: '#ffffff' }, // Indigo
-  { bg: '#14b8a6', border: '#0d9488', text: '#ffffff' }, // Teal
-  { bg: '#a855f7', border: '#9333ea', text: '#ffffff' }, // Violet
-  { bg: '#eab308', border: '#ca8a04', text: '#ffffff' }, // Yellow
-  { bg: '#22d3ee', border: '#06b6d4', text: '#ffffff' }  // Sky
-];
+import { CLUSTER_COLORS, SINGLE_CLUSTER_COLOR, UNCLUSTERED_COLOR } from '@/constants/colors';
 
-// Fallback color for unclustered nodes
-const UNCLUSTERED_OPENING_COLOR = { bg: '#64748b', border: '#475569', text: '#ffffff' };
+// Theme-aware cluster colors (lazy-evaluated from theme)
+const OPENING_CLUSTER_COLORS = CLUSTER_COLORS;
+const SINGLE_PURPLE_COLOR = SINGLE_CLUSTER_COLOR;
+const UNCLUSTERED_OPENING_COLOR = UNCLUSTERED_COLOR;
 
 // Function to create opening-based clusters using DFS for connected openings
 export const createOpeningClusters = (nodes) => {

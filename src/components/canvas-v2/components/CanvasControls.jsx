@@ -90,7 +90,7 @@ export function CanvasControls({
             <Button
               size="sm"
               variant="ghost"
-              className={`h-8 w-8 p-0 ${showOpeningClusters ? 'text-green-400 hover:text-green-300' : 'text-muted-foreground hover:text-foreground'} hover:bg-accent`}
+              className={`h-8 w-8 p-0 ${showOpeningClusters ? 'text-success hover:text-success/80' : 'text-muted-foreground hover:text-foreground'} hover:bg-accent`}
               onClick={onToggleOpeningClusters}
               disabled={isInteractionBlocked}
               title={showOpeningClusters ? "Hide opening clusters" : "Show opening clusters"}
@@ -103,7 +103,7 @@ export function CanvasControls({
               <Button
                 size="sm"
                 variant="ghost"
-                className={`h-8 w-8 p-0 ${showPositionClusters ? 'text-orange-400 hover:text-orange-300' : 'text-muted-foreground hover:text-foreground'} hover:bg-accent`}
+                className={`h-8 w-8 p-0 ${showPositionClusters ? 'text-warning hover:text-warning/80' : 'text-muted-foreground hover:text-foreground'} hover:bg-accent`}
                 onClick={onTogglePositionClusters}
                 disabled={isInteractionBlocked}
                 title={showPositionClusters ? "Hide position clusters" : "Show position clusters"}
@@ -117,7 +117,7 @@ export function CanvasControls({
               <Button
                 size="sm"
                 variant="ghost"
-                className={`h-8 w-8 p-0 ${autoZoomOnClick ? 'text-blue-400 hover:text-blue-300' : 'text-muted-foreground hover:text-foreground'} hover:bg-accent`}
+                className={`h-8 w-8 p-0 ${autoZoomOnClick ? 'text-info hover:text-info/80' : 'text-muted-foreground hover:text-foreground'} hover:bg-accent`}
                 onClick={onToggleAutoZoomOnClick}
                 disabled={isInteractionBlocked}
                 title={autoZoomOnClick ? "Disable auto-zoom on click" : "Enable auto-zoom on click"}
@@ -134,7 +134,7 @@ export function CanvasControls({
             <Button
               size="sm"
               variant="ghost"
-              className={`h-8 w-8 p-0 ${showPerformanceControls ? 'text-blue-400 hover:text-blue-300' : 'text-muted-foreground hover:text-foreground'} hover:bg-accent`}
+              className={`h-8 w-8 p-0 ${showPerformanceControls ? 'text-info hover:text-info/80' : 'text-muted-foreground hover:text-foreground'} hover:bg-accent`}
               onClick={() => onShowPerformanceControls(!showPerformanceControls)}
               disabled={isInteractionBlocked}
               title={showPerformanceControls ? "Hide performance controls" : "Show performance controls"}

@@ -91,14 +91,15 @@ module.exports = {
   			}
   		},
   		backgroundImage: {
-  			'gradient-primary': 'linear-gradient(to right, #f59e0b, #ea580c)',
-  			'gradient-primary-hover': 'linear-gradient(to right, #d97706, #c2410c)',
-  			'gradient-blue': 'linear-gradient(to right, #3b82f6, #2563eb)',
-  			'gradient-blue-hover': 'linear-gradient(to right, #2563eb, #1d4ed8)',
-  			'gradient-green': 'linear-gradient(to right, #22c55e, #16a34a)',
-  			'gradient-green-hover': 'linear-gradient(to right, #16a34a, #15803d)',
-  			'gradient-purple': 'linear-gradient(to right, #8b5cf6, #7c3aed)',
-  			'gradient-purple-hover': 'linear-gradient(to right, #7c3aed, #6d28d9)'
+  			// Theme-aware gradients using CSS variables
+  			'gradient-primary': 'linear-gradient(to right, hsl(var(--warning)), hsl(25 95% 53%))',
+  			'gradient-primary-hover': 'linear-gradient(to right, hsl(25 95% 53%), hsl(25 95% 43%))',
+  			'gradient-blue': 'linear-gradient(to right, hsl(var(--info)), hsl(217 91% 55%))',
+  			'gradient-blue-hover': 'linear-gradient(to right, hsl(217 91% 55%), hsl(217 91% 45%))',
+  			'gradient-green': 'linear-gradient(to right, hsl(var(--success)), hsl(142 71% 40%))',
+  			'gradient-green-hover': 'linear-gradient(to right, hsl(142 71% 40%), hsl(142 71% 35%))',
+  			'gradient-purple': 'linear-gradient(to right, hsl(var(--cluster-1)), hsl(262 83% 53%))',
+  			'gradient-purple-hover': 'linear-gradient(to right, hsl(262 83% 53%), hsl(262 83% 48%))'
   		},
   		transitionDuration: {
   			'fast': '150ms',
@@ -136,114 +137,75 @@ module.exports = {
       addUtilities({
         // Surface utilities for consistent backgrounds and borders
         '.surface-primary': {
-          backgroundColor: 'rgb(243 244 246)', // gray-100
-          '.dark &': {
-            backgroundColor: 'rgb(51 65 85)', // slate-700
-          }
+          backgroundColor: 'hsl(var(--secondary))',
         },
         '.surface-secondary': {
-          backgroundColor: 'rgb(249 250 251)', // gray-50
-          '.dark &': {
-            backgroundColor: 'rgb(30 41 59)', // slate-800
-          }
+          backgroundColor: 'hsl(var(--muted))',
         },
         '.surface-hover': {
           '&:hover': {
-            backgroundColor: 'rgb(229 231 235)', // gray-200
-          },
-          '.dark &:hover': {
-            backgroundColor: 'rgb(71 85 105)', // slate-600
+            backgroundColor: 'hsl(var(--accent))',
           }
         },
         '.border-default': {
           borderWidth: '1px',
-          borderColor: 'rgb(209 213 219)', // gray-300
-          '.dark &': {
-            borderColor: 'rgb(71 85 105)', // slate-600
-          }
+          borderColor: 'hsl(var(--border))',
         },
         '.text-default': {
-          color: 'rgb(55 65 81)', // gray-700
-          '.dark &': {
-            color: 'rgb(203 213 225)', // slate-300
-          }
+          color: 'hsl(var(--foreground))',
         },
         '.text-muted': {
-          color: 'rgb(107 114 128)', // gray-500
-          '.dark &': {
-            color: 'rgb(148 163 184)', // slate-400
-          }
+          color: 'hsl(var(--muted-foreground))',
         },
         // Loading spinner utilities
         '.spinner-primary': {
-          borderColor: 'rgb(229 231 235)',
-          borderTopColor: 'rgb(245 158 11)', // amber-500
-          '.dark &': {
-            borderColor: 'rgb(71 85 105)',
-            borderTopColor: 'rgb(245 158 11)',
-          }
+          borderColor: 'hsl(var(--border))',
+          borderTopColor: 'hsl(var(--warning))',
         },
         '.spinner-blue': {
-          borderColor: 'rgb(229 231 235)',
-          borderTopColor: 'rgb(59 130 246)', // blue-500
-          '.dark &': {
-            borderColor: 'rgb(71 85 105)',
-            borderTopColor: 'rgb(59 130 246)',
-          }
+          borderColor: 'hsl(var(--border))',
+          borderTopColor: 'hsl(var(--info))',
         },
         '.spinner-purple': {
-          borderColor: 'rgb(229 231 235)',
-          borderTopColor: 'rgb(139 92 246)', // purple-500
-          '.dark &': {
-            borderColor: 'rgb(71 85 105)',
-            borderTopColor: 'rgb(139 92 246)',
-          }
+          borderColor: 'hsl(var(--border))',
+          borderTopColor: 'hsl(var(--cluster-1))',
         },
         '.btn-gradient-primary': {
-          background: 'linear-gradient(to right, #f59e0b, #ea580c)',
-          color: 'white',
+          background: 'linear-gradient(to right, hsl(var(--warning)), hsl(25 95% 53%))',
+          color: 'hsl(var(--warning-foreground))',
           transition: 'all 200ms',
           '&:hover:not(:disabled)': {
-            background: 'linear-gradient(to right, #d97706, #c2410c)',
+            background: 'linear-gradient(to right, hsl(25 95% 53%), hsl(25 95% 43%))',
           },
           '&:disabled': {
             background: 'transparent',
-            border: '1px solid rgb(209 213 219)',
-            color: 'rgb(156 163 175)',
+            borderWidth: '1px',
+            borderColor: 'hsl(var(--border))',
+            color: 'hsl(var(--muted-foreground))',
             cursor: 'not-allowed',
-          },
-          '.dark &:disabled': {
-            borderColor: 'rgb(71 85 105)',
-            color: 'rgb(100 116 139)',
           }
         },
         '.btn-gradient-green': {
-          background: 'linear-gradient(to right, #22c55e, #16a34a)',
-          color: 'white',
+          background: 'linear-gradient(to right, hsl(var(--success)), hsl(142 71% 40%))',
+          color: 'hsl(var(--success-foreground))',
           transition: 'all 200ms',
           '&:hover:not(:disabled)': {
-            background: 'linear-gradient(to right, #16a34a, #15803d)',
+            background: 'linear-gradient(to right, hsl(142 71% 40%), hsl(142 71% 35%))',
           },
           '&:disabled': {
             background: 'transparent',
-            border: '1px solid rgb(209 213 219)',
-            color: 'rgb(156 163 175)',
+            borderWidth: '1px',
+            borderColor: 'hsl(var(--border))',
+            color: 'hsl(var(--muted-foreground))',
             cursor: 'not-allowed',
-          },
-          '.dark &:disabled': {
-            borderColor: 'rgb(71 85 105)',
-            color: 'rgb(100 116 139)',
           }
         },
         '.btn-gradient-disabled': {
           background: 'transparent !important',
-          border: '1px solid rgb(209 213 219)',
-          color: 'rgb(156 163 175)',
+          borderWidth: '1px',
+          borderColor: 'hsl(var(--border))',
+          color: 'hsl(var(--muted-foreground))',
           cursor: 'not-allowed',
-          '.dark &': {
-            borderColor: 'rgb(71 85 105)',
-            color: 'rgb(100 116 139)',
-          }
         },
         // Status indicator utilities
         '.status-success': {

@@ -1,36 +1,143 @@
-// Performance color constants
+import { getCanvasColor, getContrastingTextColor } from '@/utils/themeColors';
+
+/**
+ * Canvas Constants - Theme-Aware Color System
+ *
+ * All color values are now resolved from CSS variables at runtime,
+ * enabling proper dark mode support and theme consistency.
+ *
+ * Colors are lazily evaluated using getters to ensure they reflect
+ * the current theme when accessed.
+ */
+
+// Performance/Evaluation color mappings (lazy-loaded from theme)
 export const PERFORMANCE_COLORS = {
-  excellent: { bg: '#10b981', border: '#059669', text: '#ffffff' },
-  good: { bg: '#06b6d4', border: '#0891b2', text: '#ffffff' },
-  solid: { bg: '#f59e0b', border: '#d97706', text: '#000000' },
-  challenging: { bg: '#f97316', border: '#ea580c', text: '#ffffff' },
-  difficult: { bg: '#dc2626', border: '#b91c1c', text: '#ffffff' },
-  missing: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' }, // Gray for missing moves
+  get excellent() {
+    return {
+      bg: getCanvasColor('canvasExcellent'),
+      border: getCanvasColor('canvasExcellent', 0.8),
+      text: getCanvasColor('successForeground')
+    };
+  },
+  get good() {
+    return {
+      bg: getCanvasColor('canvasGood'),
+      border: getCanvasColor('canvasGood', 0.8),
+      text: getCanvasColor('infoForeground')
+    };
+  },
+  get solid() {
+    return {
+      bg: getCanvasColor('canvasSolid'),
+      border: getCanvasColor('canvasSolid', 0.8),
+      text: getCanvasColor('warningForeground')
+    };
+  },
+  get challenging() {
+    return {
+      bg: getCanvasColor('canvasChallenging'),
+      border: getCanvasColor('canvasChallenging', 0.8),
+      text: getCanvasColor('warningForeground')
+    };
+  },
+  get difficult() {
+    return {
+      bg: getCanvasColor('canvasDifficult'),
+      border: getCanvasColor('canvasDifficult', 0.8),
+      text: getCanvasColor('errorForeground')
+    };
+  },
+  get missing() {
+    return {
+      bg: getCanvasColor('canvasMissing'),
+      border: getCanvasColor('canvasMissing', 0.8),
+      text: getCanvasColor('mutedForeground')
+    };
+  }
 };
 
-// Opening tree node colors
+// Opening tree node colors (lazy-loaded from theme)
 export const OPENING_NODE_COLORS = {
-  // New color scheme based on move color
-  whiteMove: { bg: '#ffffff', border: '#d1d5db', text: '#000000' }, // White background for white moves
-  blackMove: { bg: '#1f2937', border: '#374151', text: '#ffffff' }, // Black background for black moves
-  selected: { bg: '#3b82f6', border: '#2563eb', text: '#ffffff' }, // Blue for selected
-  withComment: { bg: '#06b6d4', border: '#0891b2', text: '#ffffff' }, // Cyan for annotated
-  withLinks: { bg: '#10b981', border: '#059669', text: '#ffffff' }, // Green for links
-  missing: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' }, // Gray for missing moves
-  startNode: { bg: '#6b7280', border: '#4b5563', text: '#ffffff' }, // Gray for start node
+  get whiteMove() {
+    return {
+      bg: getCanvasColor('canvasWhiteMove'),
+      border: getCanvasColor('border'),
+      text: getCanvasColor('foreground')
+    };
+  },
+  get blackMove() {
+    return {
+      bg: getCanvasColor('canvasBlackMove'),
+      border: getCanvasColor('canvasBlackMove', 0.8),
+      text: getCanvasColor('card')
+    };
+  },
+  get selected() {
+    return {
+      bg: getCanvasColor('canvasSelected'),
+      border: getCanvasColor('canvasSelected', 0.8),
+      text: getCanvasColor('primaryForeground')
+    };
+  },
+  get withComment() {
+    return {
+      bg: getCanvasColor('canvasComment'),
+      border: getCanvasColor('canvasComment', 0.8),
+      text: getCanvasColor('infoForeground')
+    };
+  },
+  get withLinks() {
+    return {
+      bg: getCanvasColor('canvasLink'),
+      border: getCanvasColor('canvasLink', 0.8),
+      text: getCanvasColor('successForeground')
+    };
+  },
+  get missing() {
+    return {
+      bg: getCanvasColor('canvasMissing'),
+      border: getCanvasColor('canvasMissing', 0.8),
+      text: getCanvasColor('mutedForeground')
+    };
+  },
+  get startNode() {
+    return {
+      bg: getCanvasColor('canvasSolid'),
+      border: getCanvasColor('canvasSolid', 0.8),
+      text: getCanvasColor('warningForeground')
+    };
+  }
 };
 
-// Opening cluster colors - EXACT match with ReactFlow
-export const OPENING_CLUSTER_COLORS = [{ bg: '#8b5cf6', border: '#7c3aed', text: '#ffffff' }];
-
-// Position cluster colors
-export const POSITION_CLUSTER_COLORS = [
-  { bg: '#f97316', border: '#ea580c', text: '#ffffff' }, // Bright Orange
-  { bg: '#f59e0b', border: '#d97706', text: '#000000' }, // Amber  
-  { bg: '#eab308', border: '#ca8a04', text: '#000000' }, // Yellow
+// Opening cluster colors (lazy-loaded from theme)
+export const OPENING_CLUSTER_COLORS = [
+  {
+    get bg() { return getCanvasColor('cluster1'); },
+    get border() { return getCanvasColor('cluster1', 0.9); },
+    get text() { return getCanvasColor('foreground'); }
+  }
 ];
 
-// Canvas configuration
+// Position cluster colors (lazy-loaded from theme)
+export const POSITION_CLUSTER_COLORS = [
+  {
+    get bg() { return getCanvasColor('cluster9'); }, // Orange
+    get border() { return getCanvasColor('cluster9', 0.9); },
+    get text() { return getCanvasColor('foreground'); }
+  },
+  {
+    get bg() { return getCanvasColor('cluster4'); }, // Amber
+    get border() { return getCanvasColor('cluster4', 0.9); },
+    get text() { return getCanvasColor('foreground'); }
+  },
+  {
+    get bg() { return getCanvasColor('chessDubious'); }, // Yellow
+    get border() { return getCanvasColor('chessDubious', 0.9); },
+    get text() { return getCanvasColor('foreground'); }
+  }
+];
+
+// Canvas configuration (no colors here - all numeric config)
 export const CANVAS_CONFIG = {
   NODE_SIZE: 180,
   NODE_HALF_SIZE: 90,
@@ -56,9 +163,11 @@ export const CANVAS_CONFIG = {
   CONTEXT_MENU_PADDING: 20,
 };
 
-// Render configuration
+// Render configuration (theme-aware colors via getters)
 export const RENDER_CONFIG = {
-  BACKGROUND_COLOR: '#0f172a', // slate-900
+  get BACKGROUND_COLOR() {
+    return getCanvasColor('background');
+  },
   HIGH_DPI_QUALITY: 'high',
   FONT_FAMILY: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
   GLOW_BLUR: 20,
@@ -109,7 +218,7 @@ export const RENDER_CONFIG = {
   },
 };
 
-// Cluster rendering configuration
+// Cluster rendering configuration (no colors)
 export const CLUSTER_CONFIG = {
   HULL_PADDING: 50,
   CONSERVATIVE_PADDING_FACTOR: 0.3,
@@ -132,25 +241,34 @@ export const CLUSTER_CONFIG = {
   },
 };
 
-// Shadow and glow effects
+// Shadow and glow effects (theme-aware)
 export const SHADOW_CONFIG = {
-  SELECTED_COLOR: 'rgba(236, 72, 153, 1.0)', // Pink glow
-  INITIAL_MOVE_COLOR: 'rgba(249, 115, 22, 1.0)', // Orange glow
-  HOVERED_NEXT_MOVE_COLOR: 'rgba(59, 130, 246, 1.0)', // Blue glow
+  get SELECTED_COLOR() {
+    // Pink glow for selected nodes
+    return getCanvasColor('destructive', 0.8);
+  },
+  get INITIAL_MOVE_COLOR() {
+    // Orange glow for initial moves
+    return getCanvasColor('warning');
+  },
+  get HOVERED_NEXT_MOVE_COLOR() {
+    // Blue glow for hovered next moves
+    return getCanvasColor('info');
+  },
   BLUR: 20,
   INTENSE_BLUR: 25,
   LAYERS: 8,
 };
 
-// Keyboard shortcuts
+// Keyboard shortcuts (no colors)
 export const KEYBOARD_SHORTCUTS = {
   FIT_VIEW: ['r', 'R'],
   EMERGENCY_RESET: ['Escape'],
 };
 
-// Mouse buttons
+// Mouse buttons (no colors)
 export const MOUSE_BUTTONS = {
   LEFT: 0,
   MIDDLE: 1,
   RIGHT: 2,
-}; 
+};

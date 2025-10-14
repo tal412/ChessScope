@@ -49,7 +49,7 @@ const BrandIcon = ({
     <div
       className={cn(
         config.container,
-        'bg-gradient-to-r from-amber-400 to-orange-500',
+        'bg-gradient-primary',
         'flex items-center justify-center flex-shrink-0',
         animated && 'transition-transform duration-300 hover:scale-105',
         className
@@ -85,7 +85,7 @@ export const BrandText = ({
     <span
       className={cn(
         'font-bold text-transparent bg-clip-text',
-        'bg-gradient-to-r from-amber-400 to-orange-500',
+        'bg-gradient-primary',
         sizeClasses[size],
         className
       )}

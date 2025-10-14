@@ -26,11 +26,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { 
-  Folder, 
-  FolderOpen, 
-  Edit, 
-  Trash2, 
+import {
+  Folder,
+  FolderOpen,
+  Edit,
+  Trash2,
   BookOpen,
   Palette,
   Star,
@@ -42,6 +42,7 @@ import {
   Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { FOLDER_COLORS } from '@/constants/colors';
 
 const FOLDER_ICONS = [
   { icon: Folder, name: 'folder' },
@@ -55,13 +56,8 @@ const FOLDER_ICONS = [
   { icon: Shield, name: 'shield' }
 ];
 
-const FOLDER_COLORS = [
-  '#6366f1', '#ef4444', '#22c55e', '#f59e0b', '#8b5cf6', 
-  '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#64748b'
-];
-
-export default function FolderCard({ 
-  folder, 
+export default function FolderCard({
+  folder,
   studiesCount = 0,
   isOpen = false,
   onClick,
@@ -75,7 +71,7 @@ export default function FolderCard({
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editName, setEditName] = useState(folder.name);
   const [editIcon, setEditIcon] = useState(folder.icon || 'folder');
-  const [editColor, setEditColor] = useState(folder.color || '#6366f1');
+  const [editColor, setEditColor] = useState(folder.color || FOLDER_COLORS[0].value);
 
   const IconComponent = FOLDER_ICONS.find(f => f.name === (folder.icon || 'folder'))?.icon || Folder;
 
@@ -92,7 +88,7 @@ export default function FolderCard({
   const handleEditCancel = () => {
     setEditName(folder.name);
     setEditIcon(folder.icon || 'folder');
-    setEditColor(folder.color || '#6366f1');
+    setEditColor(folder.color || FOLDER_COLORS[0].value);
     setShowEditDialog(false);
   };
 
@@ -100,36 +96,33 @@ export default function FolderCard({
     <>
       <ContextMenu>
         <ContextMenuTrigger>
-          <Card 
+          <Card
             className={cn(
-              "bg-card border-border hover:border-amber-500/50 transition-all cursor-pointer group relative",
+              "bg-secondary/60 dark:bg-secondary/80 backdrop-blur-sm border-border/60 hover:border-[hsl(var(--warning))]/50 hover:bg-secondary/80 dark:hover:bg-secondary/95 transition-all cursor-pointer group relative shadow-sm",
               isDragging && "opacity-50 rotate-2 scale-105",
-              isDragOver && "border-amber-400 bg-amber-500/10 scale-102",
+              isDragOver && "border-[hsl(var(--warning))] bg-[hsl(var(--warning))]/10 scale-102",
               className
             )}
             onClick={onClick}
-            style={{
-              borderColor: isDragOver ? '#f59e0b' : undefined
-            }}
           >
             <CardHeader className="pb-3 pt-4 px-4">
               <div className="flex items-center gap-3">
-                <div 
+                <div
                   className="relative p-3 rounded-lg"
-                  style={{ 
-                    backgroundColor: `${folder.color || '#6366f1'}20`,
-                    border: `1px solid ${folder.color || '#6366f1'}40`
+                  style={{
+                    backgroundColor: `${folder.color || FOLDER_COLORS[0].value}20`,
+                    border: `1px solid ${folder.color || FOLDER_COLORS[0].value}40`
                   }}
                 >
                   {isOpen ? (
-                    <FolderOpen 
-                      className="w-6 h-6" 
-                      style={{ color: folder.color || '#6366f1' }}
+                    <FolderOpen
+                      className="w-6 h-6"
+                      style={{ color: folder.color || FOLDER_COLORS[0].value }}
                     />
                   ) : (
-                    <IconComponent 
-                      className="w-6 h-6" 
-                      style={{ color: folder.color || '#6366f1' }}
+                    <IconComponent
+                      className="w-6 h-6"
+                      style={{ color: folder.color || FOLDER_COLORS[0].value }}
                     />
                   )}
                 </div>
@@ -157,8 +150,8 @@ export default function FolderCard({
 
             {/* Drag overlay */}
             {isDragOver && (
-              <div className="absolute inset-0 bg-amber-500/20 border-2 border-amber-400 border-dashed rounded-lg flex items-center justify-center">
-                <div className="text-amber-300 font-medium">Drop studies here</div>
+              <div className="absolute inset-0 bg-[hsl(var(--warning))]/20 border-2 border-[hsl(var(--warning))] border-dashed rounded-lg flex items-center justify-center">
+                <div className="text-[hsl(var(--warning))] font-medium">Drop studies here</div>
               </div>
             )}
           </Card>
@@ -175,12 +168,12 @@ export default function FolderCard({
             <Edit className="w-4 h-4 mr-2" />
             Edit Folder
           </ContextMenuItem>
-          <ContextMenuItem 
+          <ContextMenuItem
             onClick={(e) => {
               e.stopPropagation();
               setShowDeleteDialog(true);
             }}
-            className="text-red-400 hover:text-red-300 hover:bg-red-900/20"
+            className="text-destructive hover:text-destructive/80 hover:bg-destructive/10"
           >
             <Trash2 className="w-4 h-4 mr-2" />
             Delete Folder
@@ -206,7 +199,7 @@ export default function FolderCard({
                 onDelete?.(folder);
                 setShowDeleteDialog(false);
               }}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
             >
               Delete
             </AlertDialogAction>
@@ -246,8 +239,8 @@ export default function FolderCard({
                     onClick={() => setEditIcon(name)}
                     className={cn(
                       "p-2 rounded-md border-2 transition-all hover:bg-accent",
-                      editIcon === name 
-                        ? "border-amber-500 bg-amber-500/20" 
+                      editIcon === name
+                        ? "border-[hsl(var(--warning))] bg-[hsl(var(--warning))]/20"
                         : "border-border bg-card"
                     )}
                   >
@@ -262,18 +255,18 @@ export default function FolderCard({
                 Color
               </label>
               <div className="grid grid-cols-5 gap-2">
-                {FOLDER_COLORS.map((color) => (
+                {FOLDER_COLORS.map((color, index) => (
                   <button
-                    key={color}
+                    key={index}
                     type="button"
-                    onClick={() => setEditColor(color)}
+                    onClick={() => setEditColor(color.value)}
                     className={cn(
                       "w-8 h-8 rounded-md border-2 transition-all hover:scale-110",
-                      editColor === color 
-                        ? "border-foreground scale-110" 
+                      editColor === color.value
+                        ? "border-foreground scale-110"
                         : "border-border"
                     )}
-                    style={{ backgroundColor: color }}
+                    style={{ backgroundColor: color.value }}
                   />
                 ))}
               </div>
@@ -291,7 +284,7 @@ export default function FolderCard({
             <Button
               onClick={handleEditSave}
               disabled={!editName.trim()}
-              className="bg-amber-600 hover:bg-amber-700 text-white"
+              className="bg-[hsl(var(--warning))] hover:bg-[hsl(var(--warning))]/90 text-warning-foreground"
             >
               Save Changes
             </Button>

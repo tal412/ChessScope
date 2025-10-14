@@ -129,8 +129,62 @@ button:focus-visible {
     --info-foreground: 0 0% 98%;
     --error: 0 72% 51%;
     --error-foreground: 0 0% 98%;
+
+    /* Canvas-specific evaluation colors */
+    --canvas-excellent: 142 71% 45%; /* Green - excellent moves */
+    --canvas-good: 199 89% 48%; /* Cyan - good moves */
+    --canvas-solid: 38 92% 50%; /* Amber - solid moves */
+    --canvas-challenging: 25 95% 53%; /* Orange - challenging moves */
+    --canvas-difficult: 0 72% 51%; /* Red - difficult moves */
+    --canvas-missing: 240 3.8% 46.1%; /* Gray - missing moves */
+
+    /* Canvas move type colors */
+    --canvas-white-move: 0 0% 100%; /* White pieces */
+    --canvas-black-move: 222 47% 11%; /* Black pieces */
+    --canvas-selected: 217 91% 60%; /* Blue - selected node */
+    --canvas-comment: 199 89% 48%; /* Cyan - has comment */
+    --canvas-link: 142 71% 45%; /* Green - has links */
+
+    /* Chess piece colors (semantic - represent actual pieces, not theme) */
+    --chess-white-piece: 0 0% 100%; /* Pure white */
+    --chess-white-piece-text: 0 0% 0%; /* Black text */
+    --chess-black-piece: 0 0% 8%; /* Near-black */
+    --chess-black-piece-text: 0 0% 100%; /* White text */
+    --chess-piece-border: 0 0% 70%; /* Neutral gray */
+
+    /* Cluster colors (for opening/position clustering) */
+    --cluster-1: 262 83% 58%; /* Purple */
+    --cluster-2: 217 91% 60%; /* Blue */
+    --cluster-3: 142 71% 45%; /* Green */
+    --cluster-4: 38 92% 50%; /* Amber */
+    --cluster-5: 0 72% 51%; /* Red */
+    --cluster-6: 280 65% 60%; /* Magenta */
+    --cluster-7: 199 89% 48%; /* Cyan */
+    --cluster-8: 142 76% 36%; /* Dark green */
+    --cluster-9: 25 95% 53%; /* Orange */
+    --cluster-10: 262 52% 47%; /* Dark purple */
+
+    /* Chess annotation colors (semantic for chess moves) */
+    --chess-good: 142 71% 45%; /* Green - good move */
+    --chess-excellent: 160 84% 39%; /* Emerald - excellent move */
+    --chess-interesting: 217 91% 60%; /* Blue - interesting move */
+    --chess-dubious: 48 96% 53%; /* Yellow - dubious move */
+    --chess-mistake: 25 95% 53%; /* Orange - mistake */
+    --chess-blunder: 0 72% 51%; /* Red - blunder */
+
+    /* Folder/Tag color palette */
+    --tag-color-1: 231 48% 48%; /* Indigo */
+    --tag-color-2: 0 72% 51%; /* Red */
+    --tag-color-3: 142 71% 45%; /* Green */
+    --tag-color-4: 38 92% 50%; /* Amber */
+    --tag-color-5: 262 83% 58%; /* Purple */
+    --tag-color-6: 199 89% 48%; /* Cyan */
+    --tag-color-7: 330 81% 60%; /* Pink */
+    --tag-color-8: 84 81% 44%; /* Lime */
+    --tag-color-9: 25 95% 53%; /* Orange */
+    --tag-color-10: 215 20.2% 65.1%; /* Slate */
   }
-  
+
   .light {
     /* Light theme - stylish white/gray design */
     --background: 0 0% 98%;
@@ -183,8 +237,62 @@ button:focus-visible {
     --info-foreground: 0 0% 98%;
     --error: 0 72% 51%;
     --error-foreground: 0 0% 98%;
+
+    /* Canvas-specific evaluation colors */
+    --canvas-excellent: 142 71% 45%;
+    --canvas-good: 199 89% 48%;
+    --canvas-solid: 38 92% 50%;
+    --canvas-challenging: 25 95% 53%;
+    --canvas-difficult: 0 72% 51%;
+    --canvas-missing: 240 3.8% 46.1%;
+
+    /* Canvas move type colors */
+    --canvas-white-move: 0 0% 100%;
+    --canvas-black-move: 222 47% 11%;
+    --canvas-selected: 217 91% 60%;
+    --canvas-comment: 199 89% 48%;
+    --canvas-link: 142 71% 45%;
+
+    /* Chess piece colors (semantic - same in light theme) */
+    --chess-white-piece: 0 0% 100%; /* Pure white */
+    --chess-white-piece-text: 0 0% 0%; /* Black text */
+    --chess-black-piece: 0 0% 8%; /* Near-black */
+    --chess-black-piece-text: 0 0% 100%; /* White text */
+    --chess-piece-border: 0 0% 70%; /* Neutral gray */
+
+    /* Cluster colors (for opening/position clustering) */
+    --cluster-1: 262 83% 58%;
+    --cluster-2: 217 91% 60%;
+    --cluster-3: 142 71% 45%;
+    --cluster-4: 38 92% 50%;
+    --cluster-5: 0 72% 51%;
+    --cluster-6: 280 65% 60%;
+    --cluster-7: 199 89% 48%;
+    --cluster-8: 142 76% 36%;
+    --cluster-9: 25 95% 53%;
+    --cluster-10: 262 52% 47%;
+
+    /* Chess annotation colors (semantic for chess moves) */
+    --chess-good: 142 71% 45%;
+    --chess-excellent: 160 84% 39%;
+    --chess-interesting: 217 91% 60%;
+    --chess-dubious: 48 96% 53%;
+    --chess-mistake: 25 95% 53%;
+    --chess-blunder: 0 72% 51%;
+
+    /* Folder/Tag color palette */
+    --tag-color-1: 231 48% 48%;
+    --tag-color-2: 0 72% 51%;
+    --tag-color-3: 142 71% 45%;
+    --tag-color-4: 38 92% 50%;
+    --tag-color-5: 262 83% 58%;
+    --tag-color-6: 199 89% 48%;
+    --tag-color-7: 330 81% 60%;
+    --tag-color-8: 84 81% 44%;
+    --tag-color-9: 25 95% 53%;
+    --tag-color-10: 215 20.2% 65.1%;
   }
-  
+
   .dark {
     --background: 217 33% 17%;
     --foreground: 0 0% 98%;
@@ -235,6 +343,60 @@ button:focus-visible {
     --info-foreground: 0 0% 3.9%;
     --error: 0 72% 51%;
     --error-foreground: 0 0% 98%;
+
+    /* Canvas-specific evaluation colors (adjusted for dark theme) */
+    --canvas-excellent: 142 71% 50%; /* Slightly brighter green */
+    --canvas-good: 199 89% 55%; /* Brighter cyan */
+    --canvas-solid: 38 92% 55%; /* Brighter amber */
+    --canvas-challenging: 25 95% 58%; /* Brighter orange */
+    --canvas-difficult: 0 72% 56%; /* Brighter red */
+    --canvas-missing: 0 0% 63.9%; /* Muted foreground */
+
+    /* Canvas move type colors (dark theme) */
+    --canvas-white-move: 0 0% 95%; /* Slightly dimmed white */
+    --canvas-black-move: 222 47% 20%; /* Lighter black for visibility */
+    --canvas-selected: 217 91% 65%; /* Brighter blue */
+    --canvas-comment: 199 89% 55%; /* Brighter cyan */
+    --canvas-link: 142 71% 50%; /* Brighter green */
+
+    /* Chess piece colors (semantic - same in dark theme) */
+    --chess-white-piece: 0 0% 100%; /* Pure white */
+    --chess-white-piece-text: 0 0% 0%; /* Black text */
+    --chess-black-piece: 0 0% 8%; /* Near-black */
+    --chess-black-piece-text: 0 0% 100%; /* White text */
+    --chess-piece-border: 0 0% 70%; /* Neutral gray */
+
+    /* Cluster colors (same for both themes - they're semantic) */
+    --cluster-1: 262 83% 62%;
+    --cluster-2: 217 91% 65%;
+    --cluster-3: 142 71% 50%;
+    --cluster-4: 38 92% 55%;
+    --cluster-5: 0 72% 56%;
+    --cluster-6: 280 65% 65%;
+    --cluster-7: 199 89% 55%;
+    --cluster-8: 142 76% 40%;
+    --cluster-9: 25 95% 58%;
+    --cluster-10: 262 52% 52%;
+
+    /* Chess annotation colors (same - they're semantic) */
+    --chess-good: 142 71% 50%;
+    --chess-excellent: 160 84% 42%;
+    --chess-interesting: 217 91% 65%;
+    --chess-dubious: 48 96% 58%;
+    --chess-mistake: 25 95% 58%;
+    --chess-blunder: 0 72% 56%;
+
+    /* Folder/Tag color palette (brighter for dark theme) */
+    --tag-color-1: 231 48% 55%;
+    --tag-color-2: 0 72% 56%;
+    --tag-color-3: 142 71% 50%;
+    --tag-color-4: 38 92% 55%;
+    --tag-color-5: 262 83% 62%;
+    --tag-color-6: 199 89% 55%;
+    --tag-color-7: 330 81% 65%;
+    --tag-color-8: 84 81% 50%;
+    --tag-color-9: 25 95% 58%;
+    --tag-color-10: 215 20.2% 70%;
   }
 }
 

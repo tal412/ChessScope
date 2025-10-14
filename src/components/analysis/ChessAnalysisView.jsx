@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { 
-  FlexibleLayout, 
+import {
+  FlexibleLayout,
   LayoutSection
 } from '@/components/ui/flexible-layout';
 import { NavigationButtons, NavigationPresets } from '@/components/ui/navigation-buttons';
@@ -12,6 +12,7 @@ import ChunkVisualization from './ChunkVisualization';
 import ChessCanvas from '../canvas-v2/ChessCanvas';
 import { useChessboardSync } from '../board/hooks/useChessboardSync';
 import { loadOpeningGraph } from '../../api/graphStorage';
+import { getCanvasColor } from '@/utils/themeColors';
 
 
 /**
@@ -892,7 +893,7 @@ const ChessAnalysisView = ({
                         const newMode = canvasMode === 'study' ? 'performance' : 'study';
                         onCanvasModeChange(newMode);
                       }}
-                      className={`${canvasMode === 'performance' ? 'bg-amber-600 border-amber-500 text-white' : 'bg-secondary border-border text-secondary-foreground hover:bg-accent'} group transition-all duration-100`}
+                      className={`${canvasMode === 'performance' ? 'bg-warning border-warning text-warning-foreground' : 'bg-secondary border-border text-secondary-foreground hover:bg-accent'} group transition-all duration-100`}
                       title={`Switch to ${canvasMode === 'study' ? 'Performance' : 'Study'} view`}
                     >
                       <Network className="w-4 h-4 mr-0 group-hover:mr-2 transition-all duration-100" />
@@ -917,11 +918,11 @@ const ChessAnalysisView = ({
                       const moveData = { ...node.data, maxGameCount: graphData.maxGameCount };
 
                       if (isCanvasInStudyMode) {
-                        moveData.arrowColor = '#ec4899'; // Pink for study mode
+                        moveData.arrowColor = getCanvasColor('cluster7'); // Pink for study mode
                         moveData.fixedThickness = 14;
                       } else if (node.data?.isMissing) {
                         // Pink arrow for nodes with no data in performance mode
-                        moveData.arrowColor = '#ec4899'; // Pink for no data
+                        moveData.arrowColor = getCanvasColor('cluster7'); // Pink for no data
                         moveData.fixedThickness = 14;
                       }
                       

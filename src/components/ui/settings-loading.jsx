@@ -127,8 +127,8 @@ export function SettingsLoading({
         {displayState === 'success' ? (
           // Success Animation - maintain consistent height and width
           <div className="flex items-center justify-center space-x-3 animate-in slide-in-from-bottom-2 duration-300 min-h-[44px] w-full">
-            <CheckCircle className="w-5 h-5 text-green-400" />
-            <span className="text-sm font-medium text-green-400">
+            <CheckCircle className="w-5 h-5 text-success" />
+            <span className="text-sm font-medium text-success">
               {successMessage}
             </span>
           </div>
@@ -145,9 +145,9 @@ export function SettingsLoading({
             </div>
             
             <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full origin-left"
-                style={{ 
+              <div
+                className="h-full bg-gradient-blue rounded-full origin-left"
+                style={{
                   transform: `scaleX(${Math.min(progress, 100) / 100})`,
                   transition: 'transform 0.3s ease-out',
                   willChange: 'transform'
@@ -171,11 +171,11 @@ export function SettingsLoading({
             ) : (
               // Show generic button - maintain consistent dimensions
               !isLoading && (
-                <Button 
+                <Button
                   onClick={onButtonClick}
                   disabled={buttonDisabled}
                   size="lg"
-                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-12 py-2 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 w-full max-w-[300px] min-h-[44px]"
+                  className="bg-gradient-blue hover:bg-gradient-blue-hover text-white px-12 py-2 rounded-xl text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 w-full max-w-[300px] min-h-[44px]"
                 >
                   <div className="flex items-center gap-3">
                     <ChevronRight className="w-5 h-5" />
