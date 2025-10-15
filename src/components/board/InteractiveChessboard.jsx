@@ -21,6 +21,55 @@ import {
   normalizeFen
 } from '@/utils/chessUtils';
 
+// Helper function to convert HSL to Hex (needed for arrow rendering)
+const hslToHex = (hslString) => {
+  // Handle hex colors that are already in correct format
+  if (hslString.startsWith('#')) {
+    return hslString;
+  }
+
+  // Parse HSL string (e.g., "hsl(199 89% 48%)" or "hsl(199 89% 48% / 0.5)")
+  const match = hslString.match(/hsl\((\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%/);
+
+  if (!match) {
+    console.warn(`Invalid HSL string: ${hslString}, defaulting to cyan`);
+    return '#06b6d4'; // Default cyan color
+  }
+
+  let h = parseFloat(match[1]);
+  let s = parseFloat(match[2]) / 100;
+  let l = parseFloat(match[3]) / 100;
+
+  // Convert HSL to RGB
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+
+  let r = 0, g = 0, b = 0;
+
+  if (h >= 0 && h < 60) {
+    r = c; g = x; b = 0;
+  } else if (h >= 60 && h < 120) {
+    r = x; g = c; b = 0;
+  } else if (h >= 120 && h < 180) {
+    r = 0; g = c; b = x;
+  } else if (h >= 180 && h < 240) {
+    r = 0; g = x; b = c;
+  } else if (h >= 240 && h < 300) {
+    r = x; g = 0; b = c;
+  } else if (h >= 300 && h < 360) {
+    r = c; g = 0; b = x;
+  }
+
+  // Convert to hex
+  const toHex = (val) => {
+    const hex = Math.round((val + m) * 255).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+};
+
 // Helper function to get arrow color based on win rate (matching ChunkVisualization colors)
 const getArrowColor = (winRate) => {
   if (winRate >= 70) return "green";
@@ -202,8 +251,10 @@ export default function InteractiveChessboard({
     if (customArrows && customArrows.length > 0) {
       customArrows.forEach((arrow, index) => {
         try {
+          // Convert HSL to hex if needed
+          const hexColor = hslToHex(arrow.color);
           // Use a stable identifier based on arrow properties instead of array index
-          const stableId = `${arrow.from}_${arrow.to}_${arrow.color.replace('#', '')}`;
+          const stableId = `${arrow.from}_${arrow.to}_${hexColor.replace('#', '').replace(/[^a-zA-Z0-9]/g, '')}`;
           const brushKey = `custom_arrow_${stableId}`;
           arrows.push({
             orig: arrow.from.toLowerCase(),
@@ -225,17 +276,17 @@ export default function InteractiveChessboard({
         if (move) {
           const winRate = Math.round(hoveredMove.details?.winRate ?? hoveredMove.winRate ?? 0);
           const gameCount = hoveredMove.gameCount ?? 0;
-          // Check for custom arrow color first, otherwise use win rate-based color
+          // Always use the arrow color provided by hoveredMove if available
           let arrowColor, brushKey;
           // Use fixed thickness if provided, otherwise calculate based on game count
           const thickness = hoveredMove.fixedThickness || getArrowThickness(gameCount, hoveredMove.maxGameCount || gameCount);
-          
+
           if (hoveredMove.arrowColor) {
-            // Use custom color - create a special brush key
-            arrowColor = hoveredMove.arrowColor;
-            brushKey = `custom_${arrowColor.replace('#', '')}_${thickness}`;
+            // Use the color provided by ChunkVisualization - convert HSL to hex if needed
+            arrowColor = hslToHex(hoveredMove.arrowColor);
+            brushKey = `custom_${arrowColor.replace('#', '').replace(/[^a-zA-Z0-9]/g, '')}_${thickness}`;
           } else {
-            // Use win rate-based color
+            // Fallback to simple win rate-based color (rarely used now)
             arrowColor = getArrowColor(winRate);
             brushKey = `${arrowColor}_${thickness}`;
           }
@@ -254,17 +305,17 @@ export default function InteractiveChessboard({
         if (matchingMove) {
           const winRate = Math.round(hoveredMove.details?.winRate ?? hoveredMove.winRate ?? 0);
           const gameCount = hoveredMove.gameCount ?? 0;
-          // Check for custom arrow color first, otherwise use win rate-based color
+          // Always use the arrow color provided by hoveredMove if available
           let arrowColor, brushKey;
           // Use fixed thickness if provided, otherwise calculate based on game count
           const thickness = hoveredMove.fixedThickness || getArrowThickness(gameCount, hoveredMove.maxGameCount || gameCount);
-          
+
           if (hoveredMove.arrowColor) {
-            // Use custom color - create a special brush key
-            arrowColor = hoveredMove.arrowColor;
-            brushKey = `custom_${arrowColor.replace('#', '')}_${thickness}`;
+            // Use the color provided by ChunkVisualization - convert HSL to hex if needed
+            arrowColor = hslToHex(hoveredMove.arrowColor);
+            brushKey = `custom_${arrowColor.replace('#', '').replace(/[^a-zA-Z0-9]/g, '')}_${thickness}`;
           } else {
-            // Use win rate-based color
+            // Fallback to simple win rate-based color (rarely used now)
             arrowColor = getArrowColor(winRate);
             brushKey = `${arrowColor}_${thickness}`;
           }
@@ -1183,12 +1234,14 @@ export default function InteractiveChessboard({
     // Generate brushes for custom arrows
     if (customArrows && customArrows.length > 0) {
       customArrows.forEach((arrow, index) => {
+        // Convert HSL to hex if needed
+        const hexColor = hslToHex(arrow.color);
         // Use a stable identifier based on arrow properties instead of array index
-        const stableId = `${arrow.from}_${arrow.to}_${arrow.color.replace('#', '')}`;
+        const stableId = `${arrow.from}_${arrow.to}_${hexColor.replace('#', '').replace(/[^a-zA-Z0-9]/g, '')}`;
         const brushKey = `custom_arrow_${stableId}`;
         brushes[brushKey] = {
           key: `ca_${stableId}`, // Unique key for custom arrows using stable ID
-          color: arrow.color,
+          color: hexColor,
           opacity: 0.9,
           lineWidth: 14 // Standard thickness for custom arrows
         };
@@ -1213,12 +1266,14 @@ export default function InteractiveChessboard({
 
   // Dynamic brush generation for custom colors (like pink arrows)
   const generateCustomBrush = useCallback((color, thickness) => {
-    const colorKey = color.replace('#', '');
+    // Convert HSL to hex if needed
+    const hexColor = hslToHex(color);
+    const colorKey = hexColor.replace('#', '').replace(/[^a-zA-Z0-9]/g, '');
     const brushKey = `custom_${colorKey}_${thickness}`;
     return {
       [brushKey]: {
         key: `c_${colorKey}_${thickness}`, // Make the internal key unique
-        color: color,
+        color: hexColor,
         opacity: 0.8,
         lineWidth: thickness
       }

@@ -32,10 +32,11 @@ const getSelectedColor = (winRate) => {
 };
 
 const getArrowColor = (winRate) => {
-  if (winRate >= 70) return getCanvasColor('canvasExcellent');  // green
-  if (winRate >= 60) return getCanvasColor('canvasGood');       // cyan
-  if (winRate >= 50) return getCanvasColor('canvasSolid');      // amber
-  return getCanvasColor('canvasDifficult');                      // red
+  if (winRate >= 70) return getCanvasColor('canvasExcellent');     // green
+  if (winRate >= 60) return getCanvasColor('canvasGood');          // cyan
+  if (winRate >= 50) return getCanvasColor('canvasSolid');         // amber
+  if (winRate >= 40) return getCanvasColor('canvasChallenging');   // orange
+  return getCanvasColor('canvasDifficult');                         // red
 };
 
 // Move button component
