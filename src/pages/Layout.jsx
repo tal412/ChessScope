@@ -76,16 +76,11 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   // Chess platform auth for main app functionality
-  const { user, logout: logoutChess, isImporting, importProgress, importStatus } = useChessPlatform();
+  const { user, logout: logoutChess, isImporting, importProgress, importStatus, connectPlatform } = useChessPlatform();
   
   // Firebase auth for Studies (optional)
   const { firebaseUser, signInWithGoogle, signOutGoogle } = useAuth();
-  
-  // Placeholder values for removed sync functionality
-  const isSyncing = false;
-  const syncProgress = 0;
-  const syncStatus = '';
-  const pendingAutoSync = false;
+
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(() => {
     const savedState = localStorage.getItem('sidebar-collapsed');
     return savedState ? JSON.parse(savedState) : false;
@@ -126,19 +121,16 @@ export default function Layout() {
 
   const handleManualSync = async () => {
     // Check if we have a valid user profile
-    if (!user || isImporting || isSyncing) {
-      console.log('Cannot sync: user not available or import/sync already in progress');
+    if (!user || isImporting) {
+      console.log('Cannot sync: user not available or import already in progress');
       return;
     }
 
     try {
       console.log('🔄 Starting manual sync for', user.platform, user.username);
 
-      // Import the chess platform service
-      const { chessPlatformService } = await import('@/services/ChessPlatformAuth');
-
-      // Trigger sync using the existing import service
-      const result = await chessPlatformService.connectChessPlatform(
+      // Use the context method which properly manages isImporting state
+      const result = await connectPlatform(
         user.platform,
         user.username,
         user.importSettings || {
@@ -322,16 +314,16 @@ export default function Layout() {
                   <Tooltip key={item.name} delayDuration={0}>
                     <TooltipTrigger asChild>
                       <Link
-                        to={isSyncing || isImporting ? '#' : item.url}
+                        to={isImporting ? '#' : item.url}
                         onClick={(e) => {
-                          if (isSyncing || isImporting) {
+                          if (isImporting) {
                             e.preventDefault();
                           }
                         }}
                         className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-[transform,box-shadow] duration-200 group outline-none focus:outline-none focus-visible:outline-none ring-0 focus:ring-0 focus-visible:ring-0 ${
                           location.pathname === item.url
                             ? "bg-gradient-primary text-white border border-warning/50 shadow-lg shadow-warning/25"
-                            : `text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent border border-transparent ${(isSyncing || isImporting) ? 'opacity-50 cursor-not-allowed' : ''}`
+                            : `text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent border border-transparent ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`
                         } ${isSidebarCollapsed ? 'justify-center' : ''}`}
                       >
                         <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -437,19 +429,15 @@ export default function Layout() {
                   <TooltipTrigger asChild>
                     <Button
                       onClick={handleManualSync}
-                      disabled={isSyncing || isImporting}
+                      disabled={isImporting}
                       size="sm"
                       variant="outline"
                       className={`border-sidebar-border text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-[transform] duration-200 ${isSidebarCollapsed ? 'px-3' : 'justify-start'}`}
                     >
-                      {isSyncing ? (
-                        <Spinner size="sm" className="flex-shrink-0" />
-                      ) : (
-                        <RefreshCw className="w-4 h-4 flex-shrink-0" />
-                      )}
+                      <RefreshCw className={`w-4 h-4 flex-shrink-0 ${isImporting ? 'animate-spin' : ''}`} />
                       {!isSidebarCollapsed && (
                         <span className="ml-2">
-                          {isSyncing ? 'Syncing...' : 'Sync Games'}
+                          {isImporting ? 'Syncing...' : 'Sync Games'}
                         </span>
                       )}
                     </Button>
@@ -460,7 +448,7 @@ export default function Layout() {
                       className="bg-popover border-border text-popover-foreground"
                       sideOffset={10}
                     >
-                      <p>{isSyncing ? 'Syncing...' : 'Sync Games'}</p>
+                      <p>{isImporting ? 'Syncing...' : 'Sync Games'}</p>
                     </TooltipContent>
                   )}
                 </Tooltip>
@@ -469,7 +457,7 @@ export default function Layout() {
                   <TooltipTrigger asChild>
                     <Button
                       onClick={handleSettingsOpen}
-                      disabled={isImporting || isSyncing}
+                      disabled={isImporting}
                       size="sm"
                       variant="outline"
                       className={`border-sidebar-border text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-[transform] duration-200 ${isSidebarCollapsed ? 'px-3' : 'justify-start'}`}
@@ -514,7 +502,7 @@ export default function Layout() {
                   <TooltipTrigger asChild>
                     <Button
                       onClick={() => setShowLogoutDialog(true)}
-                      disabled={isImporting || isLoggingOut || isSyncing}
+                      disabled={isImporting || isLoggingOut}
                       size="sm"
                       variant="outline"
                       className={`border-sidebar-border text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-foreground transition-[transform] duration-200 ${isSidebarCollapsed ? 'px-3' : 'justify-start'}`}
@@ -618,10 +606,10 @@ export default function Layout() {
                   <TooltipTrigger asChild>
                     <Button
                       onClick={toggleSidebar}
-                      disabled={isSyncing || isImporting}
+                      disabled={isImporting}
                       variant="ghost"
                       size="sm"
-                      className={`w-full text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-[transform] duration-200 ${isSidebarCollapsed ? 'px-3' : 'justify-center'} ${(isSyncing || isImporting) ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      className={`w-full text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-[transform] duration-200 ${isSidebarCollapsed ? 'px-3' : 'justify-center'} ${isImporting ? 'opacity-50 cursor-not-allowed' : ''}`}
                       title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
                     >
                       {isSidebarCollapsed ? (
@@ -655,9 +643,9 @@ export default function Layout() {
             
             {/* Global Syncing Overlay */}
             <SyncingOverlay
-              isVisible={isSyncing || pendingAutoSync}
-              syncProgress={syncProgress}
-              syncStatus={syncStatus}
+              isVisible={isImporting}
+              syncProgress={importProgress}
+              syncStatus={importStatus}
               title="Syncing Games"
               subtitle="Updating your chess database with latest games. This may take a moment..."
               showProgress={true}
