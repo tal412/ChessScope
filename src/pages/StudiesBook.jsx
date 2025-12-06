@@ -1131,15 +1131,15 @@ export default function StudiesBook() {
 
         {/* Filter Sidebar */}
         <div className={cn(
-          "bg-card border-l border-border transition-all duration-300 ease-in-out overflow-hidden flex flex-col",
+          "bg-sidebar border-l border-sidebar-border transition-all duration-300 ease-in-out overflow-hidden flex flex-col",
           isFilterSidebarOpen ? "w-72" : "w-12"
         )}>
           {/* Sidebar Header */}
-          <div className="p-3 border-b border-border flex-shrink-0">
+          <div className="p-3 border-b border-sidebar-border flex-shrink-0">
             <div className="flex items-center justify-between">
               {isFilterSidebarOpen ? (
                 <>
-                  <h3 className="text-lg font-semibold text-card-foreground">Filter</h3>
+                  <h3 className="text-lg font-semibold">Filter</h3>
                   <Button
                     size="sm"
                     variant="ghost"
@@ -1170,7 +1170,7 @@ export default function StudiesBook() {
               <div className="space-y-6">
                 {/* Clear All Filters */}
                 {(filterColor !== 'all' || selectedTagIds.length > 0) && (
-                  <div className="pb-2 border-b border-border">
+                  <div className="pb-2 border-b border-sidebar-border">
                     <Button
                       size="sm"
                       variant="outline"
@@ -1187,7 +1187,7 @@ export default function StudiesBook() {
 
                 {/* Color Filtering */}
                 <div className="space-y-3">
-                  <h4 className="text-sm font-medium text-card-foreground">Color</h4>
+                  <h4 className="text-sm font-medium">Color</h4>
                   <div className="space-y-2">
                     <button
                       onClick={() => setFilterColor('all')}
@@ -1250,7 +1250,7 @@ export default function StudiesBook() {
                 {/* Tags Filtering */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium text-card-foreground">Tags</h4>
+                    <h4 className="text-sm font-medium">Tags</h4>
                     <TagManagementDialog onTagsChanged={handleTagsChanged}>
                       <Button size="sm" variant="ghost" className="h-6 px-2 text-xs">
                         <Edit className="w-3 h-3 mr-1" />

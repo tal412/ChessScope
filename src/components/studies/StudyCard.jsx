@@ -60,7 +60,7 @@ export default function StudyCard({
       <ContextMenuTrigger>
         <Card
           className={cn(
-            "bg-secondary/60 dark:bg-secondary/80 backdrop-blur-sm border-border/60 hover:border-warning/50 hover:bg-secondary/80 dark:hover:bg-secondary/95 transition-all cursor-pointer group shadow-sm",
+            "bg-card-elevated border border-card-elevated-border shadow-card-sm hover:shadow-card-hover hover:border-warning/50 transition-all duration-200 cursor-pointer group",
             isDragging && "opacity-50 rotate-2 scale-105",
             className
           )}

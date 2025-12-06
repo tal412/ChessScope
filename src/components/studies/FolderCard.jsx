@@ -98,9 +98,9 @@ export default function FolderCard({
         <ContextMenuTrigger>
           <Card
             className={cn(
-              "bg-secondary/60 dark:bg-secondary/80 backdrop-blur-sm border-border/60 hover:border-[hsl(var(--warning))]/50 hover:bg-secondary/80 dark:hover:bg-secondary/95 transition-all cursor-pointer group relative shadow-sm",
+              "bg-card-elevated border border-card-elevated-border shadow-card-sm hover:shadow-card-hover hover:border-warning/50 transition-all duration-200 cursor-pointer group relative",
               isDragging && "opacity-50 rotate-2 scale-105",
-              isDragOver && "border-[hsl(var(--warning))] bg-[hsl(var(--warning))]/10 scale-102",
+              isDragOver && "border-warning bg-warning/10 scale-102",
               className
             )}
             onClick={onClick}

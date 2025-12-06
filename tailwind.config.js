@@ -14,7 +14,10 @@ module.exports = {
   			foreground: 'hsl(var(--foreground))',
   			card: {
   				DEFAULT: 'hsl(var(--card))',
-  				foreground: 'hsl(var(--card-foreground))'
+  				foreground: 'hsl(var(--card-foreground))',
+				elevated: 'hsl(var(--card-elevated))',
+				'elevated-border': 'hsl(var(--card-elevated-border))',
+				'elevated-shadow': 'hsl(var(--card-elevated-shadow))'
   			},
   			popover: {
   				DEFAULT: 'hsl(var(--popover))',
@@ -227,6 +230,19 @@ module.exports = {
           backgroundColor: 'hsl(var(--info) / 0.1)',
           borderColor: 'hsl(var(--info) / 0.5)',
           color: 'hsl(var(--info))',
+        },
+        // Card elevation shadows
+        '.shadow-card-sm': {
+          boxShadow: '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)'
+        },
+        '.dark .shadow-card-sm': {
+          boxShadow: '0 0 0 1px hsl(var(--card-elevated-border) / 0.5)'
+        },
+        '.shadow-card-hover': {
+          boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)'
+        },
+        '.dark .shadow-card-hover': {
+          boxShadow: '0 0 20px 0 hsl(var(--card-elevated-shadow) / 0.15), 0 0 0 1px hsl(var(--card-elevated-border))'
         }
       })
     }

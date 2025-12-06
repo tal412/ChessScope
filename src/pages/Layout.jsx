@@ -125,8 +125,51 @@ export default function Layout() {
   ];
 
   const handleManualSync = async () => {
-    // Manual sync functionality removed - Firebase handles sync automatically
-    console.log('Manual sync not needed with Firebase');
+    // Check if we have a valid user profile
+    if (!user || isImporting || isSyncing) {
+      console.log('Cannot sync: user not available or import/sync already in progress');
+      return;
+    }
+
+    try {
+      console.log('🔄 Starting manual sync for', user.platform, user.username);
+
+      // Import the chess platform service
+      const { chessPlatformService } = await import('@/services/ChessPlatformAuth');
+
+      // Trigger sync using the existing import service
+      const result = await chessPlatformService.connectChessPlatform(
+        user.platform,
+        user.username,
+        user.importSettings || {
+          selectedTimeControls: user.platform === 'lichess' ?
+            ['rapid', 'blitz', 'bullet', 'classical'] :
+            ['rapid', 'blitz', 'bullet'],
+          selectedDateRange: '3',
+          customDateRange: { from: null, to: null },
+          autoSyncFrequency: '1day'
+        }
+      );
+
+      if (result.success) {
+        console.log('✅ Manual sync completed successfully');
+
+        // Dispatch refresh event to update the performance graph
+        try {
+          const event = new CustomEvent('refreshPerformanceGraph', {
+            detail: { source: 'manual-sync', timestamp: Date.now() }
+          });
+          window.dispatchEvent(event);
+          console.log('✅ Performance graph refresh event dispatched');
+        } catch (error) {
+          console.error('❌ Error dispatching refresh event:', error);
+        }
+      } else {
+        console.error('❌ Manual sync failed:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Error during manual sync:', error);
+    }
   };
 
   const handleSettingsOpen = () => {
@@ -412,8 +455,8 @@ export default function Layout() {
                     </Button>
                   </TooltipTrigger>
                   {isSidebarCollapsed && (
-                    <TooltipContent 
-                      side="right" 
+                    <TooltipContent
+                      side="right"
                       className="bg-popover border-border text-popover-foreground"
                       sideOffset={10}
                     >
